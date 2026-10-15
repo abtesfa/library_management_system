@@ -1,212 +1,234 @@
+
 import 'package:flutter/material.dart';
 
-class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({super.key});
+class ReaderNotificationsScreen extends StatefulWidget {
+  const ReaderNotificationsScreen({super.key});
 
   @override
-  State<NotificationsScreen> createState() =>
-      _NotificationsScreenState();
+  State<ReaderNotificationsScreen> createState() =>
+      _ReaderNotificationsScreenState();
 }
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
-  final List<_LibraryNotification> _notifications = [
-    _LibraryNotification(
-      title: 'Book Due Soon',
-      message: 'Your borrowed book "Clean Code" is due in two days.',
-      icon: Icons.schedule,
-      color: Colors.orange,
-    ),
-    _LibraryNotification(
-      title: 'Reservation Ready',
-      message: 'Your reserved book "Computer Networks" is ready for pickup.',
-      icon: Icons.bookmark_added_outlined,
-      color: Colors.green,
-    ),
-    _LibraryNotification(
-      title: 'Library Announcement',
-      message: 'Welcome to the Library Management System.',
-      icon: Icons.campaign_outlined,
-      color: Color(0xFF0052CC),
-      isRead: true,
-    ),
+class _ReaderNotificationsScreenState
+    extends State<ReaderNotificationsScreen> {
+  static const blue = Color(0xFF0755C9);
+  static const darkBlue = Color(0xFF073B86);
+
+  String selectedFilter = 'All';
+
+  final List<Map<String, dynamic>> notifications = [
+    {
+      'title': 'Your book "Atomic Habits" is due in 2 days.',
+      'message': 'Please return or renew it to avoid late fees.',
+      'time': '2 hours ago',
+      'category': 'Books',
+      'icon': Icons.notifications,
+      'color': Colors.red,
+      'unread': true,
+    },
+    {
+      'title': 'Your reservation is now available.',
+      'message': 'Please pick up your reserved book.',
+      'time': '1 day ago',
+      'category': 'Reservations',
+      'icon': Icons.event_available,
+      'color': blue,
+      'unread': true,
+    },
+    {
+      'title': 'Reservation ready for pickup',
+      'message': 'Your book is ready at the library desk.',
+      'time': '2 days ago',
+      'category': 'Reservations',
+      'icon': Icons.hourglass_top,
+      'color': Colors.orange,
+      'unread': true,
+    },
+    {
+      'title': '"Dune" has been renewed successfully.',
+      'message': 'Your new due date has been updated.',
+      'time': '3 days ago',
+      'category': 'Books',
+      'icon': Icons.menu_book,
+      'color': Colors.green,
+      'unread': false,
+    },
+    {
+      'title': 'Library announcement',
+      'message': 'Please check the library opening hours.',
+      'time': '5 days ago',
+      'category': 'General',
+      'icon': Icons.campaign,
+      'color': Colors.deepPurple,
+      'unread': false,
+    },
+    {
+      'title': 'Welcome to the Library!',
+      'message': 'Explore books and enjoy your reading journey.',
+      'time': 'May 5, 2026',
+      'category': 'General',
+      'icon': Icons.info,
+      'color': blue,
+      'unread': false,
+    },
   ];
 
-  String _filter = 'All';
-
-  int get _unreadCount =>
-      _notifications.where((notification) => !notification.isRead).length;
-
-  void _markAllAsRead() {
-    setState(() {
-      for (final notification in _notifications) {
-        notification.isRead = true;
+  List<Map<String, dynamic>> get filteredNotifications {
+    return notifications.where((notification) {
+      if (selectedFilter == 'Unread') {
+        return notification['unread'] == true;
       }
-    });
+      if (selectedFilter == 'All') return true;
+      return notification['category'] == selectedFilter;
+    }).toList();
   }
 
-  void _markAsRead(_LibraryNotification notification) {
+  void markAllRead() {
     setState(() {
-      notification.isRead = true;
-    });
-  }
-
-  void _deleteNotification(_LibraryNotification notification) {
-    setState(() {
-      _notifications.remove(notification);
+      for (final notification in notifications) {
+        notification['unread'] = false;
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final filteredNotifications = _notifications.where((notification) {
-      if (_filter == 'Unread') return !notification.isRead;
-      if (_filter == 'Read') return notification.isRead;
-      return true;
-    }).toList();
+    final unreadCount =
+        notifications.where((item) => item['unread'] == true).length;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FB),
+      backgroundColor: const Color(0xFFF3F7FD),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(22),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Notifications',
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF172B4D),
-                          ),
-                        ),
-                        SizedBox(height: 6),
-                        Text(
-                          'View reminders, reservation updates, and library news.',
-                          style: TextStyle(color: Colors.blueGrey),
-                        ),
-                      ],
-                    ),
-                  ),
-                  TextButton.icon(
-                    onPressed:
-                        _unreadCount == 0 ? null : _markAllAsRead,
-                    icon: const Icon(Icons.done_all),
-                    label: const Text('Mark all as read'),
-                  ),
-                ],
+              const Text(
+                'Notifications',
+                style: TextStyle(
+                  fontSize: 27,
+                  fontWeight: FontWeight.bold,
+                  color: darkBlue,
+                ),
+              ),
+              const SizedBox(height: 5),
+              const Text(
+                'Stay updated with important alerts and library updates.',
+                style: TextStyle(color: Colors.blueGrey),
               ),
               const SizedBox(height: 20),
               Wrap(
-                spacing: 8,
+                spacing: 10,
+                runSpacing: 10,
                 children: [
-                  _buildFilter('All'),
-                  _buildFilter('Unread'),
-                  _buildFilter('Read'),
+                  _filterButton('All'),
+                  _filterButton('Unread'),
+                  _filterButton('Books'),
+                  _filterButton('Reservations'),
+                  _filterButton('General'),
                 ],
               ),
-              const SizedBox(height: 16),
-              Text(
-                '$_unreadCount unread notification${_unreadCount == 1 ? '' : 's'}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF42526E),
+              const SizedBox(height: 15),
+              Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  onPressed: markAllRead,
+                  icon: const Icon(Icons.done_all),
+                  label: const Text('Mark All as Read'),
                 ),
               ),
               const SizedBox(height: 12),
-              Expanded(
-                child: filteredNotifications.isEmpty
-                    ? const Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.notifications_none,
-                              size: 48,
-                              color: Colors.blueGrey,
-                            ),
-                            SizedBox(height: 12),
-                            Text('No notifications found.'),
-                          ],
-                        ),
-                      )
-                    : ListView.separated(
-                        itemCount: filteredNotifications.length,
-                        separatorBuilder: (_, __) =>
-                            const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          final notification =
-                              filteredNotifications[index];
+              _panel(
+                title: 'Notifications ($unreadCount unread)',
+                child: Column(
+                  children: filteredNotifications.map((notification) {
+                    final unread = notification['unread'] as bool;
+                    final color = notification['color'] as Color;
 
-                          return Card(
-                            elevation: 0,
-                            color: notification.isRead
-                                ? Colors.white
-                                : const Color(0xFFEFF5FF),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.all(16),
-                              leading: CircleAvatar(
-                                backgroundColor:
-                                    notification.color.withValues(alpha: 0.12),
-                                child: Icon(
-                                  notification.icon,
-                                  color: notification.color,
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: unread
+                            ? const Color(0xFFF0F6FF)
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: const Color(0xFFE5ECF5),
+                        ),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.all(10),
+                        leading: CircleAvatar(
+                          backgroundColor: color.withValues(alpha: 0.12),
+                          child: Icon(
+                            notification['icon'] as IconData,
+                            color: color,
+                          ),
+                        ),
+                        title: Text(
+                          notification['title'] as String,
+                          style: TextStyle(
+                            color: darkBlue,
+                            fontSize: 13,
+                            fontWeight:
+                                unread ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 5),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(notification['message'] as String),
+                              const SizedBox(height: 6),
+                              Text(
+                                '${notification['category']} • ${notification['time']}',
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                        trailing: unread
+                            ? IconButton(
+                                tooltip: 'Mark as read',
+                                icon: const Icon(
+                                  Icons.circle,
+                                  color: blue,
+                                  size: 12,
                                 ),
-                              ),
-                              title: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      notification.title,
-                                      style: TextStyle(
-                                        fontWeight: notification.isRead
-                                            ? FontWeight.w500
-                                            : FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  if (!notification.isRead)
-                                    const Icon(
-                                      Icons.circle,
-                                      size: 9,
-                                      color: Color(0xFF0052CC),
-                                    ),
-                                ],
-                              ),
-                              subtitle: Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(notification.message),
-                              ),
-                              trailing: PopupMenuButton<String>(
-                                onSelected: (value) {
-                                  if (value == 'read') {
-                                    _markAsRead(notification);
-                                  } else if (value == 'delete') {
-                                    _deleteNotification(notification);
-                                  }
+                                onPressed: () {
+                                  setState(() {
+                                    notification['unread'] = false;
+                                  });
                                 },
-                                itemBuilder: (context) => [
-                                  if (!notification.isRead)
-                                    const PopupMenuItem(
-                                      value: 'read',
-                                      child: Text('Mark as read'),
-                                    ),
-                                  const PopupMenuItem(
-                                    value: 'delete',
-                                    child: Text('Delete'),
-                                  ),
-                                ],
+                              )
+                            : const Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                                size: 18,
                               ),
-                            ),
-                          );
+                        onTap: () {
+                          setState(() {
+                            notification['unread'] = false;
+                          });
                         },
                       ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              const SizedBox(height: 18),
+              _panel(
+                title: 'Notification Preferences',
+                child: Column(
+                  children: [
+                    _preference('Book Due Reminders', 'Reminders before books are due'),
+                    _preference('Reservation Alerts', 'Updates when reservations are ready'),
+                    _preference('General Announcements', 'Library news and announcements'),
+                    _preference('Overdue Alerts', 'Alerts for overdue books'),
+                  ],
+                ),
               ),
             ],
           ),
@@ -215,31 +237,68 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildFilter(String value) {
+  Widget _filterButton(String label) {
+    final selected = selectedFilter == label;
+
     return ChoiceChip(
-      label: Text(value),
-      selected: _filter == value,
+      label: Text(label),
+      selected: selected,
+      selectedColor: const Color(0xFFDCEAFF),
       onSelected: (_) {
         setState(() {
-          _filter = value;
+          selectedFilter = label;
         });
       },
     );
   }
-}
 
-class _LibraryNotification {
-  final String title;
-  final String message;
-  final IconData icon;
-  final Color color;
-  bool isRead;
+  Widget _panel({required String title, required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: darkBlue,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
+  }
 
-  _LibraryNotification({
-    required this.title,
-    required this.message,
-    required this.icon,
-    required this.color,
-    this.isRead = false,
-  });
+  Widget _preference(String title, String description) {
+    return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(
+        title,
+        style: const TextStyle(
+          color: darkBlue,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      subtitle: Text(description, style: const TextStyle(fontSize: 11)),
+      value: true,
+      activeColor: blue,
+      onChanged: (value) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$title preference: ${value ? 'on' : 'off'}'),
+          ),
+        );
+      },
+    );
+  }
 }

@@ -1,5 +1,5 @@
 import 'dart:async';
-
+import 'login.dart';
 import 'package:flutter/material.dart';
 
 const Color primaryBlue = Color(0xFF0860C9);
@@ -294,8 +294,12 @@ class _LandingPageState extends State<LandingPage>
                 leading: const Icon(Icons.login, color: primaryBlue),
                 title: const Text('Sign In'),
                 onTap: () {
-                  setState(() => _menuOpen = false);
-                  _showSignIn();
+                  Navigator.push(
+                 context,
+              MaterialPageRoute(
+              builder: (context) => const LoginPage(),
+  ),
+);
                 },
               ),
             ],
@@ -345,13 +349,29 @@ class _LandingPageState extends State<LandingPage>
 
                 return Stack(
                   children: [
-                    Positioned(
-                      right: -15,
-                      top: 0,
-                      bottom: 0,
-                      width: wide ? box.maxWidth * 0.51 : box.maxWidth * 0.38,
-                      child: const _LibraryIllustration(),
+                    // Full-width background image
+                    Positioned.fill(child: _LibraryIllustration()),
+                    // Light overlay behind the text on the left
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                              colors: [
+                                const Color(0xFFE5F2FF).withValues(alpha: 1.0),
+                                const Color(0xFFE5F2FF).withValues(alpha: 0.98),
+                                const Color(0xFFE5F2FF).withValues(alpha: 0.85),
+                                const Color(0xFFE5F2FF).withValues(alpha: 0.0),
+                              ],
+                              stops: const [0.0, 0.42, 0.58, 0.85],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
+                    // Text and search stay above the image
                     Padding(
                       padding: EdgeInsets.all(wide ? 30 : 20),
                       child: ConstrainedBox(
@@ -360,25 +380,8 @@ class _LandingPageState extends State<LandingPage>
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 7,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFD0E7FF),
-                                borderRadius: BorderRadius.circular(30),
-                              ),
-                              child: const Text(
-                                '📘  Knowledge Builds a Brighter Future',
-                                style: TextStyle(
-                                  color: brightBlue,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
                             const SizedBox(height: 16),
                             Text.rich(
                               TextSpan(
@@ -1553,66 +1556,80 @@ class _LibraryIllustration extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Library background photo
-        Image.network(
-          'https://images.unsplash.com/photo-1507842217343-583bb7270b66'
-          '?auto=format&fit=crop&w=1400&q=85',
-          fit: BoxFit.cover,
-          alignment: Alignment.center,
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              color: const Color(0xFFDCEEFF),
-              child: const Center(
-                child: Icon(
+        // Full-width library background image
+        Positioned.fill(
+          child: Image.network(
+            'https://images.unsplash.com/photo-1507842217343-583bb7270b66'
+            '?auto=format&fit=crop&w=1800&q=90',
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                color: const Color(0xFFDCEEFF),
+                alignment: Alignment.center,
+                child: const Icon(
                   Icons.local_library_rounded,
-                  size: 80,
+                  size: 90,
                   color: Color(0xFF087BFF),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
 
-        // Soft gradient to blend with the hero text area
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                Color(0xFFE5F2FF),
-                Color(0x66E5F2FF),
-                Colors.transparent,
-              ],
-              stops: [0.0, 0.35, 0.75],
+        // Light blue overlay across the full image
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  const Color(0xFFE5F2FF).withValues(alpha: 0.95),
+                  const Color(0xFFE5F2FF).withValues(alpha: 0.75),
+                  const Color(0xFFE5F2FF).withValues(alpha: 0.15),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.32, 0.58, 1.0],
+              ),
             ),
           ),
         ),
 
-        // Handwritten slogan
+        // Handwritten slogan on the right side
         Positioned(
           top: 45,
-          left: 12,
-          child: Transform.rotate(
-            angle: -0.12,
-            child: const Text(
-              'A good book\nbuilds a better\ntomorrow',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Color(0xFF0052CC),
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                fontStyle: FontStyle.italic,
-                height: 1.3,
+          left: 0,
+          right: 0,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: FractionallySizedBox(
+              widthFactor: 0.8,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Transform.rotate(
+                  angle: -0.12,
+                  child: const Text(
+                    'A good book\nbuilds a better\ntomorrow',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Color(0xFF0052CC),
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      fontStyle: FontStyle.italic,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
         ),
 
-        // Small decorative underline
+        // Decorative underline below the slogan
         Positioned(
           top: 125,
-          left: 55,
+          right: 60,
           child: Transform.rotate(
             angle: -0.25,
             child: Container(
