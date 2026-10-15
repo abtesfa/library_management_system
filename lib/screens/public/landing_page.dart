@@ -1,5 +1,5 @@
-
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 const Color primaryBlue = Color(0xFF0860C9);
@@ -87,20 +87,12 @@ class _LandingPageState extends State<LandingPage>
       duration: const Duration(milliseconds: 1100),
     );
 
-    _heroFade = CurvedAnimation(
-      parent: _heroController,
-      curve: Curves.easeOut,
-    );
+    _heroFade = CurvedAnimation(parent: _heroController, curve: Curves.easeOut);
 
-    _heroSlide = Tween<Offset>(
-      begin: const Offset(0, 0.12),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _heroController,
-        curve: Curves.easeOutCubic,
-      ),
-    );
+    _heroSlide = Tween<Offset>(begin: const Offset(0, 0.12), end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _heroController, curve: Curves.easeOutCubic),
+        );
 
     _heroController.forward();
   }
@@ -131,13 +123,13 @@ class _LandingPageState extends State<LandingPage>
     final query = _search.toLowerCase().trim();
 
     return _books.where((book) {
-      final matchesQuery = query.isEmpty ||
+      final matchesQuery =
+          query.isEmpty ||
           book.title.toLowerCase().contains(query) ||
           book.author.toLowerCase().contains(query) ||
           book.category.toLowerCase().contains(query);
 
-      final matchesCategory =
-          _category == 'All' || book.category == _category;
+      final matchesCategory = _category == 'All' || book.category == _category;
 
       return matchesQuery && matchesCategory;
     }).toList();
@@ -182,10 +174,7 @@ class _LandingPageState extends State<LandingPage>
     return Container(
       key: const ValueKey('navigation'),
       width: double.infinity,
-      padding: EdgeInsets.symmetric(
-        horizontal: wide ? 5.0 : 16,
-        vertical: 12,
-      ),
+      padding: EdgeInsets.symmetric(horizontal: wide ? 5.0 : 16, vertical: 12),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [Color(0xFF0753AB), Color(0xFF0874E5)],
@@ -203,8 +192,11 @@ class _LandingPageState extends State<LandingPage>
           constraints: const BoxConstraints(maxWidth: 1450),
           child: Row(
             children: [
-              const Icon(Icons.menu_book_rounded,
-                  color: Colors.white, size: 36),
+              const Icon(
+                Icons.menu_book_rounded,
+                color: Colors.white,
+                size: 36,
+              ),
               const SizedBox(width: 10),
               Flexible(
                 child: Text(
@@ -230,8 +222,7 @@ class _LandingPageState extends State<LandingPage>
                 _navPill('Get Started', onTap: _showSignIn),
               ] else
                 IconButton(
-                  onPressed: () =>
-                      setState(() => _menuOpen = !_menuOpen),
+                  onPressed: () => setState(() => _menuOpen = !_menuOpen),
                   icon: Icon(
                     _menuOpen ? Icons.close : Icons.menu,
                     color: Colors.white,
@@ -271,11 +262,10 @@ class _LandingPageState extends State<LandingPage>
       onPressed: onTap,
       style: OutlinedButton.styleFrom(
         foregroundColor: Colors.white,
-        backgroundColor:
-            outlined ? Colors.transparent : const Color(0xFF0786FF),
-        side: BorderSide(
-          color: outlined ? Colors.white70 : Colors.transparent,
-        ),
+        backgroundColor: outlined
+            ? Colors.transparent
+            : const Color(0xFF0786FF),
+        side: BorderSide(color: outlined ? Colors.white70 : Colors.transparent),
         shape: const StadiumBorder(),
         padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 12),
       ),
@@ -373,7 +363,9 @@ class _LandingPageState extends State<LandingPage>
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 7),
+                                horizontal: 12,
+                                vertical: 7,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFD0E7FF),
                                 borderRadius: BorderRadius.circular(30),
@@ -421,10 +413,12 @@ class _LandingPageState extends State<LandingPage>
                             Wrap(
                               spacing: 8,
                               runSpacing: 8,
-                              children: ['All', 'Books', 'Authors', 'Categories']
-                                  .map((item) {
-                                return _categoryChip(item);
-                              }).toList(),
+                              children:
+                                  ['All', 'Books', 'Authors', 'Categories'].map(
+                                    (item) {
+                                      return _categoryChip(item);
+                                    },
+                                  ).toList(),
                             ),
                           ],
                         ),
@@ -491,7 +485,8 @@ class _LandingPageState extends State<LandingPage>
   }
 
   Widget _categoryChip(String label) {
-    final selected = _category == label ||
+    final selected =
+        _category == label ||
         (label == 'Books' && _category == 'All') ||
         (label == 'Authors' && _category == 'All') ||
         (label == 'Categories' && _category == 'All');
@@ -516,9 +511,7 @@ class _LandingPageState extends State<LandingPage>
         decoration: BoxDecoration(
           color: selected ? brightBlue : Colors.white.withValues(alpha: 0.8),
           borderRadius: BorderRadius.circular(30),
-          border: Border.all(
-            color: selected ? brightBlue : borderBlue,
-          ),
+          border: Border.all(color: selected ? brightBlue : borderBlue),
         ),
         child: Text(
           label,
@@ -590,17 +583,18 @@ class _LandingPageState extends State<LandingPage>
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(number,
-                  style: const TextStyle(
-                    color: primaryBlue,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                  )),
-              Text(label,
-                  style: const TextStyle(
-                    color: mutedBlue,
-                    fontSize: 10,
-                  )),
+              Text(
+                number,
+                style: const TextStyle(
+                  color: primaryBlue,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Text(
+                label,
+                style: const TextStyle(color: mutedBlue, fontSize: 10),
+              ),
             ],
           ),
         ),
@@ -617,28 +611,28 @@ class _LandingPageState extends State<LandingPage>
         'Browse Books',
         'Explore our collection of books and find your next read.',
         'View Books',
-        () => _goTo(_booksKey)
+        () => _goTo(_booksKey),
       ),
       (
         Icons.search_rounded,
         'Search & Discover',
         'Find books by title, author, ISBN or category.',
         'Search Now',
-        () => _goTo(_homeKey)
+        () => _goTo(_homeKey),
       ),
       (
         Icons.person_rounded,
         'Manage Your Account',
         'Track your loans, reservations and reading history.',
         'Go to Dashboard',
-        _showSignIn
+        _showSignIn,
       ),
       (
         Icons.account_balance_rounded,
         'For Librarians',
         'Manage books, members, loans and generate reports.',
         'Librarian Login',
-        _showSignIn
+        _showSignIn,
       ),
     ];
 
@@ -649,8 +643,8 @@ class _LandingPageState extends State<LandingPage>
           final columns = box.maxWidth < 550
               ? 1
               : box.maxWidth < 950
-                  ? 2
-                  : 4;
+              ? 2
+              : 4;
 
           return GridView.builder(
             shrinkWrap: true,
@@ -677,12 +671,14 @@ class _LandingPageState extends State<LandingPage>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(item.$2,
-                                style: const TextStyle(
-                                  color: textBlue,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                )),
+                            Text(
+                              item.$2,
+                              style: const TextStyle(
+                                color: textBlue,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
                             const SizedBox(height: 8),
                             Expanded(
                               child: Text(
@@ -708,8 +704,11 @@ class _LandingPageState extends State<LandingPage>
                                     ),
                                   ),
                                   const SizedBox(width: 5),
-                                  const Icon(Icons.arrow_forward,
-                                      size: 13, color: brightBlue),
+                                  const Icon(
+                                    Icons.arrow_forward,
+                                    size: 13,
+                                    color: brightBlue,
+                                  ),
                                 ],
                               ),
                             ),
@@ -742,8 +741,11 @@ class _LandingPageState extends State<LandingPage>
           children: [
             Row(
               children: [
-                const Icon(Icons.menu_book_rounded,
-                    size: 30, color: brightBlue),
+                const Icon(
+                  Icons.menu_book_rounded,
+                  size: 30,
+                  color: brightBlue,
+                ),
                 const SizedBox(width: 10),
                 const Expanded(
                   child: Column(
@@ -769,8 +771,10 @@ class _LandingPageState extends State<LandingPage>
                     _searchController.clear();
                     setState(() => _search = '');
                   },
-                  child: const Text('Clear Search',
-                      style: TextStyle(fontSize: 11)),
+                  child: const Text(
+                    'Clear Search',
+                    style: TextStyle(fontSize: 11),
+                  ),
                 ),
               ],
             ),
@@ -791,10 +795,10 @@ class _LandingPageState extends State<LandingPage>
                   final columns = box.maxWidth < 420
                       ? 1
                       : box.maxWidth < 750
-                          ? 2
-                          : box.maxWidth < 1050
-                              ? 3
-                              : 5;
+                      ? 2
+                      : box.maxWidth < 1050
+                      ? 3
+                      : 5;
 
                   return GridView.builder(
                     shrinkWrap: true,
@@ -897,8 +901,7 @@ class _LandingPageState extends State<LandingPage>
                 ),
                 padding: EdgeInsets.zero,
               ),
-              child: const Text('View Details',
-                  style: TextStyle(fontSize: 10)),
+              child: const Text('View Details', style: TextStyle(fontSize: 10)),
             ),
           ),
         ],
@@ -963,12 +966,21 @@ class _LandingPageState extends State<LandingPage>
 
   Widget _howItWorks(bool wide) {
     final steps = [
-      (Icons.person_add_alt_1, 'Create an Account',
-          'Sign up as a member and get access to your library.'),
-      (Icons.search, 'Discover a Book',
-          'Search our collection of books and categories.'),
-      (Icons.menu_book, 'Borrow or Reserve',
-          'Borrow a book, return it on time, and enjoy reading.'),
+      (
+        Icons.person_add_alt_1,
+        'Create an Account',
+        'Sign up as a member and get access to your library.',
+      ),
+      (
+        Icons.search,
+        'Discover a Book',
+        'Search our collection of books and categories.',
+      ),
+      (
+        Icons.menu_book,
+        'Borrow or Reserve',
+        'Borrow a book, return it on time, and enjoy reading.',
+      ),
     ];
 
     return Padding(
@@ -981,20 +993,23 @@ class _LandingPageState extends State<LandingPage>
           children: [
             const Row(
               children: [
-                Icon(Icons.settings_suggest,
-                    color: brightBlue, size: 30),
+                Icon(Icons.settings_suggest, color: brightBlue, size: 30),
                 SizedBox(width: 10),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('How It Works',
-                        style: TextStyle(
-                          color: primaryBlue,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                        )),
-                    Text('Getting started takes just a few simple steps.',
-                        style: TextStyle(color: mutedBlue, fontSize: 11)),
+                    Text(
+                      'How It Works',
+                      style: TextStyle(
+                        color: primaryBlue,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      'Getting started takes just a few simple steps.',
+                      style: TextStyle(color: mutedBlue, fontSize: 11),
+                    ),
                   ],
                 ),
               ],
@@ -1044,19 +1059,23 @@ class _LandingPageState extends State<LandingPage>
                             children: [
                               Icon(step.$1, color: brightBlue, size: 24),
                               const SizedBox(height: 7),
-                              Text(step.$2,
-                                  style: const TextStyle(
-                                    color: textBlue,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                  )),
+                              Text(
+                                step.$2,
+                                style: const TextStyle(
+                                  color: textBlue,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
                               const SizedBox(height: 5),
-                              Text(step.$3,
-                                  style: const TextStyle(
-                                    color: mutedBlue,
-                                    fontSize: 10,
-                                    height: 1.5,
-                                  )),
+                              Text(
+                                step.$3,
+                                style: const TextStyle(
+                                  color: mutedBlue,
+                                  fontSize: 10,
+                                  height: 1.5,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -1085,19 +1104,24 @@ class _LandingPageState extends State<LandingPage>
           children: [
             const Row(
               children: [
-                Icon(Icons.mark_email_read_outlined,
-                    color: brightBlue, size: 30),
+                Icon(
+                  Icons.mark_email_read_outlined,
+                  color: brightBlue,
+                  size: 30,
+                ),
                 SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Contact Us',
-                          style: TextStyle(
-                            color: primaryBlue,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                          )),
+                      Text(
+                        'Contact Us',
+                        style: TextStyle(
+                          color: primaryBlue,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
                       Text(
                         'We are here to help! Reach out with questions or feedback.',
                         style: TextStyle(color: mutedBlue, fontSize: 11),
@@ -1116,19 +1140,19 @@ class _LandingPageState extends State<LandingPage>
                     Icons.phone_rounded,
                     'Phone',
                     '+251 11 123 4567',
-                    'Call us during working hours.'
+                    'Call us during working hours.',
                   ),
                   (
                     Icons.email_rounded,
                     'Email',
                     'info@librarysystem.com',
-                    'We will respond as soon as possible.'
+                    'We will respond as soon as possible.',
                   ),
                   (
                     Icons.location_on_rounded,
                     'Address',
                     'Addis Ababa, Ethiopia',
-                    'Visit us at our library location.'
+                    'Visit us at our library location.',
                   ),
                 ];
 
@@ -1156,12 +1180,14 @@ class _LandingPageState extends State<LandingPage>
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(item.$2,
-                                    style: const TextStyle(
-                                      color: textBlue,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w800,
-                                    )),
+                                Text(
+                                  item.$2,
+                                  style: const TextStyle(
+                                    color: textBlue,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
                                 const SizedBox(height: 5),
                                 SelectableText(
                                   item.$3,
@@ -1222,25 +1248,32 @@ class _LandingPageState extends State<LandingPage>
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.menu_book_rounded,
-                          color: Colors.white, size: 35),
+                      const Icon(
+                        Icons.menu_book_rounded,
+                        color: Colors.white,
+                        size: 35,
+                      ),
                       const SizedBox(width: 10),
                       const Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Library Management System',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 13,
-                                )),
+                            Text(
+                              'Library Management System',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                              ),
+                            ),
                             SizedBox(height: 5),
-                            Text('Read More, Learn More, Grow More.',
-                                style: TextStyle(
-                                  color: Color(0xFFD0E5FF),
-                                  fontSize: 10,
-                                )),
+                            Text(
+                              'Read More, Learn More, Grow More.',
+                              style: TextStyle(
+                                color: Color(0xFFD0E5FF),
+                                fontSize: 10,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -1290,30 +1323,33 @@ class _LandingPageState extends State<LandingPage>
     );
   }
 
-  Widget _footerLinks(
-      String heading, List<(String, VoidCallback)> links) {
+  Widget _footerLinks(String heading, List<(String, VoidCallback)> links) {
     return SizedBox(
       width: 160,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(heading,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-                fontSize: 12,
-              )),
+          Text(
+            heading,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
+          ),
           const SizedBox(height: 8),
           ...links.map(
             (item) => Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: InkWell(
                 onTap: item.$2,
-                child: Text(item.$1,
-                    style: const TextStyle(
-                      color: Color(0xFFD0E5FF),
-                      fontSize: 10,
-                    )),
+                child: Text(
+                  item.$1,
+                  style: const TextStyle(
+                    color: Color(0xFFD0E5FF),
+                    fontSize: 10,
+                  ),
+                ),
               ),
             ),
           ),
@@ -1363,10 +1399,7 @@ class _LandingPageState extends State<LandingPage>
     );
   }
 
-  Widget _animatedCard({
-    required Widget child,
-    int delay = 0,
-  }) {
+  Widget _animatedCard({required Widget child, int delay = 0}) {
     return TweenAnimationBuilder<double>(
       key: ValueKey(delay),
       tween: Tween(begin: 0, end: 1),
@@ -1391,11 +1424,8 @@ class _LandingPageState extends State<LandingPage>
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-        ),
-        title: Text(book.title,
-            style: const TextStyle(color: textBlue)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text(book.title, style: const TextStyle(color: textBlue)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1516,138 +1546,86 @@ class Book {
 // ---------------- HERO ILLUSTRATION ----------------
 
 class _LibraryIllustration extends StatelessWidget {
-  const _LibraryIllustration();
+  const _LibraryIllustration({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [
-            Color(0x00E5F3FF),
-            Color(0x55B5D8FA),
-            Color(0xFFE4F2FF),
-          ],
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Library background photo
+        Image.network(
+          'https://images.unsplash.com/photo-1507842217343-583bb7270b66'
+          '?auto=format&fit=crop&w=1400&q=85',
+          fit: BoxFit.cover,
+          alignment: Alignment.center,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              color: const Color(0xFFDCEEFF),
+              child: const Center(
+                child: Icon(
+                  Icons.local_library_rounded,
+                  size: 80,
+                  color: Color(0xFF087BFF),
+                ),
+              ),
+            );
+          },
         ),
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Positioned(
-            top: 20,
-            right: 25,
-            child: Icon(Icons.local_florist,
-                size: 85, color: Colors.green.withValues(alpha: 0.25)),
-          ),
-          Positioned(
-            right: 12,
-            left: 10,
-            bottom: 28,
-            child: Container(
-              height: 8,
-              decoration: BoxDecoration(
-                color: const Color(0xFFB5D5F5),
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 36,
-            right: 18,
-            child: Column(
-              children: [
-                Container(
-                  width: 110,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0A4D9B),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: const Center(
-                    child: Text('SCIENCE',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                        )),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Container(
-                  width: 125,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2369A6),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: const Center(
-                    child: Text('TECHNOLOGY',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                        )),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Container(
-                  width: 118,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4C8966),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: const Center(
-                    child: Text('ENGINEERING',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                        )),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Container(
-                  width: 128,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF164C9D),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: const Center(
-                    child: Text('MATHEMATICS',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                        )),
-                  ),
-                ),
+
+        // Soft gradient to blend with the hero text area
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                Color(0xFFE5F2FF),
+                Color(0x66E5F2FF),
+                Colors.transparent,
               ],
+              stops: [0.0, 0.35, 0.75],
             ),
           ),
-          Positioned(
-            top: 38,
-            left: 5,
-            child: Transform.rotate(
-              angle: -0.09,
-              child: const Text(
-                'A good book\nbuilds a better\ntomorrow',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: primaryBlue,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  fontStyle: FontStyle.italic,
-                  height: 1.3,
-                ),
+        ),
+
+        // Handwritten slogan
+        Positioned(
+          top: 45,
+          left: 12,
+          child: Transform.rotate(
+            angle: -0.12,
+            child: const Text(
+              'A good book\nbuilds a better\ntomorrow',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF0052CC),
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                fontStyle: FontStyle.italic,
+                height: 1.3,
               ),
             ),
           ),
-        ],
-      ),
+        ),
+
+        // Small decorative underline
+        Positioned(
+          top: 125,
+          left: 55,
+          child: Transform.rotate(
+            angle: -0.25,
+            child: Container(
+              width: 45,
+              height: 2,
+              decoration: BoxDecoration(
+                color: const Color(0xFF087BFF),
+                borderRadius: BorderRadius.circular(5),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
