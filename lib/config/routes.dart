@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../screens/reader/reader_notification_screen.dart';
+import '../screens/reader/reader_reservation_screen.dart';
+import '../screens/reader/my_books_screen.dart';
 import '../screens/shell/main_layout_shell.dart';
 import '../screens/reader/reader_home_screen.dart';
 
@@ -24,21 +27,18 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/reader/books',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: _PlaceholderScreen(title: 'My Books Screen'),
-          ),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: MyBooksScreen()),
         ),
         GoRoute(
           path: '/reader/reservations',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: _PlaceholderScreen(title: 'Reservations Screen'),
-          ),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: ReaderReservationsScreen()),
         ),
         GoRoute(
           path: '/reader/notifications',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: _PlaceholderScreen(title: 'Reader Notifications'),
-          ),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: ReaderNotificationsScreen()),
         ),
 
         // Librarian routes

@@ -53,7 +53,7 @@ class BookCoverThumb extends StatelessWidget {
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 8,
+                fontSize: 6,
                 fontWeight: FontWeight.bold,
                 color: AppColors.textPrimary,
               ),
