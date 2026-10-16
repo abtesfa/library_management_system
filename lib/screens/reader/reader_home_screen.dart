@@ -1,8 +1,6 @@
-
 import 'package:flutter/material.dart';
+
 import 'my_books_screen.dart';
-import 'reader_reservations_screen.dart';
-import 'reader_notifications_screen.dart';
 
 class ReaderHomeScreen extends StatefulWidget {
   const ReaderHomeScreen({super.key});
@@ -22,8 +20,16 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
   final books = const [
     {'title': 'Atomic Habits', 'author': 'James Clear', 'genre': 'Self-Help'},
     {'title': 'Dune', 'author': 'Frank Herbert', 'genre': 'Science Fiction'},
-    {'title': 'The Great Gatsby', 'author': 'F. Scott Fitzgerald', 'genre': 'Fiction'},
-    {'title': 'Clean Code', 'author': 'Robert C. Martin', 'genre': 'Computer Science'},
+    {
+      'title': 'The Great Gatsby',
+      'author': 'F. Scott Fitzgerald',
+      'genre': 'Fiction',
+    },
+    {
+      'title': 'Clean Code',
+      'author': 'Robert C. Martin',
+      'genre': 'Computer Science',
+    },
     {'title': 'Sapiens', 'author': 'Yuval Noah Harari', 'genre': 'History'},
   ];
 
@@ -69,9 +75,7 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
       height: 60,
       padding: const EdgeInsets.symmetric(horizontal: 18),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [darkBlue, blue],
-        ),
+        gradient: LinearGradient(colors: [darkBlue, blue]),
       ),
       child: Row(
         children: [
@@ -98,10 +102,14 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Abiye Tesfaye',
-                  style: TextStyle(color: Colors.white, fontSize: 12)),
-              Text('Reader',
-                  style: TextStyle(color: Colors.white70, fontSize: 11)),
+              Text(
+                'Abiye Tesfaye',
+                style: TextStyle(color: Colors.white, fontSize: 12),
+              ),
+              Text(
+                'Reader',
+                style: TextStyle(color: Colors.white70, fontSize: 11),
+              ),
             ],
           ),
           const SizedBox(width: 8),
@@ -133,11 +141,7 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
             padding: EdgeInsets.all(18),
             child: Text(
               '▤\nRead More,\nLearn More,\nGrow More.',
-              style: TextStyle(
-                color: Colors.white,
-                height: 1.7,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: Colors.white, height: 1.7, fontSize: 13),
             ),
           ),
         ],
@@ -153,9 +157,7 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
       child: ListTile(
         selected: selected,
         selectedTileColor: const Color(0xFF0868EF),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         leading: Icon(icon, color: Colors.white, size: 21),
         title: Text(
           title,
@@ -176,9 +178,13 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
         NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
         NavigationDestination(icon: Icon(Icons.menu_book), label: 'My Books'),
         NavigationDestination(
-            icon: Icon(Icons.calendar_month), label: 'Reservations'),
+          icon: Icon(Icons.calendar_month),
+          label: 'Reservations',
+        ),
         NavigationDestination(
-            icon: Icon(Icons.notifications), label: 'Notifications'),
+          icon: Icon(Icons.notifications),
+          label: 'Notifications',
+        ),
       ],
     );
   }
@@ -286,7 +292,7 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
           Image.asset(
             'assets/images/library_hero.jpg',
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(
+            errorBuilder: (_, _, _) => Container(
               color: darkBlue,
               child: const Icon(
                 Icons.local_library,
@@ -398,11 +404,7 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
                 color: const Color(0xFFEAF1FC),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Icon(
-                Icons.menu_book,
-                size: 55,
-                color: blue,
-              ),
+              child: const Icon(Icons.menu_book, size: 55, color: blue),
             ),
           ),
           const SizedBox(height: 9),
@@ -474,15 +476,39 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
         children: [
           Row(
             children: [
-              Expanded(child: _SummaryItem(icon: Icons.menu_book, value: '3', label: 'Books Borrowed')),
-              Expanded(child: _SummaryItem(icon: Icons.access_time, value: '1', label: 'Due Soon')),
+              Expanded(
+                child: _SummaryItem(
+                  icon: Icons.menu_book,
+                  value: '3',
+                  label: 'Books Borrowed',
+                ),
+              ),
+              Expanded(
+                child: _SummaryItem(
+                  icon: Icons.access_time,
+                  value: '1',
+                  label: 'Due Soon',
+                ),
+              ),
             ],
           ),
           SizedBox(height: 22),
           Row(
             children: [
-              Expanded(child: _SummaryItem(icon: Icons.calendar_month, value: '1', label: 'Reservation(s)')),
-              Expanded(child: _SummaryItem(icon: Icons.notifications, value: '2', label: 'Notifications')),
+              Expanded(
+                child: _SummaryItem(
+                  icon: Icons.calendar_month,
+                  value: '1',
+                  label: 'Reservation(s)',
+                ),
+              ),
+              Expanded(
+                child: _SummaryItem(
+                  icon: Icons.notifications,
+                  value: '2',
+                  label: 'Notifications',
+                ),
+              ),
             ],
           ),
         ],
@@ -496,11 +522,23 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
       trailing: 'View All →',
       child: Column(
         children: const [
-          _DueBook(title: 'Atomic Habits', author: 'James Clear', due: 'Due in 2 days'),
+          _DueBook(
+            title: 'Atomic Habits',
+            author: 'James Clear',
+            due: 'Due in 2 days',
+          ),
           Divider(height: 22),
-          _DueBook(title: 'Dune', author: 'Frank Herbert', due: 'Due in 5 days'),
+          _DueBook(
+            title: 'Dune',
+            author: 'Frank Herbert',
+            due: 'Due in 5 days',
+          ),
           Divider(height: 22),
-          _DueBook(title: 'The Great Gatsby', author: 'F. Scott Fitzgerald', due: 'Due in 7 days'),
+          _DueBook(
+            title: 'The Great Gatsby',
+            author: 'F. Scott Fitzgerald',
+            due: 'Due in 7 days',
+          ),
         ],
       ),
     );
@@ -570,8 +608,10 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
                 ),
               ),
               if (trailing != null)
-                Text(trailing,
-                    style: const TextStyle(color: blue, fontSize: 11)),
+                Text(
+                  trailing,
+                  style: const TextStyle(color: blue, fontSize: 11),
+                ),
             ],
           ),
           const SizedBox(height: 18),
@@ -623,8 +663,8 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
               selectedIndex == 1
                   ? Icons.menu_book
                   : selectedIndex == 2
-                      ? Icons.calendar_month
-                      : Icons.notifications,
+                  ? Icons.calendar_month
+                  : Icons.notifications,
               size: 55,
               color: blue,
             ),
@@ -681,8 +721,10 @@ class _SummaryItem extends StatelessWidget {
                   color: Color(0xFF073B86),
                 ),
               ),
-              Text(label,
-                  style: const TextStyle(fontSize: 10, color: Colors.blueGrey)),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 10, color: Colors.blueGrey),
+              ),
             ],
           ),
         ),
@@ -729,8 +771,10 @@ class _DueBook extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              Text(author,
-                  style: const TextStyle(fontSize: 10, color: Colors.blueGrey)),
+              Text(
+                author,
+                style: const TextStyle(fontSize: 10, color: Colors.blueGrey),
+              ),
             ],
           ),
         ),

@@ -219,7 +219,7 @@ class _LandingPageState extends State<LandingPage>
                 const SizedBox(width: 12),
                 _navPill('Sign In', outlined: true, onTap: _showSignIn),
                 const SizedBox(width: 8),
-                _navPill('Get Started', onTap: _showSignIn),
+                
               ] else
                 IconButton(
                   onPressed: () => setState(() => _menuOpen = !_menuOpen),
@@ -297,7 +297,7 @@ class _LandingPageState extends State<LandingPage>
                   Navigator.push(
                  context,
               MaterialPageRoute(
-              builder: (context) => const LoginPage(),
+              builder: (context) => const LoginScreen(),
   ),
 );
                 },
@@ -1456,8 +1456,13 @@ class _LandingPageState extends State<LandingPage>
           if (book.available)
             FilledButton(
               onPressed: () {
-                Navigator.pop(context);
-                _showSignIn();
+                
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const LoginScreen(),
+      ),
+    );
               },
               child: const Text('Sign in to Borrow'),
             ),
@@ -1466,24 +1471,15 @@ class _LandingPageState extends State<LandingPage>
     );
   }
 
-  void _showSignIn() {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Library Account'),
-        content: const Text(
-          'Connect this button to your login page to let members and '
-          'librarians sign in.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
+  
+void _showSignIn() {
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (context) => const LoginScreen(),
+    ),
+  );
+}
+
 
   void _showRules() {
     showDialog<void>(
@@ -1549,7 +1545,7 @@ class Book {
 // ---------------- HERO ILLUSTRATION ----------------
 
 class _LibraryIllustration extends StatelessWidget {
-  const _LibraryIllustration({super.key});
+  const _LibraryIllustration();
 
   @override
   Widget build(BuildContext context) {

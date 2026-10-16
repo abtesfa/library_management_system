@@ -38,7 +38,7 @@ class _MainLayoutShellState extends State<MainLayoutShell> {
     const StaffManagementScreen(),
     const BorrowReturnDeskScreen(),
     const ReservationManagementScreen(),
-    const NotificationsScreen(),
+    const ReaderNotificationsScreen(),
     const ImsSettingsScreen(),
   ];
 

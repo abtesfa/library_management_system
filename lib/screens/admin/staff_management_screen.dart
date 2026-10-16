@@ -1,10 +1,11 @@
 
 import 'package:flutter/material.dart';
 
-const Color primaryBlue = Color(0xFF0052CC);
-const Color navyBlue = Color(0xFF063778);
-const Color pageBackground = Color(0xFFF4F9FF);
-const Color borderBlue = Color(0xFFD9EAFE);
+const Color primaryBlue = Color(0xFF0865F0);
+const Color darkBlue = Color(0xFF07377D);
+const Color textBlue = Color(0xFF0645A5);
+const Color borderBlue = Color(0xFFD9E9FF);
+const Color pageBackground = Color(0xFFF3F9FF);
 
 class StaffManagementScreen extends StatefulWidget {
   const StaffManagementScreen({super.key});
@@ -14,87 +15,84 @@ class StaffManagementScreen extends StatefulWidget {
       _StaffManagementScreenState();
 }
 
-class _StaffManagementScreenState extends State<StaffManagementScreen> {
-  final TextEditingController _searchController = TextEditingController();
+class StaffMember {
+  StaffMember({
+    required this.name,
+    required this.employeeId,
+    required this.role,
+    required this.email,
+    this.active = true,
+  });
 
-  final List<Map<String, dynamic>> _staff = [
-    {
-      'name': 'Samuel Worku',
-      'id': 'EMP-7701',
-      'role': 'Administrator',
-      'email': 'samuel.w@library.univ.et',
-      'status': 'Active',
-    },
-    {
-      'name': 'Meron Alemu',
-      'id': 'EMP-7708',
-      'role': 'Librarian',
-      'email': 'merona@library.univ.et',
-      'status': 'Active',
-    },
-    {
-      'name': 'Yohannes Girma',
-      'id': 'EMP-7715',
-      'role': 'Librarian',
-      'email': 'yohannes.g@library.univ.et',
-      'status': 'Active',
-    },
-    {
-      'name': 'Hana Girma',
-      'id': 'EMP-7718',
-      'role': 'Librarian',
-      'email': 'hana@library.univ.et',
-      'status': 'Active',
-    },
-    {
-      'name': 'Tesfaye Abebe',
-      'id': 'EMP-7720',
-      'role': 'Librarian',
-      'email': 'tesfaye.a@library.univ.et',
-      'status': 'Active',
-    },
-    {
-      'name': 'Selam Tesfaye',
-      'id': 'EMP-7721',
-      'role': 'Assistant Librarian',
-      'email': 'selam.t@library.univ.et',
-      'status': 'Active',
-    },
+  String name;
+  String employeeId;
+  String role;
+  String email;
+  bool active;
+}
+
+class _StaffManagementScreenState
+    extends State<StaffManagementScreen> {
+  final TextEditingController searchController =
+      TextEditingController();
+
+  final List<StaffMember> staff = [
+    StaffMember(
+      name: 'Samuel Worku',
+      employeeId: 'EMP-7701',
+      role: 'Administrator',
+      email: 'samuel.w@library.univ.et',
+    ),
+    StaffMember(
+      name: 'Meron Alemu',
+      employeeId: 'EMP-7708',
+      role: 'Librarian',
+      email: 'merona@library.univ.et',
+    ),
+    StaffMember(
+      name: 'Yohannes Girma',
+      employeeId: 'EMP-7715',
+      role: 'Librarian',
+      email: 'yohannes.g@library.univ.et',
+    ),
+    StaffMember(
+      name: 'Hana Girma',
+      employeeId: 'EMP-7718',
+      role: 'Librarian',
+      email: 'hana@library.univ.et',
+    ),
+    StaffMember(
+      name: 'Tesfaye Abebe',
+      employeeId: 'EMP-7720',
+      role: 'Librarian',
+      email: 'tesfaye.a@library.univ.et',
+    ),
+    StaffMember(
+      name: 'Selam Tesfaye',
+      employeeId: 'EMP-7721',
+      role: 'Assistant Librarian',
+      email: 'selam.t@library.univ.et',
+    ),
   ];
 
-  final Map<String, List<String>> _rolePermissions = {
-    'Administrator': [
-      'Manage all staff accounts',
-      'Access LMS settings',
-      'Manage book inventory',
-      'View all records and reports',
-      'System configuration',
-    ],
-    'Librarian': [
-      'Manage book inventory',
-      'Borrow and return books',
-      'Manage reservations',
-      'View circulation records',
-      'Send reader notifications',
-    ],
-    'Assistant Librarian': [
-      'Search book inventory',
-      'Register book returns',
-      'View assigned circulation records',
-    ],
+  String selectedPermissionRole = 'Administrator';
+  String roleFilter = 'All';
+  int selectedPage = 1;
+
+  final Map<String, bool> permissions = {
+    'Manage all staff accounts': true,
+    'Access LMS settings': true,
+    'Manage book inventory': true,
+    'View all records and reports': true,
+    'System configuration': true,
   };
 
-  final Map<String, Set<String>> _selectedPermissions = {};
-
-  String _selectedRole = 'Administrator';
-  String _filterRole = 'All Roles';
-
-  final List<Map<String, String>> _activity = [
+  final List<Map<String, String>> activities = [
     {
       'date': 'Jun 8, 2025   10:24 AM',
       'name': 'Samuel Worku',
       'action': 'Created',
-      'details': 'New staff account (EMP-7701)',
+      'details': 'New librarian account (EMP-7701)',
     },
     {
       'date': 'Jun 7, 2025   03:12 PM',
@@ -116,161 +114,195 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
     },
   ];
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
+  List<StaffMember> get filteredStaff {
+    final query = searchController.text.toLowerCase();
 
-  List<Map<String, dynamic>> get _filteredStaff {
-    final query = _searchController.text.toLowerCase().trim();
-
-    return _staff.where((member) {
-      final matchesSearch = member['name']
-              .toString()
-              .toLowerCase()
-              .contains(query) ||
-          member['id'].toString().toLowerCase().contains(query) ||
-          member['email'].toString().toLowerCase().contains(query);
+    return staff.where((member) {
+      final matchesSearch =
+          member.name.toLowerCase().contains(query) ||
+          member.employeeId.toLowerCase().contains(query) ||
+          member.email.toLowerCase().contains(query);
 
       final matchesRole =
-          _filterRole == 'All Roles' || member['role'] == _filterRole;
+          roleFilter == 'All' || member.role == roleFilter;
 
       return matchesSearch && matchesRole;
     }).toList();
   }
 
-  int get _activeCount =>
-      _staff.where((s) => s['status'] == 'Active').length;
+  int get activeCount => staff.where((s) => s.active).length;
 
-  int get _administratorCount =>
-      _staff.where((s) => s['role'] == 'Administrator').length;
+  int get administratorCount =>
+      staff.where((s) => s.role == 'Administrator').length;
 
-  int get _librarianCount =>
-      _staff.where((s) => s['role'] == 'Librarian').length;
+  int get librarianCount =>
+      staff.where((s) => s.role == 'Librarian').length;
 
-  Color _roleColor(String role) {
-    switch (role) {
-      case 'Administrator':
-        return const Color(0xFF7C3AED);
-      case 'Assistant Librarian':
-        return const Color(0xFF009688);
-      default:
-        return primaryBlue;
-    }
-  }
-
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: pageBackground,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final isDesktop = constraints.maxWidth >= 1050;
+      body: Column(
+        children: [
+          _buildHeader(),
+          Expanded(
+            child: Row(
+              children: [
+                _buildSidebar(),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final wide = constraints.maxWidth >= 1150;
 
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (isDesktop) _buildSidebar(),
-                      Expanded(
-                        child: SingleChildScrollView(
-                          padding: EdgeInsets.all(
-                            constraints.maxWidth < 600 ? 12 : 18,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildPageHeading(isDesktop),
-                              const SizedBox(height: 18),
-                              _buildStatistics(),
-                              const SizedBox(height: 14),
-                              if (isDesktop)
-                                _buildDesktopContent()
-                              else
-                                _buildMobileContent(),
-                            ],
-                          ),
+                      return SingleChildScrollView(
+                        padding: const EdgeInsets.all(17),
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            _buildPageTitle(),
+                            const SizedBox(height: 16),
+                            if (wide)
+                              Row(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    flex: 7,
+                                    child: Column(
+                                      children: [
+                                        _buildStatistics(),
+                                        const SizedBox(height: 14),
+                                        _buildStaffTable(),
+                                        const SizedBox(height: 14),
+                                        _buildRecentActivity(),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    flex: 3,
+                                    child: Column(
+                                      children: [
+                                        _buildRolePermissions(),
+                                        const SizedBox(height: 14),
+                                        _buildQuickActions(),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              )
+                            else
+                              Column(
+                                children: [
+                                  _buildStatistics(),
+                                  const SizedBox(height: 14),
+                                  _buildRolePermissions(),
+                                  const SizedBox(height: 14),
+                                  _buildStaffTable(),
+                                  const SizedBox(height: 14),
+                                  _buildQuickActions(),
+                                  const SizedBox(height: 14),
+                                  _buildRecentActivity(),
+                                ],
+                              ),
+                          ],
                         ),
-                      ),
-                    ],
-                  );
-                },
-              ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildHeader() {
     return Container(
-      height: 62,
-      padding: const EdgeInsets.symmetric(horizontal: 18),
+      height: 61,
+      padding: const EdgeInsets.symmetric(horizontal: 19),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF073477), Color(0xFF0872EB)],
+          colors: [Color(0xFF07377D), Color(0xFF0865D9)],
         ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.menu_book_rounded,
-              color: Colors.white, size: 34),
-          const SizedBox(width: 14),
+          Container(
+            height: 44,
+            width: 44,
+            decoration: BoxDecoration(
+              color: primaryBlue,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.menu_book_rounded,
+              size: 32,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 16),
           const Expanded(
             child: Text(
               'Library Management System',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 20,
                 fontWeight: FontWeight.bold,
+                fontSize: 22,
               ),
-              overflow: TextOverflow.ellipsis,
             ),
           ),
-          IconButton(
-            tooltip: 'Notifications',
-            onPressed: () => _showMessage('No new notifications.'),
-            icon: const Icon(Icons.notifications_none,
-                color: Colors.white, size: 27),
+          const Icon(
+            Icons.notifications_none_rounded,
+            color: Colors.white,
+            size: 28,
           ),
+          const SizedBox(width: 24),
           const CircleAvatar(
-            radius: 17,
             backgroundColor: Colors.white,
-            child: Icon(Icons.person, color: primaryBlue),
+            radius: 18,
+            child: Icon(
+              Icons.person,
+              color: primaryBlue,
+              size: 26,
+            ),
           ),
           const SizedBox(width: 10),
           const Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Admin',
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold)),
-              Text('System Administrator',
-                  style: TextStyle(color: Colors.white70, fontSize: 10)),
+              Text(
+                'Admin',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+              SizedBox(height: 3),
+              Text(
+                'System Administrator',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                ),
+              ),
             ],
           ),
-          const SizedBox(width: 10),
-          PopupMenuButton<String>(
-            iconColor: Colors.white,
-            onSelected: (value) => _showMessage('$value selected.'),
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'Profile', child: Text('Profile')),
-              PopupMenuItem(value: 'Settings', child: Text('Settings')),
-              PopupMenuItem(value: 'Logout', child: Text('Logout')),
-            ],
+          const SizedBox(width: 12),
+          const Icon(
+            Icons.keyboard_arrow_down,
+            color: Colors.white,
           ),
         ],
       ),
@@ -280,81 +312,100 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
   Widget _buildSidebar() {
     return Container(
       width: 218,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 18),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF063778), Color(0xFF00316E)],
+          colors: [Color(0xFF07377D), Color(0xFF06418F)],
         ),
       ),
       child: Column(
         children: [
+          const SizedBox(height: 17),
           _navItem(Icons.home_rounded, 'Dashboard'),
-          _navItem(Icons.settings, 'LMS Settings'),
-          _navItem(Icons.people_alt_rounded, 'Staff Management',
-              selected: true),
+          _navItem(Icons.settings_rounded, 'LMS Settings'),
+          _navItem(
+            Icons.people_alt_rounded,
+            'Staff Management',
+            selected: true,
+          ),
           _navItem(Icons.menu_book_rounded, 'Book Inventory'),
           const Spacer(),
-          const Icon(Icons.layers_rounded,
-              color: Colors.white, size: 38),
-          const SizedBox(height: 8),
-          const Text(
-            'Read More,\nLearn More,\nGrow More.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white, height: 1.5),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 0, 20, 28),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.layers_rounded,
+                    size: 36,
+                    color: Colors.white,
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    'Read More,\nLearn More,\nGrow More.',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      height: 1.4,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 18),
         ],
       ),
     );
   }
 
-  Widget _navItem(IconData icon, String label,
-      {bool selected = false}) {
+  Widget _navItem(
+    IconData icon,
+    String title, {
+    bool selected = false,
+  }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: selected ? primaryBlue : Colors.transparent,
-        borderRadius: BorderRadius.circular(9),
-        child: InkWell(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 4,
+      ),
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          color: selected ? primaryBlue : Colors.transparent,
           borderRadius: BorderRadius.circular(9),
-          onTap: () {
-            if (!selected) {
-              _showMessage('$label screen will be connected next.');
-            }
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 12, vertical: 13),
-            child: Row(
-              children: [
-                Icon(icon, color: Colors.white, size: 25),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: 12),
+            Icon(icon, color: Colors.white, size: 26),
+            const SizedBox(width: 14),
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildPageHeading(bool isDesktop) {
+  Widget _buildPageTitle() {
     return Row(
       children: [
-        const Icon(Icons.people_alt_rounded,
-            size: 36, color: primaryBlue),
-        const SizedBox(width: 14),
+        const Icon(
+          Icons.people_alt_rounded,
+          color: primaryBlue,
+          size: 37,
+        ),
+        const SizedBox(width: 17),
         const Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -362,25 +413,37 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
               Text(
                 'Staff Management',
                 style: TextStyle(
-                  color: Color(0xFF0849A8),
-                  fontSize: 24,
+                  color: textBlue,
+                  fontSize: 25,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              SizedBox(height: 3),
               Text(
                 'Manage staff accounts, roles, permissions, and access to the system.',
-                style: TextStyle(color: primaryBlue, fontSize: 12),
+                style: TextStyle(
+                  color: Color(0xFF5082C8),
+                  fontSize: 13,
+                ),
               ),
             ],
           ),
         ),
-        if (isDesktop)
-          FilledButton.icon(
-            onPressed: _showAddStaffDialog,
-            icon: const Icon(Icons.add),
-            label: const Text('Add New Staff Member'),
+        ElevatedButton.icon(
+          onPressed: () => _showStaffDialog(),
+          icon: const Icon(Icons.add, size: 18),
+          label: const Text('Add New Staff Member'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: primaryBlue,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(9),
+            ),
           ),
+        ),
       ],
     );
   }
@@ -388,94 +451,130 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
   Widget _buildStatistics() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final columns = width >= 900 ? 4 : width >= 550 ? 2 : 1;
-        final cardWidth = (width - (columns - 1) * 12) / columns;
+        final compact = constraints.maxWidth < 650;
 
-        final stats = [
-          (
+        final cards = [
+          _statCard(
             'Total Staff',
-            '${_staff.length}',
+            '${staff.length}',
             'Active accounts',
             Icons.people_alt_rounded,
-            primaryBlue
+            const Color(0xFFE2F0FF),
           ),
-          (
+          _statCard(
             'Administrators',
-            '$_administratorCount',
+            '$administratorCount',
             'Full access',
             Icons.shield_rounded,
-            const Color(0xFF7755EE)
+            const Color(0xFFEAE4FF),
           ),
-          (
+          _statCard(
             'Librarians',
-            '$_librarianCount',
+            '$librarianCount',
             'Library operations',
-            Icons.person,
-            primaryBlue
+            Icons.person_rounded,
+            const Color(0xFFE5F2FF),
           ),
-          (
+          _statCard(
             'Active Accounts',
-            '$_activeCount',
+            '$activeCount',
             'All active',
             Icons.check_circle_rounded,
-            const Color(0xFF12A76A)
+            const Color(0xFFDCF9EB),
           ),
         ];
 
-        return Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: stats.map((stat) {
-            return SizedBox(
-              width: cardWidth,
-              child: _statCard(
-                stat.$1,
-                stat.$2,
-                stat.$3,
-                stat.$4,
-                stat.$5,
-              ),
-            );
-          }).toList(),
+        if (compact) {
+          return Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: cards.map((card) {
+              return SizedBox(
+                width: (constraints.maxWidth - 10) / 2,
+                child: card,
+              );
+            }).toList(),
+          );
+        }
+
+        return Row(
+          children: [
+            for (int i = 0; i < cards.length; i++) ...[
+              Expanded(child: cards[i]),
+              if (i != cards.length - 1)
+                const SizedBox(width: 12),
+            ],
+          ],
         );
       },
     );
   }
 
-  Widget _statCard(String title, String value, String subtitle,
-      IconData icon, Color color) {
+  Widget _statCard(
+    String title,
+    String value,
+    String subtitle,
+    IconData icon,
+    Color iconBackground,
+  ) {
     return Container(
-      height: 100,
-      padding: const EdgeInsets.all(14),
-      decoration: _cardDecoration(),
+      height: 101,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: borderBlue),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 5,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 25,
-            backgroundColor: color.withValues(alpha: 0.10),
-            child: Icon(icon, color: color, size: 27),
+          Container(
+            width: 51,
+            height: 51,
+            decoration: BoxDecoration(
+              color: iconBackground,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: primaryBlue, size: 29),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 11),
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: const TextStyle(
-                        color: primaryBlue,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 3),
-                Text(value,
-                    style: const TextStyle(
-                        fontSize: 23,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF064DAF))),
-                Text(subtitle,
-                    style: const TextStyle(
-                        color: primaryBlue, fontSize: 10)),
+                Text(
+                  title,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: textBlue,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: textBlue,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 23,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF5082C8),
+                    fontSize: 10,
+                  ),
+                ),
               ],
             ),
           ),
@@ -484,248 +583,273 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
     );
   }
 
-  Widget _buildDesktopContent() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 7,
-          child: Column(
-            children: [
-              _buildStaffDirectory(),
-              const SizedBox(height: 14),
-              _buildRecentActivity(),
-            ],
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          flex: 3,
-          child: Column(
-            children: [
-              _buildPermissions(),
-              const SizedBox(height: 14),
-              _buildQuickActions(),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+  Widget _buildStaffTable() {
+    final members = filteredStaff;
 
-  Widget _buildMobileContent() {
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton.icon(
-            onPressed: _showAddStaffDialog,
-            icon: const Icon(Icons.add),
-            label: const Text('Add New Staff Member'),
-          ),
-        ),
-        const SizedBox(height: 14),
-        _buildStaffDirectory(),
-        const SizedBox(height: 14),
-        _buildPermissions(),
-        const SizedBox(height: 14),
-        _buildQuickActions(),
-        const SizedBox(height: 14),
-        _buildRecentActivity(),
-      ],
-    );
-  }
-
-  BoxDecoration _cardDecoration() {
-    return BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: borderBlue),
-      boxShadow: [
-        BoxShadow(
-          color: primaryBlue.withValues(alpha: 0.025),
-          blurRadius: 8,
-          offset: const Offset(0, 2),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStaffDirectory() {
-    final staff = _filteredStaff;
-
-    return Container(
+    return _panel(
       padding: const EdgeInsets.all(14),
-      decoration: _cardDecoration(),
       child: Column(
         children: [
           Row(
             children: [
-              const Icon(Icons.person_pin, color: primaryBlue, size: 27),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'Staff Members',
-                  style: TextStyle(
-                      color: Color(0xFF064DAF),
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold),
+              const Icon(
+                Icons.person_pin_rounded,
+                color: primaryBlue,
+                size: 27,
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Staff Members',
+                style: TextStyle(
+                  color: textBlue,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              PopupMenuButton<String>(
-                tooltip: 'Filter staff',
-                icon: const Icon(Icons.filter_list, color: primaryBlue),
-                onSelected: (value) => setState(() => _filterRole = value),
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'All Roles', child: Text('All Roles')),
-                  PopupMenuItem(
-                      value: 'Administrator', child: Text('Administrator')),
-                  PopupMenuItem(value: 'Librarian', child: Text('Librarian')),
-                  PopupMenuItem(
-                      value: 'Assistant Librarian',
-                      child: Text('Assistant Librarian')),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _searchController,
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              hintText: 'Search by name, ID or email...',
-              hintStyle: const TextStyle(fontSize: 12),
-              prefixIcon: const Icon(Icons.search, color: primaryBlue),
-              suffixIcon: IconButton(
-                tooltip: 'Clear search',
-                icon: const Icon(Icons.clear),
-                onPressed: () {
-                  _searchController.clear();
-                  setState(() {});
-                },
-              ),
-              isDense: true,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: borderBlue),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: borderBlue),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (staff.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Text('No staff members match your search.'),
-            )
-          else
-            ...staff.map(_staffRow),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Showing ${staff.length} of ${_staff.length}',
-              style: const TextStyle(color: primaryBlue, fontSize: 12),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _staffRow(Map<String, dynamic> member) {
-    final role = member['role'] as String;
-    final roleColor = _roleColor(role);
-    final isActive = member['status'] == 'Active';
-
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: borderBlue)),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 17,
-            backgroundColor: const Color(0xFFE1EEFF),
-            child: Text(
-              member['name'].toString()[0],
-              style: const TextStyle(
-                  color: primaryBlue, fontWeight: FontWeight.bold),
-            ),
-          ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  member['name'],
+              const Spacer(),
+              SizedBox(
+                width: 250,
+                height: 38,
+                child: TextField(
+                  controller: searchController,
+                  onChanged: (_) => setState(() {}),
                   style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF064DAF),
-                      fontWeight: FontWeight.w600),
+                    color: textBlue,
+                    fontSize: 12,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Search by name, ID or email...',
+                    hintStyle: const TextStyle(
+                      color: Color(0xFF7297C9),
+                      fontSize: 11,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      color: primaryBlue,
+                      size: 20,
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(
+                        color: borderBlue,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(
+                        color: borderBlue,
+                      ),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  '${member['id']} · $role',
-                  style: TextStyle(fontSize: 10, color: roleColor),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: _showFilters,
+                icon: const Icon(
+                  Icons.filter_list_rounded,
+                  size: 18,
                 ),
-                Text(
-                  member['email'],
-                  style: const TextStyle(fontSize: 10, color: primaryBlue),
-                  overflow: TextOverflow.ellipsis,
+                label: const Text('Filters'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: primaryBlue,
+                  side: const BorderSide(color: borderBlue),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 11,
+                    vertical: 12,
+                  ),
                 ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 13),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowColor: const WidgetStatePropertyAll(
+                Color(0xFFEDF6FF),
+              ),
+              dataRowMinHeight: 49,
+              dataRowMaxHeight: 54,
+              headingRowHeight: 39,
+              horizontalMargin: 10,
+              columnSpacing: 22,
+              border: TableBorder.all(
+                color: const Color(0xFFE3EEFC),
+                borderRadius: BorderRadius.circular(7),
+              ),
+              columns: const [
+                DataColumn(label: _TableHeading('Name')),
+                DataColumn(label: _TableHeading('Employee ID')),
+                DataColumn(label: _TableHeading('Role')),
+                DataColumn(label: _TableHeading('Email')),
+                DataColumn(label: _TableHeading('Status')),
+                DataColumn(label: _TableHeading('Actions')),
               ],
+              rows: members.map((member) {
+                return DataRow(
+                  cells: [
+                    DataCell(
+                      SizedBox(
+                        width: 145,
+                        child: Row(
+                          children: [
+                            const CircleAvatar(
+                              radius: 15,
+                              backgroundColor: Color(0xFFDDEEFF),
+                              child: Icon(
+                                Icons.person,
+                                color: darkBlue,
+                                size: 21,
+                              ),
+                            ),
+                            const SizedBox(width: 9),
+                            Expanded(
+                              child: Text(
+                                member.name,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: textBlue,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        member.employeeId,
+                        style: const TextStyle(
+                          color: textBlue,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                    DataCell(_roleBadge(member.role)),
+                    DataCell(
+                      Text(
+                        member.email,
+                        style: const TextStyle(
+                          color: textBlue,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                    DataCell(_statusBadge(member.active)),
+                    DataCell(
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _smallAction(
+                            Icons.edit_rounded,
+                            'Edit staff member',
+                            () => _showStaffDialog(member: member),
+                          ),
+                          const SizedBox(width: 5),
+                          _smallAction(
+                            member.active
+                                ? Icons.person_rounded
+                                : Icons.person_off_rounded,
+                            member.active
+                                ? 'Deactivate account'
+                                : 'Activate account',
+                            () => _toggleStaff(member),
+                          ),
+                          PopupMenuButton<String>(
+                            padding: EdgeInsets.zero,
+                            iconSize: 20,
+                            icon: const Icon(
+                              Icons.more_vert,
+                              color: primaryBlue,
+                            ),
+                            onSelected: (value) {
+                              if (value == 'edit') {
+                                _showStaffDialog(member: member);
+                              } else if (value == 'delete') {
+                                _confirmDelete(member);
+                              } else if (value == 'status') {
+                                _toggleStaff(member);
+                              }
+                            },
+                            itemBuilder: (_) => const [
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Text('Edit'),
+                              ),
+                              PopupMenuItem(
+                                value: 'status',
+                                child: Text('Toggle status'),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Text('Delete'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
             ),
           ),
-          const SizedBox(width: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-            decoration: BoxDecoration(
-              color: isActive
-                  ? const Color(0xFFE2F9EF)
-                  : const Color(0xFFFFE8E8),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Text(
-              member['status'],
-              style: TextStyle(
-                color: isActive
-                    ? const Color(0xFF008752)
-                    : Colors.red,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+          const SizedBox(height: 13),
+          Row(
+            children: [
+              Text(
+                'Showing ${members.length} of ${staff.length}',
+                style: const TextStyle(
+                  color: Color(0xFF5082C8),
+                  fontSize: 12,
+                ),
               ),
-            ),
-          ),
-          PopupMenuButton<String>(
-            padding: EdgeInsets.zero,
-            icon: const Icon(Icons.more_vert, color: primaryBlue),
-            onSelected: (action) {
-              if (action == 'edit') {
-                _showEditStaffDialog(member);
-              } else if (action == 'status') {
-                setState(() {
-                  member['status'] =
-                      member['status'] == 'Active' ? 'Inactive' : 'Active';
-                });
-              } else if (action == 'delete') {
-                _confirmDeleteStaff(member);
-              }
-            },
-            itemBuilder: (_) => [
-              const PopupMenuItem(
-                  value: 'edit', child: Text('Edit staff')),
-              PopupMenuItem(
-                value: 'status',
-                child: Text(isActive ? 'Deactivate account' : 'Activate account'),
+              const Spacer(),
+              OutlinedButton(
+                onPressed: () {},
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(34, 34),
+                  padding: EdgeInsets.zero,
+                  side: const BorderSide(color: borderBlue),
+                ),
+                child: const Icon(
+                  Icons.chevron_left,
+                  color: primaryBlue,
+                ),
               ),
-              const PopupMenuItem(
-                  value: 'delete', child: Text('Delete staff')),
+              const SizedBox(width: 8),
+              Container(
+                height: 34,
+                width: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: primaryBlue,
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: const Text(
+                  '1',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: () {},
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(34, 34),
+                  padding: EdgeInsets.zero,
+                  side: const BorderSide(color: borderBlue),
+                ),
+                child: const Icon(
+                  Icons.chevron_right,
+                  color: primaryBlue,
+                ),
+              ),
             ],
           ),
         ],
@@ -733,89 +857,230 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
     );
   }
 
-  Widget _buildPermissions() {
-    final permissions = _rolePermissions[_selectedRole] ?? [];
-    final selected = _selectedPermissions.putIfAbsent(
-      _selectedRole,
-      () => Set<String>.from(permissions),
-    );
+  Widget _roleBadge(String role) {
+    Color background;
+    Color foreground;
+
+    switch (role) {
+      case 'Administrator':
+        background = const Color(0xFFEDE4FF);
+        foreground = const Color(0xFF743BFA);
+        break;
+      case 'Assistant Librarian':
+        background = const Color(0xFFDDFBF5);
+        foreground = const Color(0xFF008F83);
+        break;
+      case 'Technician':
+        background = const Color(0xFFFFEBD8);
+        foreground = const Color(0xFFB96008);
+        break;
+      default:
+        background = const Color(0xFFE3F1FF);
+        foreground = primaryBlue;
+    }
 
     return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 5,
+      ),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: foreground.withValues(alpha: 0.15)),
+      ),
+      child: Text(
+        role,
+        style: TextStyle(
+          color: foreground,
+          fontWeight: FontWeight.w600,
+          fontSize: 10,
+        ),
+      ),
+    );
+  }
+
+  Widget _statusBadge(bool active) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 5,
+      ),
+      decoration: BoxDecoration(
+        color: active
+            ? const Color(0xFFDCF9EB)
+            : const Color(0xFFFFE6E6),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: active
+              ? const Color(0xFFB7F0D4)
+              : const Color(0xFFFFCACA),
+        ),
+      ),
+      child: Text(
+        active ? 'Active' : 'Inactive',
+        style: TextStyle(
+          color: active
+              ? const Color(0xFF008A52)
+              : Colors.red,
+          fontWeight: FontWeight.w600,
+          fontSize: 10,
+        ),
+      ),
+    );
+  }
+
+  Widget _smallAction(
+    IconData icon,
+    String tooltip,
+    VoidCallback onTap,
+  ) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          height: 29,
+          width: 29,
+          decoration: BoxDecoration(
+            color: const Color(0xFFE7F3FF),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 17, color: primaryBlue),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRolePermissions() {
+    final roleOptions = [
+      'Administrator',
+      'Librarian',
+      'Assistant Librarian',
+      'Technician',
+    ];
+
+    return _panel(
       padding: const EdgeInsets.all(14),
-      decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Row(
             children: [
-              Icon(Icons.shield, color: primaryBlue),
-              SizedBox(width: 8),
+              Icon(
+                Icons.shield_rounded,
+                color: primaryBlue,
+                size: 24,
+              ),
+              SizedBox(width: 10),
               Expanded(
                 child: Text(
                   'Role Permissions',
                   style: TextStyle(
-                      color: Color(0xFF064DAF),
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold),
+                    color: textBlue,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 14),
           DropdownButtonFormField<String>(
-            initialValue: _selectedRole,
+            value: selectedPermissionRole,
             isExpanded: true,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Select role',
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              labelStyle: const TextStyle(
+                color: textBlue,
+                fontSize: 12,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 10,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: borderBlue),
+              ),
             ),
-            items: _rolePermissions.keys.map((role) {
-              return DropdownMenuItem(value: role, child: Text(role));
+            items: roleOptions.map((role) {
+              return DropdownMenuItem(
+                value: role,
+                child: Text(
+                  role,
+                  style: const TextStyle(fontSize: 11),
+                ),
+              );
             }).toList(),
             onChanged: (value) {
-              if (value != null) setState(() => _selectedRole = value);
+              if (value != null) {
+                setState(() => selectedPermissionRole = value);
+              }
             },
           ),
-          const SizedBox(height: 12),
-         Text(
-  '$_selectedRole Permissions',
-  style: const TextStyle(
-    color: Color(0xFF064DAF),
-    fontWeight: FontWeight.bold,
-    fontSize: 12,
-  ),
-         ),
-          const SizedBox(height: 6),
-          ...permissions.map((permission) {
-            return CheckboxListTile(
-              value: selected.contains(permission),
-              onChanged: (checked) {
-                setState(() {
-                  if (checked == true) {
-                    selected.add(permission);
-                  } else {
-                    selected.remove(permission);
-                  }
-                });
-              },
-              title: Text(permission,
-                  style: const TextStyle(fontSize: 11)),
-              activeColor: primaryBlue,
-              controlAffinity: ListTileControlAffinity.leading,
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              visualDensity: VisualDensity.compact,
+          const SizedBox(height: 15),
+          Row(
+            children: [
+              const Icon(
+                Icons.add,
+                color: primaryBlue,
+                size: 17,
+              ),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  '$selectedPermissionRole Permissions',
+                  style: const TextStyle(
+                    color: textBlue,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...permissions.entries.map((entry) {
+            return SizedBox(
+              height: 27,
+              child: CheckboxListTile(
+                value: entry.value,
+                onChanged: (value) {
+                  setState(() {
+                    permissions[entry.key] = value ?? false;
+                  });
+                },
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                visualDensity: VisualDensity.compact,
+                controlAffinity: ListTileControlAffinity.leading,
+                activeColor: primaryBlue,
+                title: Text(
+                  entry.key,
+                  style: const TextStyle(
+                    color: textBlue,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
             );
           }),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () => _showMessage(
-                'Permissions for $_selectedRole are saved locally for this session.',
-              ),
-              child: const Text('Save Permissions'),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Permission selections updated locally.',
+                    ),
+                  ),
+                );
+              },
+              child: const Text('Apply Permissions'),
             ),
           ),
         ],
@@ -824,48 +1089,71 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
   }
 
   Widget _buildQuickActions() {
-    return Container(
+    return _panel(
       padding: const EdgeInsets.all(14),
-      decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Row(
             children: [
-              Icon(Icons.bolt, color: primaryBlue, size: 25),
-              SizedBox(width: 8),
+              Icon(
+                Icons.bolt_rounded,
+                color: primaryBlue,
+                size: 25,
+              ),
+              SizedBox(width: 10),
               Text(
                 'Quick Actions',
                 style: TextStyle(
-                    color: Color(0xFF064DAF),
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold),
+                  color: textBlue,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _quickAction(
+                  Icons.add_circle_outline,
+                  'Add Staff Member',
+                  'Create a new account',
+                  () => _showStaffDialog(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _quickAction(
+                  Icons.person_outline,
+                  'Manage Roles',
+                  'Assign or change roles',
+                  _showRoleDialog,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 1.35,
+          Row(
             children: [
-              _actionTile(Icons.person_add_alt_1, 'Add Staff Member',
-                  'Create a new account', _showAddStaffDialog),
-              _actionTile(Icons.manage_accounts, 'Manage Roles',
-                  'Assign or change roles', () {
-                _showMessage('Select a role in the Role Permissions panel.');
-              }),
-              _actionTile(Icons.lock_outline, 'Permissions',
-                  'Set access rights', () {
-                _showMessage('Choose a role and edit its permissions.');
-              }),
-              _actionTile(Icons.person_off, 'Account Status',
-                  'Activate or deactivate', () {
-                _showMessage('Use the menu beside a staff member.');
-              }),
+              Expanded(
+                child: _quickAction(
+                  Icons.lock_outline_rounded,
+                  'Permissions',
+                  'Set access rights',
+                  _showPermissionDialog,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _quickAction(
+                  Icons.cancel_outlined,
+                  'Deactivate Account',
+                  'Disable staff access',
+                  _showDeactivateDialog,
+                ),
+              ),
             ],
           ),
         ],
@@ -873,191 +1161,258 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
     );
   }
 
-  Widget _actionTile(
+  Widget _quickAction(
     IconData icon,
     String title,
     String subtitle,
     VoidCallback onTap,
   ) {
-    return Material(
-      color: const Color(0xFFF7FBFF),
+    return InkWell(
+      onTap: onTap,
       borderRadius: BorderRadius.circular(9),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(9),
-        child: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            border: Border.all(color: borderBlue),
-            borderRadius: BorderRadius.circular(9),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: primaryBlue, size: 27),
-              const SizedBox(height: 6),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    color: primaryBlue,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600),
+      child: Container(
+        height: 98,
+        padding: const EdgeInsets.all(9),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: borderBlue),
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: primaryBlue, size: 26),
+            const SizedBox(height: 7),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: primaryBlue,
+                fontWeight: FontWeight.w600,
+                fontSize: 11,
               ),
-              const SizedBox(height: 3),
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: primaryBlue, fontSize: 9),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF5082C8),
+                fontSize: 9,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildRecentActivity() {
-    return Container(
-      width: double.infinity,
+    return _panel(
       padding: const EdgeInsets.all(14),
-      decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.access_time, color: primaryBlue),
-              SizedBox(width: 8),
-              Expanded(
+              const Icon(
+                Icons.access_time_rounded,
+                color: primaryBlue,
+                size: 24,
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
                 child: Text(
                   'Recent Staff Activity',
                   style: TextStyle(
-                      color: Color(0xFF064DAF),
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold),
+                    color: textBlue,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  _showMessage(
+                    'Showing all recorded staff activity.',
+                  );
+                },
+                child: const Text(
+                  'View All  →',
+                  style: TextStyle(fontSize: 11),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          ..._activity.map((item) {
-            return Container(
-              padding: const EdgeInsets.symmetric(vertical: 11),
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: borderBlue)),
+          const SizedBox(height: 9),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowHeight: 34,
+              dataRowMinHeight: 34,
+              dataRowMaxHeight: 39,
+              horizontalMargin: 10,
+              columnSpacing: 24,
+              headingRowColor: const WidgetStatePropertyAll(
+                Color(0xFFEDF6FF),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(item['date']!,
-                      style: const TextStyle(
-                          fontSize: 10, color: primaryBlue)),
-                  const SizedBox(height: 4),
-                  Text(item['name']!,
-                      style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF064DAF),
-                          fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      _activityBadge(item['action']!),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          item['details']!,
-                          style: const TextStyle(
-                              fontSize: 10, color: primaryBlue),
+              border: TableBorder.all(
+                color: const Color(0xFFE3EEFC),
+                borderRadius: BorderRadius.circular(7),
+              ),
+              columns: const [
+                DataColumn(label: _TableHeading('Date & Time')),
+                DataColumn(label: _TableHeading('Staff Name')),
+                DataColumn(label: _TableHeading('Action')),
+                DataColumn(label: _TableHeading('Details')),
+              ],
+              rows: activities.map((activity) {
+                return DataRow(
+                  cells: [
+                    DataCell(
+                      Text(
+                        activity['date']!,
+                        style: const TextStyle(
+                          color: textBlue,
+                          fontSize: 10,
                         ),
                       ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          }),
+                    ),
+                    DataCell(
+                      Text(
+                        activity['name']!,
+                        style: const TextStyle(
+                          color: textBlue,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      _activityBadge(activity['action']!),
+                    ),
+                    DataCell(
+                      Text(
+                        activity['details']!,
+                        style: const TextStyle(
+                          color: textBlue,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _activityBadge(String action) {
-    final color = action == 'Created'
-        ? const Color(0xFF008752)
-        : primaryBlue;
-
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 4,
+      ),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
+        color: const Color(0xFFE1F2FF),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Text(
         action,
-        style: TextStyle(
-            color: color, fontSize: 10, fontWeight: FontWeight.w600),
+        style: const TextStyle(
+          color: primaryBlue,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
 
-  void _showAddStaffDialog() {
-    _showStaffFormDialog();
+  Widget _panel({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: borderBlue),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: child,
+    );
   }
 
-  void _showEditStaffDialog(Map<String, dynamic> member) {
-    _showStaffFormDialog(member: member);
-  }
+  void _showStaffDialog({StaffMember? member}) {
+    final nameController = TextEditingController(
+      text: member?.name ?? '',
+    );
+    final idController = TextEditingController(
+      text: member?.employeeId ?? '',
+    );
+    final emailController = TextEditingController(
+      text: member?.email ?? '',
+    );
+    String role = member?.role ?? 'Librarian';
 
-  void _showStaffFormDialog({Map<String, dynamic>? member}) {
-    final isEditing = member != null;
-    final nameController =
-        TextEditingController(text: member?['name'] ?? '');
-    final idController = TextEditingController(text: member?['id'] ?? '');
-    final emailController =
-        TextEditingController(text: member?['email'] ?? '');
-    String role = member?['role'] ?? 'Librarian';
-
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (dialogContext, setDialogState) {
             return AlertDialog(
-              title: Text(isEditing ? 'Edit Staff Member' : 'Add Staff Member'),
+              title: Text(
+                member == null
+                    ? 'Add New Staff Member'
+                    : 'Edit Staff Member',
+                style: const TextStyle(color: textBlue),
+              ),
               content: SizedBox(
                 width: 420,
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      TextField(
-                        controller: nameController,
-                        decoration:
-                            const InputDecoration(labelText: 'Full name'),
-                      ),
-                      TextField(
-                        controller: idController,
-                        decoration:
-                            const InputDecoration(labelText: 'Employee ID'),
-                      ),
-                      TextField(
-                        controller: emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration:
-                            const InputDecoration(labelText: 'Email address'),
-                      ),
+                      _dialogField('Full Name', nameController),
+                      const SizedBox(height: 12),
+                      _dialogField('Employee ID', idController),
+                      const SizedBox(height: 12),
+                      _dialogField('Email', emailController),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
-                        initialValue: role,
-                        decoration:
-                            const InputDecoration(labelText: 'Staff role'),
-                        items: _rolePermissions.keys.map((item) {
-                          return DropdownMenuItem(
-                            value: item,
-                            child: Text(item),
-                          );
-                        }).toList(),
+                        value: role,
+                        decoration: const InputDecoration(
+                          labelText: 'Role',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'Administrator',
+                            child: Text('Administrator'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Librarian',
+                            child: Text('Librarian'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Assistant Librarian',
+                            child: Text('Assistant Librarian'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Technician',
+                            child: Text('Technician'),
+                          ),
+                        ],
                         onChanged: (value) {
                           if (value != null) {
                             setDialogState(() => role = value);
@@ -1073,7 +1428,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                   onPressed: () => Navigator.pop(dialogContext),
                   child: const Text('Cancel'),
                 ),
-                FilledButton(
+                ElevatedButton(
                   onPressed: () {
                     final name = nameController.text.trim();
                     final id = idController.text.trim();
@@ -1081,91 +1436,369 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
 
                     if (name.isEmpty ||
                         id.isEmpty ||
-                        !email.contains('@')) {
-                      _showMessage(
-                          'Enter a name, employee ID, and valid email.');
+                        email.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Please complete all fields.',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+
+                    final duplicateId = staff.any(
+                      (s) =>
+                          s.employeeId.toLowerCase() ==
+                              id.toLowerCase() &&
+                          s != member,
+                    );
+
+                    final duplicateEmail = staff.any(
+                      (s) =>
+                          s.email.toLowerCase() ==
+                              email.toLowerCase() &&
+                          s != member,
+                    );
+
+                    if (duplicateId || duplicateEmail) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Employee ID or email already exists.',
+                          ),
+                        ),
+                      );
                       return;
                     }
 
                     setState(() {
-                      if (isEditing) {
-                        member['name'] = name;
-                        member['id'] = id;
-                        member['email'] = email;
-                        member['role'] = role;
-                      } else {
-                        final exists = _staff.any(
-                          (s) => s['id'].toString().toLowerCase() ==
-                              id.toLowerCase(),
+                      if (member == null) {
+                        staff.add(
+                          StaffMember(
+                            name: name,
+                            employeeId: id,
+                            role: role,
+                            email: email,
+                          ),
                         );
-
-                        if (exists) {
-                          _showMessage('That employee ID already exists.');
-                          return;
-                        }
-
-                        _staff.add({
-                          'name': name,
-                          'id': id,
-                          'role': role,
-                          'email': email,
-                          'status': 'Active',
-                        });
-
-                        _activity.insert(0, {
+                        activities.insert(0, {
                           'date': 'Just now',
                           'name': name,
                           'action': 'Created',
                           'details': 'New staff account ($id)',
                         });
+                      } else {
+                        member.name = name;
+                        member.employeeId = id;
+                        member.role = role;
+                        member.email = email;
+                        activities.insert(0, {
+                          'date': 'Just now',
+                          'name': name,
+                          'action': 'Updated',
+                          'details': 'Staff details updated',
+                        });
                       }
                     });
 
-                    if (!mounted) return;
                     Navigator.pop(dialogContext);
-                    _showMessage(isEditing
-                        ? 'Staff member updated.'
-                        : 'Staff member added.');
+                    _showMessage(
+                      member == null
+                          ? 'Staff member added.'
+                          : 'Staff member updated.',
+                    );
                   },
-                  child: Text(isEditing ? 'Save Changes' : 'Add Staff'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryBlue,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Save'),
                 ),
               ],
             );
           },
         );
       },
-    ).then((_) {
-      nameController.dispose();
-      idController.dispose();
-      emailController.dispose();
-    });
+    );
   }
 
-  void _confirmDeleteStaff(Map<String, dynamic> member) {
-    showDialog(
+  Widget _dialogField(
+    String label,
+    TextEditingController controller,
+  ) {
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+      ),
+    );
+  }
+
+  void _showFilters() {
+    showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete Staff Member?'),
+        title: const Text('Filter Staff'),
+        content: DropdownButtonFormField<String>(
+          value: roleFilter,
+          decoration: const InputDecoration(
+            labelText: 'Role',
+            border: OutlineInputBorder(),
+          ),
+          items: const [
+            DropdownMenuItem(value: 'All', child: Text('All roles')),
+            DropdownMenuItem(
+              value: 'Administrator',
+              child: Text('Administrator'),
+            ),
+            DropdownMenuItem(
+              value: 'Librarian',
+              child: Text('Librarian'),
+            ),
+            DropdownMenuItem(
+              value: 'Assistant Librarian',
+              child: Text('Assistant Librarian'),
+            ),
+            DropdownMenuItem(
+              value: 'Technician',
+              child: Text('Technician'),
+            ),
+          ],
+          onChanged: (value) {
+            if (value != null) {
+              setState(() => roleFilter = value);
+            }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Apply'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _toggleStaff(StaffMember member) {
+    setState(() {
+      member.active = !member.active;
+      activities.insert(0, {
+        'date': 'Just now',
+        'name': member.name,
+        'action': 'Updated',
+        'details': member.active
+            ? 'Account activated'
+            : 'Account deactivated',
+      });
+    });
+
+    _showMessage(
+      member.active
+          ? '${member.name} account activated.'
+          : '${member.name} account deactivated.',
+    );
+  }
+
+  void _confirmDelete(StaffMember member) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete Staff Member'),
         content: Text(
-          'Are you sure you want to remove ${member['name']} from this sample directory?',
+          'Are you sure you want to delete ${member.name}?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () {
               setState(() {
-                _staff.remove(member);
+                staff.remove(member);
+                activities.insert(0, {
+                  'date': 'Just now',
+                  'name': member.name,
+                  'action': 'Deleted',
+                  'details': 'Staff account removed',
+                });
               });
               Navigator.pop(dialogContext);
-              _showMessage('Staff member removed from sample data.');
+              _showMessage('Staff member deleted.');
             },
             child: const Text('Delete'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showRoleDialog() {
+    String selectedRole = 'Librarian';
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          return AlertDialog(
+            title: const Text('Manage Staff Roles'),
+            content: DropdownButtonFormField<String>(
+              value: selectedRole,
+              decoration: const InputDecoration(
+                labelText: 'Available role',
+                border: OutlineInputBorder(),
+              ),
+              items: const [
+                DropdownMenuItem(
+                  value: 'Administrator',
+                  child: Text('Administrator'),
+                ),
+                DropdownMenuItem(
+                  value: 'Librarian',
+                  child: Text('Librarian'),
+                ),
+                DropdownMenuItem(
+                  value: 'Assistant Librarian',
+                  child: Text('Assistant Librarian'),
+                ),
+                DropdownMenuItem(
+                  value: 'Technician',
+                  child: Text('Technician'),
+                ),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setDialogState(() => selectedRole = value);
+                }
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Close'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    selectedPermissionRole = selectedRole;
+                  });
+                  Navigator.pop(dialogContext);
+                },
+                child: const Text('Select Role'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showPermissionDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Manage Permissions'),
+        content: const Text(
+          'Choose a role in the Role Permissions panel, then update its permissions.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeactivateDialog() {
+    final activeStaff = staff.where((s) => s.active).toList();
+    StaffMember? selected = activeStaff.isNotEmpty
+        ? activeStaff.first
+        : null;
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          return AlertDialog(
+            title: const Text('Deactivate Staff Account'),
+            content: SizedBox(
+              width: 380,
+              child: DropdownButtonFormField<StaffMember>(
+                value: selected,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Select staff member',
+                  border: OutlineInputBorder(),
+                ),
+                items: activeStaff.map((member) {
+                  return DropdownMenuItem(
+                    value: member,
+                    child: Text(
+                      '${member.name} (${member.employeeId})',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setDialogState(() => selected = value);
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: selected == null
+                    ? null
+                    : () {
+                        final member = selected!;
+                        Navigator.pop(dialogContext);
+                        _toggleStaff(member);
+                      },
+                child: const Text('Deactivate'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+}
+
+class _TableHeading extends StatelessWidget {
+  final String text;
+
+  const _TableHeading(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: textBlue,
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
       ),
     );
   }

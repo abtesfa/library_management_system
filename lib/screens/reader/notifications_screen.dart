@@ -291,7 +291,7 @@ class _ReaderNotificationsScreenState
       ),
       subtitle: Text(description, style: const TextStyle(fontSize: 11)),
       value: true,
-      activeColor: blue,
+      activeThumbColor: blue,
       onChanged: (value) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

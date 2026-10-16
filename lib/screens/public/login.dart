@@ -1,9 +1,8 @@
-
 import 'package:flutter/material.dart';
 
-import 'admin/admin_dashboard_screen.dart';
-import 'librarian/borrow_return_desk_screen.dart';
-import 'reader/reader_home_screen.dart';
+import '../admin/admin_dashboard_screen.dart';
+import '../librarian/librarian_dashboard.dart';
+import '../reader/reader_home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,18 +26,9 @@ class _LoginScreenState extends State<LoginScreen> {
   // Temporary credentials for testing only.
   // Replace these with your real authentication service later.
   final Map<String, Map<String, String>> _testAccounts = {
-    'Admin': {
-      'userId': 'admin',
-      'password': 'admin123',
-    },
-    'Librarian': {
-      'userId': 'librarian',
-      'password': 'lib123',
-    },
-    'Student': {
-      'userId': 'student',
-      'password': 'student123',
-    },
+    'Admin': {'userId': 'admin', 'password': 'admin123'},
+    'Librarian': {'userId': 'librarian', 'password': 'lib123'},
+    'Student': {'userId': 'student', 'password': 'student123'},
   };
 
   void _login() {
@@ -71,7 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
         destination = const AdminDashboardScreen();
         break;
       case 'Librarian':
-        destination = const BorrowReturnDeskScreen();
+        destination = const LibrarianDashboard();
         break;
       case 'Student':
         destination = const ReaderHomeScreen();
@@ -80,9 +70,8 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
     }
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => destination),
-    );
+    Navigator.of(context)
+        .pushReplacement(MaterialPageRoute(builder: (_) => destination));
   }
 
   @override
@@ -148,7 +137,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<String>(
-                          value: _selectedRole,
+                          initialValue: _selectedRole,
                           decoration: InputDecoration(
                             prefixIcon: const Icon(
                               Icons.badge_outlined,
@@ -291,10 +280,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           'Librarian: librarian / lib123\n'
                           'Student: student / student123',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            height: 1.7,
-                            color: Colors.blueGrey,
-                          ),
+                          style: TextStyle(height: 1.7, color: Colors.blueGrey),
                         ),
                       ],
                     ),
