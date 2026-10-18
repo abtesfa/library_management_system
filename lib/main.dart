@@ -13,6 +13,8 @@ import 'screens/librarian/librarian_desk_screen.dart';
 import 'screens/reader/reader_home_screen.dart';
 import 'screens/reader/reader_my_books_screen.dart';
 import 'screens/reader/reader_reservations_screen.dart';
+import 'screens/librarian/librarian_notifications_screen.dart';
+
 
 void main() {
   runApp(
@@ -114,18 +116,35 @@ class _MainShellState extends State<MainShell> {
     if (_currentRole == UserRole.admin) {
       return [
         {'index': 3, 'title': 'Book Inventory', 'icon': Icons.menu_book},
-        {'index': 2, 'title': 'Staff Management', 'icon': Icons.people_alt_outlined},
+        {
+          'index': 2,
+          'title': 'Staff Management',
+          'icon': Icons.people_alt_outlined
+        },
         {'index': 1, 'title': 'LMS Settings', 'icon': Icons.settings_outlined},
       ];
     } else if (_currentRole == UserRole.librarian) {
       return [
-        {'index': 0, 'title': 'Borrow & Return', 'icon': Icons.swap_horiz},
+        {
+          'index': 0,
+          'title': 'Borrow & Return',
+          'icon': Icons.swap_horiz,
+        },
+        {
+          'index': 1,
+          'title': 'Notifications',
+          'icon': Icons.notifications_outlined,
+        },
       ];
     } else {
       return [
         {'index': 0, 'title': 'Reader Home', 'icon': Icons.home_outlined},
         {'index': 1, 'title': 'My Books', 'icon': Icons.bookmark_outline},
-        {'index': 2, 'title': 'Reservations', 'icon': Icons.calendar_month_outlined},
+        {
+          'index': 2,
+          'title': 'Reservations',
+          'icon': Icons.calendar_month_outlined
+        },
       ];
     }
   }
@@ -142,8 +161,14 @@ class _MainShellState extends State<MainShell> {
           return const AdminInventoryScreen();
       }
     } else if (_currentRole == UserRole.librarian) {
+  switch (_selectedNavIndex) {
+    case 1:
+      return const LibrarianNotificationsScreen();
+    case 0:
+    default:
       return const LibrarianDeskScreen();
-    } else {
+  }
+}else {
       switch (_selectedNavIndex) {
         case 1:
           return const ReaderMyBooksScreen();
