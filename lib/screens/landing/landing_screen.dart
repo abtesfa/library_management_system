@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 import '/../models/user.dart';
@@ -9,23 +8,24 @@ import '/../config/app_images.dart';
 
 class LandingScreen extends StatelessWidget {
   final Function(UserRole role) onEnterPortal;
-final GlobalKey homeKey = GlobalKey();
-final GlobalKey booksKey = GlobalKey();
-final GlobalKey categoriesKey = GlobalKey();
-final GlobalKey aboutKey = GlobalKey();
-final GlobalKey contactKey = GlobalKey();
+  final GlobalKey homeKey = GlobalKey();
+  final GlobalKey booksKey = GlobalKey();
+  final GlobalKey categoriesKey = GlobalKey();
+  final GlobalKey aboutKey = GlobalKey();
+  final GlobalKey contactKey = GlobalKey();
 
-void _scrollToSection(GlobalKey key) {
-  final context = key.currentContext;
-  if (context != null) {
-    Scrollable.ensureVisible(
-      context,
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeInOut,
-    );
+  void _scrollToSection(GlobalKey key) {
+    final context = key.currentContext;
+    if (context != null) {
+      Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    }
   }
-}
-   LandingScreen({
+
+  LandingScreen({
     super.key,
     required this.onEnterPortal,
   });
@@ -45,8 +45,7 @@ void _scrollToSection(GlobalKey key) {
 
   @override
   Widget build(BuildContext context) {
-    final featuredBooks =
-        MockLibraryData.getInitialBooks().take(6).toList();
+    final featuredBooks = MockLibraryData.getInitialBooks().take(6).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FC),
@@ -86,11 +85,14 @@ void _scrollToSection(GlobalKey key) {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                 _navLink('Home', true, () => _scrollToSection(homeKey)),
-_navLink('Browse Books', false, () => _scrollToSection(booksKey)),
-_navLink('Categories', false, () => _scrollToSection(categoriesKey)),
-_navLink('About', false, () => _scrollToSection(aboutKey)),
-_navLink('Contact', false, () => _scrollToSection(contactKey)),
+                  _navLink('Home', true, () => _scrollToSection(homeKey)),
+                  _navLink(
+                      'Browse Books', false, () => _scrollToSection(booksKey)),
+                  _navLink('Categories', false,
+                      () => _scrollToSection(categoriesKey)),
+                  _navLink('About', false, () => _scrollToSection(aboutKey)),
+                  _navLink(
+                      'Contact', false, () => _scrollToSection(contactKey)),
                   const SizedBox(width: 12),
                   ElevatedButton.icon(
                     onPressed: () => _openSignIn(context),
@@ -236,8 +238,7 @@ _navLink('Contact', false, () => _scrollToSection(contactKey)),
                               const Expanded(
                                 child: TextField(
                                   decoration: InputDecoration(
-                                    hintText:
-                                        'Search books, authors, ISBN...',
+                                    hintText: 'Search books, authors, ISBN...',
                                     hintStyle: TextStyle(
                                       fontSize: 13,
                                       color: Color(0xFF94A3B8),
@@ -253,12 +254,10 @@ _navLink('Contact', false, () => _scrollToSection(contactKey)),
                                   UserRole.reader,
                                 ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      const Color(0xFF1877F2),
+                                  backgroundColor: const Color(0xFF1877F2),
                                   foregroundColor: Colors.white,
                                   shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(10),
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
                                 ),
                                 child: const Text('Search'),
@@ -386,8 +385,7 @@ _navLink('Contact', false, () => _scrollToSection(contactKey)),
                     child: _buildFeatureCard(
                       icon: Icons.menu_book,
                       title: 'Browse Books',
-                      desc:
-                          'Explore our collection of books and find '
+                      desc: 'Explore our collection of books and find '
                           'your next read across diverse genres.',
                     ),
                   ),
@@ -396,8 +394,7 @@ _navLink('Contact', false, () => _scrollToSection(contactKey)),
                     child: _buildFeatureCard(
                       icon: Icons.search,
                       title: 'Search & Discover',
-                      desc:
-                          'Find books by title, author, ISBN, or '
+                      desc: 'Find books by title, author, ISBN, or '
                           'category and discover your next read.',
                     ),
                   ),
@@ -422,8 +419,7 @@ _navLink('Contact', false, () => _scrollToSection(contactKey)),
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      mainAxisAlignment:
-                          MainAxisAlignment.spaceBetween,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Row(
                           children: [
@@ -468,8 +464,7 @@ _navLink('Contact', false, () => _scrollToSection(contactKey)),
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: featuredBooks.length,
-                        separatorBuilder: (ctx, i) =>
-                            const SizedBox(width: 12),
+                        separatorBuilder: (ctx, i) => const SizedBox(width: 12),
                         itemBuilder: (ctx, index) {
                           return _buildBookCard(
                             context,
@@ -716,7 +711,7 @@ _navLink('Contact', false, () => _scrollToSection(contactKey)),
         ),
         SizedBox(height: 14),
         Row(
-           crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(
               Icons.email_outlined,
@@ -779,26 +774,26 @@ _navLink('Contact', false, () => _scrollToSection(contactKey)),
 
   // TOP NAVIGATION LINK
   Widget _navLink(
-  String text,
-  bool isActive,
-  VoidCallback onTap,
-) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 10),
-    child: InkWell(
-      onTap: onTap,
-      child: Text(
-        text,
-        style: TextStyle(
-          color: isActive ? Colors.white : Colors.white70,
-          fontWeight:
-              isActive ? FontWeight.bold : FontWeight.normal,
-          fontSize: 13,
+    String text,
+    bool isActive,
+    VoidCallback onTap,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: InkWell(
+        onTap: onTap,
+        child: Text(
+          text,
+          style: TextStyle(
+            color: isActive ? Colors.white : Colors.white70,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            fontSize: 13,
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
+
   // STATISTICS
   Widget _buildMetric(
     IconData icon,
