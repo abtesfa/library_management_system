@@ -85,15 +85,6 @@ class LandingScreen extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _navLink('Home', true, () => _scrollToSection(homeKey)),
-                  _navLink(
-                      'Browse Books', false, () => _scrollToSection(booksKey)),
-                  _navLink('Categories', false,
-                      () => _scrollToSection(categoriesKey)),
-                  _navLink('About', false, () => _scrollToSection(aboutKey)),
-                  _navLink(
-                      'Contact', false, () => _scrollToSection(contactKey)),
-                  const SizedBox(width: 12),
                   ElevatedButton.icon(
                     onPressed: () => _openSignIn(context),
                     icon: const Icon(Icons.login, size: 16),
@@ -203,17 +194,6 @@ class LandingScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        const Text(
-                          'The Library Management System helps you '
-                          'explore thousands of books, manage your '
-                          'reading journey, and access knowledge '
-                          'whenever you need it.',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF64748B),
-                            height: 1.5,
-                          ),
-                        ),
                         const SizedBox(height: 24),
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -335,46 +315,6 @@ class LandingScreen extends StatelessWidget {
                 ],
               ),
             ),
-
-            // 2. LIBRARY STATISTICS
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: const Color(0xFFE2E8F0),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    _buildMetric(
-                      Icons.book,
-                      '1,200+',
-                      'Books Available',
-                    ),
-                    _buildMetric(
-                      Icons.people_outline,
-                      '350+',
-                      'Registered Members',
-                    ),
-                    _buildMetric(
-                      Icons.access_time,
-                      '24/7',
-                      'Online Access',
-                    ),
-                    _buildMetric(
-                      Icons.shield_outlined,
-                      'Secure',
-                      '& Reliable',
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
 
             // 3. FEATURE CARDS
             Padding(
@@ -561,7 +501,7 @@ class LandingScreen extends StatelessWidget {
           LayoutBuilder(
             builder: (context, constraints) {
               final brand = _footerBrand();
-              final links = _footerLinks(context);
+
               final contact = _footerContact();
 
               if (constraints.maxWidth < 700) {
@@ -569,8 +509,6 @@ class LandingScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     brand,
-                    const SizedBox(height: 28),
-                    links,
                     const SizedBox(height: 28),
                     contact,
                   ],
@@ -581,8 +519,6 @@ class LandingScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(flex: 2, child: brand),
-                  const SizedBox(width: 32),
-                  Expanded(child: links),
                   const SizedBox(width: 32),
                   Expanded(child: contact),
                 ],
@@ -665,37 +601,6 @@ class LandingScreen extends StatelessWidget {
     );
   }
 
-  Widget _footerLinks(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'QUICK LINKS',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-            letterSpacing: 1,
-          ),
-        ),
-        const SizedBox(height: 14),
-        _footerLink('Home', () {}),
-        _footerLink(
-          'Browse Books',
-          () => _openSignIn(context, UserRole.reader),
-        ),
-        _footerLink(
-          'Reader Sign In',
-          () => _openSignIn(context, UserRole.reader),
-        ),
-        _footerLink(
-          'Staff Sign In',
-          () => _openSignIn(context, UserRole.librarian),
-        ),
-      ],
-    );
-  }
-
   Widget _footerContact() {
     return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -721,7 +626,7 @@ class LandingScreen extends StatelessWidget {
             SizedBox(width: 10),
             Expanded(
               child: Text(
-                'centralacademy@example.com',
+                'AddisAbabaUni@example.com',
                 style: TextStyle(
                   color: Color(0xFFBFDBFE),
                   fontSize: 13,
@@ -756,92 +661,9 @@ class LandingScreen extends StatelessWidget {
     );
   }
 
-  Widget _footerLink(String label, VoidCallback onTap) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
-        onTap: onTap,
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: Color(0xFFBFDBFE),
-            fontSize: 13,
-          ),
-        ),
-      ),
-    );
-  }
-
   // TOP NAVIGATION LINK
-  Widget _navLink(
-    String text,
-    bool isActive,
-    VoidCallback onTap,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      child: InkWell(
-        onTap: onTap,
-        child: Text(
-          text,
-          style: TextStyle(
-            color: isActive ? Colors.white : Colors.white70,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-            fontSize: 13,
-          ),
-        ),
-      ),
-    );
-  }
 
   // STATISTICS
-  Widget _buildMetric(
-    IconData icon,
-    String value,
-    String label,
-  ) {
-    return Expanded(
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              color: const Color(0xFF0052CC),
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF64748B),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   // FEATURE CARDS
   Widget _buildFeatureCard({
