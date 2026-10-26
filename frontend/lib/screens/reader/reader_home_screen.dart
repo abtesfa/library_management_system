@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import '../../data/mock_library_data.dart';
 import '../../models/book.dart';
@@ -142,6 +141,55 @@ class ReaderHomeScreen extends StatelessWidget {
           ),
 
           const SizedBox(height: 28),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 6,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: const Color(0xFFCBD5E1),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.search,
+                  size: 20,
+                  color: Color(0xFF94A3B8),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Search books, authors, ISBN...',
+                      hintStyle: TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF94A3B8),
+                      ),
+                      border: InputBorder.none,
+                      isDense: true,
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {},
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1877F2),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Text('Search'),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 28),
 
           // Recommended Books
           const Text(
@@ -158,8 +206,7 @@ class ReaderHomeScreen extends StatelessWidget {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate:
-                const SliverGridDelegateWithFixedCrossAxisCount(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
@@ -268,24 +315,23 @@ class ReaderHomeScreen extends StatelessWidget {
       child: Row(
         children: [
           // BOOK COVER: replaces the original blue rectangle.
-         
-SizedBox(
-  width: 100,
-  height: 100,
-  child: ClipRRect(
-    borderRadius: BorderRadius.circular(10),
-    child: coverUrl.isNotEmpty
-        ? Image.network(
-            coverUrl,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) {
-              return _bookPlaceholder();
-            },
-          )
-        : _bookPlaceholder(),
-  ),
-),
 
+          SizedBox(
+            width: 100,
+            height: 100,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: coverUrl.isNotEmpty
+                  ? Image.network(
+                      coverUrl,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return _bookPlaceholder();
+                      },
+                    )
+                  : _bookPlaceholder(),
+            ),
+          ),
 
           const SizedBox(width: 12),
 
