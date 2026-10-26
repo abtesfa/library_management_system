@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -10,8 +9,7 @@ class LibrarianDeskScreen extends StatefulWidget {
   const LibrarianDeskScreen({super.key});
 
   @override
-  State<LibrarianDeskScreen> createState() =>
-      _LibrarianDeskScreenState();
+  State<LibrarianDeskScreen> createState() => _LibrarianDeskScreenState();
 }
 
 class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
@@ -247,12 +245,8 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
         );
 
         final record = _selectedRecord;
-        final overdueDays = record == null
-            ? 0
-            : service.overdueDays(record);
-        final fine = record == null
-            ? 0.0
-            : service.calculateFine(record);
+        final overdueDays = record == null ? 0 : service.overdueDays(record);
+        final fine = record == null ? 0.0 : service.calculateFine(record);
 
         return LayoutBuilder(
           builder: (context, constraints) {
@@ -271,8 +265,9 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
               fine,
             );
 
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+            return SafeArea(
+                child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 80),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -313,7 +308,7 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
                     ),
                 ],
               ),
-            );
+            ));
           },
         );
       },
@@ -338,7 +333,6 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
             const Color(0xFF1877F2),
           ),
           const SizedBox(height: 22),
-
           _label('Student ID *'),
           const SizedBox(height: 6),
           TextField(
@@ -348,7 +342,6 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
               Icons.person_outline,
             ),
           ),
-
           const SizedBox(height: 16),
           _label('Book Title or ISBN *'),
           const SizedBox(height: 6),
@@ -361,14 +354,12 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
               Icons.search,
             ),
           ),
-
           const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: () => _searchBorrowBook(service),
             icon: const Icon(Icons.search),
             label: const Text('Find book'),
           ),
-
           if (book != null) ...[
             const SizedBox(height: 12),
             _infoBox(
@@ -382,7 +373,6 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
               ],
             ),
           ],
-
           const SizedBox(height: 18),
           _label('Borrow Date *'),
           const SizedBox(height: 6),
@@ -394,7 +384,6 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
               label: Text(_formatDate(_borrowDate)),
             ),
           ),
-
           const SizedBox(height: 12),
           _infoBox(
             background: const Color(0xFFEFF6FF),
@@ -403,7 +392,6 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
               _infoRow('Calculated due date', _formatDate(dueDate)),
             ],
           ),
-
           const SizedBox(height: 20),
           _actionButton(
             label: 'Confirm Borrowing',
@@ -433,7 +421,6 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
             const Color(0xFF10B981),
           ),
           const SizedBox(height: 22),
-
           _label('Student ID *'),
           const SizedBox(height: 6),
           TextField(
@@ -443,7 +430,6 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
               Icons.person_outline,
             ),
           ),
-
           const SizedBox(height: 16),
           _label('Book Title or ISBN *'),
           const SizedBox(height: 6),
@@ -456,14 +442,12 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
               Icons.search,
             ),
           ),
-
           const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: () => _searchReturnBook(service),
             icon: const Icon(Icons.search),
             label: const Text('Find active borrowing'),
           ),
-
           const SizedBox(height: 18),
           _label('Book Condition'),
           const SizedBox(height: 8),
@@ -480,7 +464,6 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
               );
             }).toList(),
           ),
-
           const SizedBox(height: 18),
           if (record == null)
             _infoBox(
@@ -503,15 +486,11 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
                   : const Color(0xFFECFDF5),
               children: [
                 Text(
-                  overdueDays > 0
-                      ? 'Overdue Fine'
-                      : 'No Overdue Fine',
+                  overdueDays > 0 ? 'Overdue Fine' : 'No Overdue Fine',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: overdueDays > 0
-                        ? Colors.red
-                        : Colors.green.shade800,
+                    color: overdueDays > 0 ? Colors.red : Colors.green.shade800,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -520,9 +499,7 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    color: overdueDays > 0
-                        ? Colors.red
-                        : Colors.green.shade800,
+                    color: overdueDays > 0 ? Colors.red : Colors.green.shade800,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -537,7 +514,6 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
                 _infoRow('Total fine', 'ETB ${fine.toStringAsFixed(2)}'),
               ],
             ),
-
           const SizedBox(height: 20),
           _actionButton(
             label: 'Confirm Return',
