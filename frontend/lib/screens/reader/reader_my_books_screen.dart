@@ -12,6 +12,29 @@ class ReaderMyBooksScreen extends StatefulWidget {
 class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
   late List<BorrowRecord> _borrowed;
 
+final TextEditingController _searchController = TextEditingController();
+
+String _searchQuery = '';
+
+List<BorrowRecord> get _filteredBorrowed {
+  if (_searchQuery.trim().isEmpty) {
+    return _borrowed;
+  }
+
+  final query = _searchQuery.toLowerCase().trim();
+
+  return _borrowed.where((book) {
+    return book.bookTitle.toLowerCase().contains(query) ||
+        book.isbn.toLowerCase().contains(query);
+  }).toList();
+}
+
+@override
+void dispose() {
+  _searchController.dispose();
+  super.dispose();
+}
+
   @override
   void initState() {
     super.initState();
@@ -59,14 +82,72 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                   ),
                   Text(
-                    'Track currently borrowed titles, loan due dates, and one-click renewals',
+                    'Manage your borrowed books,due dates and reading history',
                     style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                   ),
                 ],
               ),
             ],
           ),
+                   const SizedBox(height: 24),
+
+          // Search borrowed books
+          TextField(
+            controller: _searchController,
+            onChanged: (value) {
+              setState(() {
+                _searchQuery = value;
+              });
+            },
+            decoration: InputDecoration(
+              hintText: 'Search by book title or ISBN...',
+              prefixIcon: const Icon(
+                Icons.search,
+                color: Color(0xFF0052CC),
+              ),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      tooltip: 'Clear search',
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() {
+                          _searchQuery = '';
+                        });
+                      },
+                    )
+                  : null,
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: Color(0xFFE2E8F0),
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: Color(0xFFE2E8F0),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: Color(0xFF0052CC),
+                  width: 1.5,
+                ),
+              ),
+            ),
+          ),
+
           const SizedBox(height: 24),
+
+          // Active Borrows Grid
 
           // Active Borrows Grid
           Row(
@@ -76,7 +157,35 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
               Expanded(
                 flex: 3,
                 child: Column(
-                  children: _borrowed.map((b) => _buildBorrowedCard(b)).toList(),
+                  children: _filteredBorrowed.isEmpty
+    ? [
+        Padding(
+          padding: const EdgeInsets.all(32),
+          child: Center(
+            child: Column(
+              children: [
+                const Icon(
+                  Icons.search_off,
+                  size: 42,
+                  color: Color(0xFF94A3B8),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _borrowed.isEmpty
+                      ? 'You have no borrowed books.'
+                      : 'No books found for "$_searchQuery".',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ]
+    : _filteredBorrowed.map((b) => _buildBorrowedCard(b)).toList(),
                 ),
               ),
               const SizedBox(width: 24),
@@ -96,7 +205,8 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
                     children: [
                       Text(
                         'Semester Reading Goal',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        style: TextStyle(fontSize: 15,
+                         fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                       ),
                       SizedBox(height: 18),
                       Center(
@@ -138,7 +248,7 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text('Outstanding Fines', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                          Text('\$0.00', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
+                          Text('\ETB 0.00', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
                         ],
                       ),
                     ],

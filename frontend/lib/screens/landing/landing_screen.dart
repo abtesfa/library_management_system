@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 
 import '/../models/user.dart';
@@ -8,22 +9,6 @@ import '/../config/app_images.dart';
 
 class LandingScreen extends StatelessWidget {
   final Function(UserRole role) onEnterPortal;
-  final GlobalKey homeKey = GlobalKey();
-  final GlobalKey booksKey = GlobalKey();
-  final GlobalKey categoriesKey = GlobalKey();
-  final GlobalKey aboutKey = GlobalKey();
-  final GlobalKey contactKey = GlobalKey();
-
-  void _scrollToSection(GlobalKey key) {
-    final context = key.currentContext;
-    if (context != null) {
-      Scrollable.ensureVisible(
-        context,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
-    }
-  }
 
   LandingScreen({
     super.key,
@@ -57,6 +42,7 @@ class LandingScreen extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              // LIBRARY LOGO AND TITLE
               Row(
                 children: [
                   Container(
@@ -82,40 +68,28 @@ class LandingScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _navLink('Home', true, () => _scrollToSection(homeKey)),
-                  _navLink(
-                      'Browse Books', false, () => _scrollToSection(booksKey)),
-                  _navLink('Categories', false,
-                      () => _scrollToSection(categoriesKey)),
-                  _navLink('About', false, () => _scrollToSection(aboutKey)),
-                  _navLink(
-                      'Contact', false, () => _scrollToSection(contactKey)),
-                  const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    onPressed: () => _openSignIn(context),
-                    icon: const Icon(Icons.login, size: 16),
-                    label: const Text('Sign In'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF0052CC),
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      textStyle: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
+
+              // SIGN IN BUTTON ONLY
+              ElevatedButton.icon(
+                onPressed: () => _openSignIn(context),
+                icon: const Icon(Icons.login, size: 16),
+                label: const Text('Sign In'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF0052CC),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
                   ),
-                ],
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
               ),
             ],
           ),
@@ -204,10 +178,8 @@ class LandingScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
                         const Text(
-                          'The Library Management System helps you '
-                          'explore thousands of books, manage your '
-                          'reading journey, and access knowledge '
-                          'whenever you need it.',
+                         'Explore our library collection, find books you enjoy, '
+  'and borrow the ones you need for your studies or personal reading.',
                           style: TextStyle(
                             fontSize: 14,
                             color: Color(0xFF64748B),
@@ -270,7 +242,7 @@ class LandingScreen extends StatelessWidget {
                   ),
                   const SizedBox(width: 32),
 
-                  // LIBRARY IMAGE WITH 1,200+ BOOKS TEXT
+                  // LIBRARY IMAGE WITH BOOK COUNT
                   Expanded(
                     flex: 2,
                     child: Container(
@@ -336,47 +308,8 @@ class LandingScreen extends StatelessWidget {
               ),
             ),
 
-            // 2. LIBRARY STATISTICS
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: const Color(0xFFE2E8F0),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    _buildMetric(
-                      Icons.book,
-                      '1,200+',
-                      'Books Available',
-                    ),
-                    _buildMetric(
-                      Icons.people_outline,
-                      '350+',
-                      'Registered Members',
-                    ),
-                    _buildMetric(
-                      Icons.access_time,
-                      '24/7',
-                      'Online Access',
-                    ),
-                    _buildMetric(
-                      Icons.shield_outlined,
-                      'Secure',
-                      '& Reliable',
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // 3. FEATURE CARDS
+            // 2. FEATURE CARDS
+            // The library statistics row has been removed.
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Row(
@@ -403,7 +336,7 @@ class LandingScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // 4. FEATURED BOOKS
+            // 3. FEATURED BOOKS
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Container(
@@ -464,7 +397,8 @@ class LandingScreen extends StatelessWidget {
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: featuredBooks.length,
-                        separatorBuilder: (ctx, i) => const SizedBox(width: 12),
+                        separatorBuilder: (ctx, i) =>
+                            const SizedBox(width: 12),
                         itemBuilder: (ctx, index) {
                           return _buildBookCard(
                             context,
@@ -479,7 +413,7 @@ class LandingScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // 5. HOW IT WORKS
+            // 4. HOW IT WORKS
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Container(
@@ -541,7 +475,7 @@ class LandingScreen extends StatelessWidget {
             ),
             const SizedBox(height: 32),
 
-            // 6. FOOTER
+            // 5. FOOTER
             _buildLandingFooter(context),
           ],
         ),
@@ -665,36 +599,84 @@ class LandingScreen extends StatelessWidget {
     );
   }
 
-  Widget _footerLinks(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'QUICK LINKS',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-            letterSpacing: 1,
+
+Widget _footerLinks(BuildContext context) {
+  final services = [
+    (
+      icon: Icons.menu_book_rounded,
+      title: 'Book Collection',
+      description: 'Explore books across different subjects.',
+    ),
+    (
+      icon: Icons.search_rounded,
+      title: 'Book Search',
+      description: 'Find books for study and reading.',
+    ),
+    (
+      icon: Icons.bookmark_added_rounded,
+      title: 'Borrowing Services',
+      description: 'Borrow books for your learning needs.',
+    ),
+    
+  ];
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        'LIBRARY SERVICES',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 15,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
+        ),
+      ),
+      const SizedBox(height: 12),
+
+      ...services.map(
+        (service) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                service.icon,
+                color: const Color(0xFF8DBBFF),
+                size: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      service.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      service.description,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 14),
-        _footerLink('Home', () {}),
-        _footerLink(
-          'Browse Books',
-          () => _openSignIn(context, UserRole.reader),
-        ),
-        _footerLink(
-          'Reader Sign In',
-          () => _openSignIn(context, UserRole.reader),
-        ),
-        _footerLink(
-          'Staff Sign In',
-          () => _openSignIn(context, UserRole.librarian),
-        ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
 
   Widget _footerContact() {
     return const Column(
@@ -768,77 +750,6 @@ class LandingScreen extends StatelessWidget {
             fontSize: 13,
           ),
         ),
-      ),
-    );
-  }
-
-  // TOP NAVIGATION LINK
-  Widget _navLink(
-    String text,
-    bool isActive,
-    VoidCallback onTap,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      child: InkWell(
-        onTap: onTap,
-        child: Text(
-          text,
-          style: TextStyle(
-            color: isActive ? Colors.white : Colors.white70,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-            fontSize: 13,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // STATISTICS
-  Widget _buildMetric(
-    IconData icon,
-    String value,
-    String label,
-  ) {
-    return Expanded(
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              color: const Color(0xFF0052CC),
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF64748B),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
