@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 
 import '/../models/user.dart';
@@ -8,22 +9,6 @@ import '/../config/app_images.dart';
 
 class LandingScreen extends StatelessWidget {
   final Function(UserRole role) onEnterPortal;
-  final GlobalKey homeKey = GlobalKey();
-  final GlobalKey booksKey = GlobalKey();
-  final GlobalKey categoriesKey = GlobalKey();
-  final GlobalKey aboutKey = GlobalKey();
-  final GlobalKey contactKey = GlobalKey();
-
-  void _scrollToSection(GlobalKey key) {
-    final context = key.currentContext;
-    if (context != null) {
-      Scrollable.ensureVisible(
-        context,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
-    }
-  }
 
   LandingScreen({
     super.key,
@@ -57,6 +42,7 @@ class LandingScreen extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              // LIBRARY LOGO AND TITLE
               Row(
                 children: [
                   Container(
@@ -82,31 +68,28 @@ class LandingScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () => _openSignIn(context),
-                    icon: const Icon(Icons.login, size: 16),
-                    label: const Text('Sign In'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF0052CC),
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      textStyle: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
+
+              // SIGN IN BUTTON ONLY
+              ElevatedButton.icon(
+                onPressed: () => _openSignIn(context),
+                icon: const Icon(Icons.login, size: 16),
+                label: const Text('Sign In'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF0052CC),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
                   ),
-                ],
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
               ),
             ],
           ),
@@ -194,6 +177,15 @@ class LandingScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 12),
+                        const Text(
+                         'Explore our library collection, find books you enjoy, '
+  'and borrow the ones you need for your studies or personal reading.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF64748B),
+                            height: 1.5,
+                          ),
+                        ),
                         const SizedBox(height: 24),
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -250,7 +242,7 @@ class LandingScreen extends StatelessWidget {
                   ),
                   const SizedBox(width: 32),
 
-                  // LIBRARY IMAGE WITH 1,200+ BOOKS TEXT
+                  // LIBRARY IMAGE WITH BOOK COUNT
                   Expanded(
                     flex: 2,
                     child: Container(
@@ -316,7 +308,8 @@ class LandingScreen extends StatelessWidget {
               ),
             ),
 
-            // 3. FEATURE CARDS
+            // 2. FEATURE CARDS
+            // The library statistics row has been removed.
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Row(
@@ -343,7 +336,7 @@ class LandingScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // 4. FEATURED BOOKS
+            // 3. FEATURED BOOKS
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Container(
@@ -404,7 +397,8 @@ class LandingScreen extends StatelessWidget {
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: featuredBooks.length,
-                        separatorBuilder: (ctx, i) => const SizedBox(width: 12),
+                        separatorBuilder: (ctx, i) =>
+                            const SizedBox(width: 12),
                         itemBuilder: (ctx, index) {
                           return _buildBookCard(
                             context,
@@ -419,7 +413,7 @@ class LandingScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // 5. HOW IT WORKS
+            // 4. HOW IT WORKS
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Container(
@@ -481,7 +475,7 @@ class LandingScreen extends StatelessWidget {
             ),
             const SizedBox(height: 32),
 
-            // 6. FOOTER
+            // 5. FOOTER
             _buildLandingFooter(context),
           ],
         ),
@@ -501,7 +495,7 @@ class LandingScreen extends StatelessWidget {
           LayoutBuilder(
             builder: (context, constraints) {
               final brand = _footerBrand();
-
+              final links = _footerLinks(context);
               final contact = _footerContact();
 
               if (constraints.maxWidth < 700) {
@@ -509,6 +503,8 @@ class LandingScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     brand,
+                    const SizedBox(height: 28),
+                    links,
                     const SizedBox(height: 28),
                     contact,
                   ],
@@ -519,6 +515,8 @@ class LandingScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(flex: 2, child: brand),
+                  const SizedBox(width: 32),
+                  Expanded(child: links),
                   const SizedBox(width: 32),
                   Expanded(child: contact),
                 ],
@@ -601,6 +599,85 @@ class LandingScreen extends StatelessWidget {
     );
   }
 
+
+Widget _footerLinks(BuildContext context) {
+  final services = [
+    (
+      icon: Icons.menu_book_rounded,
+      title: 'Book Collection',
+      description: 'Explore books across different subjects.',
+    ),
+    (
+      icon: Icons.search_rounded,
+      title: 'Book Search',
+      description: 'Find books for study and reading.',
+    ),
+    (
+      icon: Icons.bookmark_added_rounded,
+      title: 'Borrowing Services',
+      description: 'Borrow books for your learning needs.',
+    ),
+    
+  ];
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        'LIBRARY SERVICES',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 15,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
+        ),
+      ),
+      const SizedBox(height: 12),
+
+      ...services.map(
+        (service) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                service.icon,
+                color: const Color(0xFF8DBBFF),
+                size: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      service.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      service.description,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
   Widget _footerContact() {
     return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -626,7 +703,7 @@ class LandingScreen extends StatelessWidget {
             SizedBox(width: 10),
             Expanded(
               child: Text(
-                'AddisAbabaUni@example.com',
+                'centralacademy@example.com',
                 style: TextStyle(
                   color: Color(0xFFBFDBFE),
                   fontSize: 13,
@@ -661,9 +738,21 @@ class LandingScreen extends StatelessWidget {
     );
   }
 
-  // TOP NAVIGATION LINK
-
-  // STATISTICS
+  Widget _footerLink(String label, VoidCallback onTap) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        onTap: onTap,
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFFBFDBFE),
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
 
   // FEATURE CARDS
   Widget _buildFeatureCard({
