@@ -162,7 +162,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                                 keyboardType: TextInputType.number,
                                 decoration: const InputDecoration(
                                   labelText: 'Overdue Fine (Per Day)',
-                                  prefixText: '\ETB ',
+                                  prefixText: 'ETB ',
                                   border: OutlineInputBorder(),
                                   isDense: true,
                                 ),
@@ -196,7 +196,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                       ),
                       const SizedBox(height: 14),
                       _summaryTile('Standard Borrow Period', '14 Days'),
-                      _summaryTile('Daily Late Fee', '\ETB 5 / day'),
+                      _summaryTile('Daily Late Fee', 'ETB 5 / day'),
                       _summaryTile('Active Working Hours', '08:00 AM - 08:00 PM'),
                       
                       const SizedBox(height: 20),

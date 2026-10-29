@@ -10,7 +10,7 @@ import '/../config/app_images.dart';
 class LandingScreen extends StatelessWidget {
   final Function(UserRole role) onEnterPortal;
 
-  LandingScreen({
+  const LandingScreen({
     super.key,
     required this.onEnterPortal,
   });
