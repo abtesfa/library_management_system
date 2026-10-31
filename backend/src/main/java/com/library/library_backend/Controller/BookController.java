@@ -17,7 +17,9 @@ import org.springframework.web.bind.annotation.RestController;
 import com.library.library_backend.Service.BookService;
 import com.library.library_backend.dto.BookResponse;
 import com.library.library_backend.entity.book;
-
+import jakarta.validation.Valid;
+import com.library.library_backend.dto.BookRequest;
+import org.springframework.web.bind.annotation.RequestParam;
 @RestController
 @RequestMapping("/api/books")
 @CrossOrigin(origins = "*")
@@ -34,7 +36,24 @@ public class BookController {
     public List<BookResponse> getAllBooks() {
         return bookService.getAllBookResponses();
     }
+    @GetMapping("/search")
+public List<BookResponse> searchBooks(
+        @RequestParam String keyword) {
 
+    return bookService.searchBooks(keyword);
+}
+   @GetMapping("/search/author")
+   public List<BookResponse> searchBooksByAuthor(
+        @RequestParam String name) {
+
+    return bookService.searchBooksByAuthor(name);
+}
+@GetMapping("/search/category")
+public List<BookResponse> searchBooksByCategory(
+        @RequestParam String name) {
+
+    return bookService.searchBooksByCategory(name);
+}
     // Get one book by ISBN
     @GetMapping("/{isbn}")
     public BookResponse getBookByIsbn(@PathVariable String isbn) {
@@ -42,11 +61,13 @@ public class BookController {
     }
 
     // Create a new book
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public book createBook(@RequestBody book newBook) {
-        return bookService.createBook(newBook);
-    }
+   @PostMapping
+   @ResponseStatus(HttpStatus.CREATED)
+   public BookResponse createBook(
+        @Valid @RequestBody BookRequest request) {
+
+    return bookService.createBook(request);
+   }
 
     // Update an existing book
     @PutMapping("/{isbn}")

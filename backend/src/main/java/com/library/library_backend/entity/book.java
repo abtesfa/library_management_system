@@ -5,6 +5,9 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.FetchType;
 
 import java.math.BigDecimal;
 
@@ -21,9 +24,14 @@ public class book {
 
     @Column(name = "Description", columnDefinition = "TEXT")
     private String description;
-
-    @Column(name = "Author_ID", nullable = false)
-    private Integer authorId;
+//entitiy relationship diagram for srping 
+// boot before was ust like other column 
+//joincloumn points to as aforeign key and manyto one on book side 
+@Column(name = "Author_ID", nullable = false, insertable = false, updatable = false)
+private Integer authorId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "Author_ID", nullable = false)
+    private Author author;
 
     @Column(name = "Publisher_ID", nullable = false)
     private Integer publisherId;
@@ -77,7 +85,13 @@ public class book {
     public Integer getAuthorId() {
         return authorId;
     }
+public Author getAuthor() {
+    return author;
+}
 
+public void setAuthor(Author author) {
+    this.author = author;
+}
     public void setAuthorId(Integer authorId) {
         this.authorId = authorId;
     }

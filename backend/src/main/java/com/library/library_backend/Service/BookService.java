@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
-
+import com.library.library_backend.exception.ResourceNotFoundException;
 import com.library.library_backend.dto.BookResponse;
 import com.library.library_backend.entity.Author;
 import com.library.library_backend.entity.BookCopy;
@@ -14,7 +14,7 @@ import com.library.library_backend.repository.AuthorRepository;
 import com.library.library_backend.repository.BookCopyRepository;
 import com.library.library_backend.repository.BookRepository;
 import com.library.library_backend.repository.CategoryRepository;
-
+import com.library.library_backend.dto.BookRequest;
 @Service
 public class BookService {
 
@@ -42,12 +42,34 @@ public class BookService {
                 .map(this::convertToResponse)
                 .toList();
     }
+public List<BookResponse> searchBooks(String keyword) {
 
+    return bookRepository
+            .findByTitleContainingIgnoreCase(keyword)
+            .stream()
+            .map(this::convertToResponse)
+            .toList();
+}
+public List<BookResponse> searchBooksByAuthor(String name) {
+
+    return bookRepository
+            .findByAuthor_AuthorNameContainingIgnoreCase(name)
+            .stream()
+            .map(this::convertToResponse)
+            .toList();
+}
     // Get one book in Flutter format
     public BookResponse getBookResponseByIsbn(String isbn) {
         return convertToResponse(getBookByIsbn(isbn));
     }
+public List<BookResponse> searchBooksByCategory(String name) {
 
+    return bookRepository
+            .findBooksByCategoryName(name)
+            .stream()
+            .map(this::convertToResponse)
+            .toList();
+}
     // Convert database records into a Flutter-compatible response
     private BookResponse convertToResponse(book b) {
 
@@ -107,20 +129,42 @@ public class BookService {
         return bookRepository.findAll();
     }
 
-    public book getBookByIsbn(String isbn) {
-        return bookRepository.findById(isbn)
-                .orElseThrow(() ->
-                        new RuntimeException("Book not found: " + isbn));
+  public book getBookByIsbn(String isbn) {
+    return bookRepository.findById(isbn)
+        .orElseThrow(() ->
+            new ResourceNotFoundException(
+                "Book not found: " + isbn
+            )
+        );
+}
+   public BookResponse createBook(BookRequest request) {
+    // 1. Check whether the ISBN already exists
+    if (bookRepository.existsById(request.getIsbn())) {
+        throw new IllegalArgumentException(
+            "A book with this ISBN already exists"
+        );
     }
 
-    public book createBook(book newBook) {
-        if (bookRepository.existsById(newBook.getIsbn())) {
-            throw new IllegalArgumentException(
-                    "A book with this ISBN already exists");
-        }
+    // 2. Create a new book Entity
+    book newBook = new book();
 
-        return bookRepository.save(newBook);
-    }
+    // 3. Transfer data from DTO to Entity
+    newBook.setIsbn(request.getIsbn());
+    newBook.setTitle(request.getTitle());
+    newBook.setDescription(request.getDescription());
+    newBook.setAuthorId(request.getAuthorId());
+    newBook.setPublisherId(request.getPublisherId());
+    newBook.setCategoryId(request.getCategoryId());
+    newBook.setEdition(request.getEdition());
+    newBook.setPrice(request.getPrice());
+    newBook.setPublicationYear(request.getPublicationYear());
+    newBook.setCoverImage(request.getCoverImage());
+
+    // 4. Save the Entity into MySQL
+   book savedBook = bookRepository.save(newBook);
+
+    return convertToResponse(savedBook);
+}
 
     public book updateBook(String isbn, book updatedBook) {
         book existingBook = getBookByIsbn(isbn);
