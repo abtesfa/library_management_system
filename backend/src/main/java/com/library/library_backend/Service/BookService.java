@@ -15,6 +15,8 @@ import com.library.library_backend.repository.BookCopyRepository;
 import com.library.library_backend.repository.BookRepository;
 import com.library.library_backend.repository.CategoryRepository;
 import com.library.library_backend.dto.BookRequest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 @Service
 public class BookService {
 
@@ -58,10 +60,27 @@ public List<BookResponse> searchBooksByAuthor(String name) {
             .map(this::convertToResponse)
             .toList();
 }
+   public Page<BookResponse> getBooksWithPagination(Pageable pageable) {
+
+    return bookRepository.findAll(pageable)
+            .map(this::convertToResponse);
+}
     // Get one book in Flutter format
     public BookResponse getBookResponseByIsbn(String isbn) {
         return convertToResponse(getBookByIsbn(isbn));
     }
+    public List<BookResponse> advancedSearch(
+        String title,
+        String author,
+        String category) {
+
+    return bookRepository.advancedSearch(
+            title, author, category
+    )
+    .stream()
+    .map(this::convertToResponse)
+    .toList();
+}
 public List<BookResponse> searchBooksByCategory(String name) {
 
     return bookRepository

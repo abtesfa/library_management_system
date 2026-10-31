@@ -19,4 +19,26 @@ public interface BookRepository extends JpaRepository<book, String> {
     )
 """)
 List<book> findBooksByCategoryName(@Param("name") String name);
+
+@Query("""
+    SELECT b FROM book b
+    WHERE
+        (:title IS NULL OR LOWER(b.title) LIKE LOWER(CONCAT('%', :title, '%')))
+    AND
+        (:author IS NULL OR b.author.authorId IN (
+            SELECT a.authorId FROM Author a
+            WHERE LOWER(a.authorName) LIKE LOWER(CONCAT('%', :author, '%'))
+        ))
+    AND
+        (:category IS NULL OR b.categoryId IN (
+            SELECT c.categoryId FROM Category c
+            WHERE LOWER(c.categoryName) LIKE LOWER(CONCAT('%', :category, '%'))
+        ))
+""")
+List<book> advancedSearch(
+        @Param("title") String title,
+        @Param("author") String author,
+        @Param("category") String category
+);
 }
+

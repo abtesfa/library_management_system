@@ -20,6 +20,10 @@ import com.library.library_backend.entity.book;
 import jakarta.validation.Valid;
 import com.library.library_backend.dto.BookRequest;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
 @RestController
 @RequestMapping("/api/books")
 @CrossOrigin(origins = "*")
@@ -53,6 +57,23 @@ public List<BookResponse> searchBooksByCategory(
         @RequestParam String name) {
 
     return bookService.searchBooksByCategory(name);
+}
+@GetMapping("/advanced-search")
+public List<BookResponse> advancedSearch(
+        @RequestParam(required = false) String title,
+        @RequestParam(required = false) String author,
+        @RequestParam(required = false) String category) {
+
+    return bookService.advancedSearch(title, author, category);
+}
+@GetMapping("/page")
+public Page<BookResponse> getBooksWithPagination(
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "5") int size) {
+
+    Pageable pageable = PageRequest.of(page, size);
+
+    return bookService.getBooksWithPagination(pageable);
 }
     // Get one book by ISBN
     @GetMapping("/{isbn}")

@@ -89,7 +89,7 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
                     controller: _searchController,
                     decoration: const InputDecoration(
                       prefixIcon: Icon(Icons.search, size: 20, color: Color(0xFF94A3B8)),
-                      hintText: 'Search by title, author, ISBN, or accession number...',
+                      hintText: 'Search by title, author, ISBN, or categories...',
                       border: InputBorder.none,
                       isDense: true,
                     ),
