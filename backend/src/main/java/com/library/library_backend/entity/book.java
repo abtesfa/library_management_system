@@ -1,22 +1,30 @@
 
 package com.library.library_backend.entity;
 
+import java.math.BigDecimal;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.JoinColumn;
 import jakarta.persistence.FetchType;
-
-import java.math.BigDecimal;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "book")
 public class book {
 
+    // Primary key: automatically generated Book_ID
     @Id
-    @Column(name = "ISBN", length = 20, nullable = false)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "Book_ID")
+    private Integer bookId;
+
+    // ISBN is optional
+    @Column(name = "ISBN", length = 20, unique = true, nullable = true)
     private String isbn;
 
     @Column(name = "Title", length = 200, nullable = false)
@@ -24,19 +32,21 @@ public class book {
 
     @Column(name = "Description", columnDefinition = "TEXT")
     private String description;
-//entitiy relationship diagram for srping 
-// boot before was ust like other column 
-//joincloumn points to as aforeign key and manyto one on book side 
-@Column(name = "Author_ID", nullable = false, insertable = false, updatable = false)
-private Integer authorId;
+
+    // Author relationship
+    @Column(name = "Author_ID", nullable = false,
+            insertable = false, updatable = false)
+    private Integer authorId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "Author_ID", nullable = false)
     private Author author;
 
-    @Column(name = "Publisher_ID", nullable = false)
+    // Publisher and category are optional
+    @Column(name = "Publisher_ID")
     private Integer publisherId;
 
-    @Column(name = "Category_ID", nullable = false)
+    @Column(name = "Category_ID")
     private Integer categoryId;
 
     @Column(name = "Edition", length = 50)
@@ -52,6 +62,15 @@ private Integer authorId;
     private String coverImage;
 
     public book() {
+    }
+
+    // Book ID
+    public Integer getBookId() {
+        return bookId;
+    }
+
+    public void setBookId(Integer bookId) {
+        this.bookId = bookId;
     }
 
     // ISBN
@@ -81,22 +100,24 @@ private Integer authorId;
         this.description = description;
     }
 
-    // Author ID
+    // Author
     public Integer getAuthorId() {
         return authorId;
     }
-public Author getAuthor() {
-    return author;
-}
 
-public void setAuthor(Author author) {
-    this.author = author;
-}
     public void setAuthorId(Integer authorId) {
         this.authorId = authorId;
     }
 
-    // Publisher ID
+    public Author getAuthor() {
+        return author;
+    }
+
+    public void setAuthor(Author author) {
+        this.author = author;
+    }
+
+    // Publisher
     public Integer getPublisherId() {
         return publisherId;
     }
@@ -105,7 +126,7 @@ public void setAuthor(Author author) {
         this.publisherId = publisherId;
     }
 
-    // Category ID
+    // Category
     public Integer getCategoryId() {
         return categoryId;
     }
@@ -132,7 +153,7 @@ public void setAuthor(Author author) {
         this.price = price;
     }
 
-    // Publication Year
+    // Publication year
     public Integer getPublicationYear() {
         return publicationYear;
     }
@@ -141,7 +162,7 @@ public void setAuthor(Author author) {
         this.publicationYear = publicationYear;
     }
 
-    // Cover Image
+    // Cover image
     public String getCoverImage() {
         return coverImage;
     }

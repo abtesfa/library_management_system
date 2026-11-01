@@ -6,6 +6,7 @@ import '../models/borrow_record.dart';
 import '../models/staff.dart' hide SystemSettings;
 import '../models/system_settings.dart';
 import '../data/mock_library_data.dart';
+import 'book_service.dart';
 
 
 class LibraryService extends ChangeNotifier {
@@ -14,19 +15,43 @@ class LibraryService extends ChangeNotifier {
   List<ReservationRecord> _reservations = [];
   List<StaffMember> _staff = [];
 
+  final BookService _bookService = BookService();
+
   SystemSettings _settings = SystemSettings.defaultSettings();
+
+  bool _isLoadingBooks = false;
+  String? _booksError;
 
   LibraryService() {
     _initData();
+    loadBooksFromApi();
   }
 
   void _initData() {
-    _books = MockLibraryData.getInitialBooks();
+    // Keep mock data for borrowing, reservations and staff for now.
     _borrowRecords = MockLibraryData.getReaderBorrowedBooks();
     _reservations = MockLibraryData.getReaderReservations();
     _staff = MockLibraryData.getInitialStaff();
   }
 
+  // Fetch actual books from Spring Boot.
+  Future<void> loadBooksFromApi() async {
+    _isLoadingBooks = true;
+    _booksError = null;
+    notifyListeners();
+
+    try {
+      final fetchedBooks = await _bookService.getAllBooks();
+
+      _books = fetchedBooks;
+      _booksError = null;
+    } catch (error) {
+      _booksError = error.toString();
+    } finally {
+      _isLoadingBooks = false;
+      notifyListeners();
+    }
+  }
   // -------------------- GETTERS --------------------
 
   List<Book> get books => List.unmodifiable(_books);
@@ -40,6 +65,9 @@ class LibraryService extends ChangeNotifier {
   List<StaffMember> get staff => List.unmodifiable(_staff);
 
   SystemSettings get settings => _settings;
+  bool get isLoadingBooks => _isLoadingBooks;
+
+String? get booksError => _booksError;
 
   // -------------------- BOOK MANAGEMENT --------------------
 

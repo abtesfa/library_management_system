@@ -1,23 +1,29 @@
+
 package com.library.library_backend.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import com.library.library_backend.exception.ResourceNotFoundException;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.library.library_backend.dto.BookRequest;
 import com.library.library_backend.dto.BookResponse;
 import com.library.library_backend.entity.Author;
 import com.library.library_backend.entity.BookCopy;
 import com.library.library_backend.entity.Category;
 import com.library.library_backend.entity.book;
+import com.library.library_backend.exception.ResourceNotFoundException;
 import com.library.library_backend.repository.AuthorRepository;
 import com.library.library_backend.repository.BookCopyRepository;
 import com.library.library_backend.repository.BookRepository;
 import com.library.library_backend.repository.CategoryRepository;
-import com.library.library_backend.dto.BookRequest;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+
 @Service
+@Transactional
 public class BookService {
 
     private final BookRepository bookRepository;
@@ -37,87 +43,144 @@ public class BookService {
         this.bookCopyRepository = bookCopyRepository;
     }
 
-    // Get all books in Flutter format
+    // ==========================================
+    // GET ALL BOOKS
+    // ==========================================
+
     public List<BookResponse> getAllBookResponses() {
+
         return bookRepository.findAll()
                 .stream()
                 .map(this::convertToResponse)
                 .toList();
     }
-public List<BookResponse> searchBooks(String keyword) {
 
-    return bookRepository
-            .findByTitleContainingIgnoreCase(keyword)
-            .stream()
-            .map(this::convertToResponse)
-            .toList();
-}
-public List<BookResponse> searchBooksByAuthor(String name) {
-
-    return bookRepository
-            .findByAuthor_AuthorNameContainingIgnoreCase(name)
-            .stream()
-            .map(this::convertToResponse)
-            .toList();
-}
-   public Page<BookResponse> getBooksWithPagination(Pageable pageable) {
-
-    return bookRepository.findAll(pageable)
-            .map(this::convertToResponse);
-}
-    // Get one book in Flutter format
-    public BookResponse getBookResponseByIsbn(String isbn) {
-        return convertToResponse(getBookByIsbn(isbn));
+    public List<book> getAllBooks() {
+        return bookRepository.findAll();
     }
+
+    // ==========================================
+    // SEARCH BOOKS
+    // ==========================================
+
+    public List<BookResponse> searchBooks(String keyword) {
+
+        return bookRepository
+                .findByTitleContainingIgnoreCase(keyword)
+                .stream()
+                .map(this::convertToResponse)
+                .toList();
+    }
+
+    public List<BookResponse> searchBooksByAuthor(String name) {
+
+        return bookRepository
+                .findByAuthor_AuthorNameContainingIgnoreCase(name)
+                .stream()
+                .map(this::convertToResponse)
+                .toList();
+    }
+
+    public List<BookResponse> searchBooksByCategory(String name) {
+
+        return bookRepository
+                .findBooksByCategoryName(name)
+                .stream()
+                .map(this::convertToResponse)
+                .toList();
+    }
+
     public List<BookResponse> advancedSearch(
-        String title,
-        String author,
-        String category) {
+            String title,
+            String author,
+            String category) {
 
-    return bookRepository.advancedSearch(
-            title, author, category
-    )
-    .stream()
-    .map(this::convertToResponse)
-    .toList();
-}
-public List<BookResponse> searchBooksByCategory(String name) {
+        return bookRepository
+                .advancedSearch(title, author, category)
+                .stream()
+                .map(this::convertToResponse)
+                .toList();
+    }
 
-    return bookRepository
-            .findBooksByCategoryName(name)
-            .stream()
-            .map(this::convertToResponse)
-            .toList();
-}
-    // Convert database records into a Flutter-compatible response
+    // ==========================================
+    // PAGINATION
+    // ==========================================
+
+    public Page<BookResponse> getBooksWithPagination(Pageable pageable) {
+
+        return bookRepository.findAll(pageable)
+                .map(this::convertToResponse);
+    }
+
+    // ==========================================
+    // GET BOOK BY BOOK_ID
+    // ==========================================
+
+    public book getBookById(Integer bookId) {
+
+        return bookRepository.findById(bookId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Book not found with ID: " + bookId
+                        )
+                );
+    }
+
+    public BookResponse getBookResponseById(Integer bookId) {
+
+        return convertToResponse(getBookById(bookId));
+    }
+
+    // ==========================================
+    // CONVERT BOOK ENTITY TO RESPONSE
+    // ==========================================
+
     private BookResponse convertToResponse(book b) {
 
-        String authorName = authorRepository.findById(b.getAuthorId())
-                .map(Author::getAuthorName)
-                .orElse("Unknown Author");
+        // Get author name
+        String authorName = b.getAuthor() != null
+                ? b.getAuthor().getAuthorName()
+                : "Unknown Author";
 
-        String categoryName = categoryRepository.findById(b.getCategoryId())
-                .map(Category::getCategoryName)
-                .orElse("General");
+        // Get category name if available
+        String categoryName = "General";
+
+        if (b.getCategoryId() != null) {
+
+            categoryName = categoryRepository
+                    .findById(b.getCategoryId())
+                    .map(Category::getCategoryName)
+                    .orElse("General");
+        }
+
+        // Count physical copies using Book_ID
+        Integer bookId = b.getBookId();
 
         int totalCopies = Math.toIntExact(
-                bookCopyRepository.countByIsbn(b.getIsbn()));
+                bookCopyRepository.countByBookId(bookId)
+        );
 
         int availableCopies = Math.toIntExact(
-                bookCopyRepository.countByIsbnAndStatus(
-                        b.getIsbn(), "Available"));
+                bookCopyRepository.countByBookIdAndStatus(
+                        bookId, "Available"
+                )
+        );
 
-        Optional<BookCopy> copy = bookCopyRepository
-                .findFirstByIsbnAndStatus(b.getIsbn(), "Available");
+        // Find a copy to obtain its shelf location
+        Optional<BookCopy> copy =
+                bookCopyRepository.findFirstByBookIdAndStatus(
+                        bookId, "Available"
+                );
 
         if (copy.isEmpty()) {
-            copy = bookCopyRepository.findFirstByIsbn(b.getIsbn());
+            copy = bookCopyRepository.findFirstByBookId(bookId);
         }
 
         String location = copy
                 .map(BookCopy::getLocation)
                 .orElse("Not assigned");
 
+        // Determine book availability
         String status;
 
         if (availableCopies > 0) {
@@ -129,7 +192,7 @@ public List<BookResponse> searchBooksByCategory(String name) {
         }
 
         return new BookResponse(
-                b.getIsbn(),
+                String.valueOf(bookId),
                 b.getTitle(),
                 authorName,
                 b.getIsbn(),
@@ -142,67 +205,163 @@ public List<BookResponse> searchBooksByCategory(String name) {
         );
     }
 
-    // Existing CRUD operations
+    // ==========================================
+    // CREATE BOOK
+    // ==========================================
 
-    public List<book> getAllBooks() {
-        return bookRepository.findAll();
+    public BookResponse createBook(BookRequest request) {
+
+        // 1. Normalize and validate ISBN if provided
+        String isbn = request.getIsbn();
+
+        if (isbn != null) {
+            isbn = isbn.trim();
+
+            if (isbn.isEmpty()) {
+                isbn = null;
+            }
+        }
+
+        // 2. Check duplicate ISBN only when provided
+        if (isbn != null && bookRepository.findByIsbn(isbn).isPresent()) {
+
+            throw new IllegalArgumentException(
+                    "A book with this ISBN already exists"
+            );
+        }
+
+        // 3. Find existing author or create a new author
+        String authorName = request.getAuthorName().trim();
+
+        Author author = authorRepository
+                .findByAuthorNameIgnoreCase(authorName)
+                .orElseGet(() -> {
+
+                    Author newAuthor = new Author();
+                    newAuthor.setAuthorName(authorName);
+
+                    return authorRepository.save(newAuthor);
+                });
+
+        // 4. Create book entity
+        book newBook = new book();
+
+        newBook.setIsbn(isbn);
+        newBook.setTitle(request.getTitle().trim());
+        newBook.setDescription(request.getDescription());
+        newBook.setAuthor(author);
+
+        // Publisher and category are optional
+        newBook.setPublisherId(null);
+        newBook.setCategoryId(null);
+
+        // 5. Save book first to generate Book_ID
+        book savedBook = bookRepository.save(newBook);
+
+        // 6. Create requested physical copies
+        List<BookCopy> copies = new ArrayList<>();
+
+        for (int i = 0; i < request.getNumberOfCopies(); i++) {
+
+            BookCopy copy = new BookCopy();
+
+            copy.setBookId(savedBook.getBookId());
+            copy.setStatus("Available");
+
+            String location = request.getLocation();
+
+            copy.setLocation(
+                    location == null || location.isBlank()
+                            ? null
+                            : location.trim()
+            );
+
+            copies.add(copy);
+        }
+
+        // 7. Save all physical copies
+        bookCopyRepository.saveAll(copies);
+
+        // 8. Return the saved book information
+        return convertToResponse(savedBook);
     }
 
-  public book getBookByIsbn(String isbn) {
-    return bookRepository.findById(isbn)
-        .orElseThrow(() ->
-            new ResourceNotFoundException(
-                "Book not found: " + isbn
-            )
-        );
-}
-   public BookResponse createBook(BookRequest request) {
-    // 1. Check whether the ISBN already exists
-    if (bookRepository.existsById(request.getIsbn())) {
-        throw new IllegalArgumentException(
-            "A book with this ISBN already exists"
-        );
-    }
+    // ==========================================
+    // UPDATE BOOK
+    // ==========================================
 
-    // 2. Create a new book Entity
-    book newBook = new book();
+    public book updateBook(Integer bookId, book updatedBook) {
 
-    // 3. Transfer data from DTO to Entity
-    newBook.setIsbn(request.getIsbn());
-    newBook.setTitle(request.getTitle());
-    newBook.setDescription(request.getDescription());
-    newBook.setAuthorId(request.getAuthorId());
-    newBook.setPublisherId(request.getPublisherId());
-    newBook.setCategoryId(request.getCategoryId());
-    newBook.setEdition(request.getEdition());
-    newBook.setPrice(request.getPrice());
-    newBook.setPublicationYear(request.getPublicationYear());
-    newBook.setCoverImage(request.getCoverImage());
-
-    // 4. Save the Entity into MySQL
-   book savedBook = bookRepository.save(newBook);
-
-    return convertToResponse(savedBook);
-}
-
-    public book updateBook(String isbn, book updatedBook) {
-        book existingBook = getBookByIsbn(isbn);
+        book existingBook = getBookById(bookId);
 
         existingBook.setTitle(updatedBook.getTitle());
         existingBook.setDescription(updatedBook.getDescription());
-        existingBook.setAuthorId(updatedBook.getAuthorId());
+
+        // Update author if a valid author ID is supplied
+        if (updatedBook.getAuthorId() != null) {
+
+            Author author = authorRepository
+                    .findById(updatedBook.getAuthorId())
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "Author not found: "
+                                            + updatedBook.getAuthorId()
+                            )
+                    );
+
+            existingBook.setAuthor(author);
+        }
+
+        // Optional fields
         existingBook.setPublisherId(updatedBook.getPublisherId());
         existingBook.setCategoryId(updatedBook.getCategoryId());
         existingBook.setEdition(updatedBook.getEdition());
         existingBook.setPrice(updatedBook.getPrice());
-        existingBook.setPublicationYear(updatedBook.getPublicationYear());
+        existingBook.setPublicationYear(
+                updatedBook.getPublicationYear()
+        );
         existingBook.setCoverImage(updatedBook.getCoverImage());
+
+        // Update ISBN if supplied
+        if (updatedBook.getIsbn() != null) {
+
+            String isbn = updatedBook.getIsbn().trim();
+
+            if (!isbn.isEmpty()
+                    && bookRepository.findByIsbn(isbn)
+                            .filter(b -> !b.getBookId().equals(bookId))
+                            .isPresent()) {
+
+                throw new IllegalArgumentException(
+                        "Another book already uses this ISBN"
+                );
+            }
+
+            existingBook.setIsbn(
+                    isbn.isEmpty() ? null : isbn
+            );
+        }
 
         return bookRepository.save(existingBook);
     }
 
-    public void deleteBook(String isbn) {
-        book existingBook = getBookByIsbn(isbn);
+    // ==========================================
+    // DELETE BOOK
+    // ==========================================
+
+    public void deleteBook(Integer bookId) {
+
+        book existingBook = getBookById(bookId);
+
+        // Prevent deletion when physical copies exist
+        if (bookCopyRepository.countByBookId(bookId) > 0) {
+
+            throw new IllegalStateException(
+                    "Cannot delete this book because physical copies exist. "
+                    + "Remove its copies first."
+            );
+        }
+
         bookRepository.delete(existingBook);
     }
 }

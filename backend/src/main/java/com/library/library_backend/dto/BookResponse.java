@@ -3,6 +3,7 @@ package com.library.library_backend.dto;
 
 public class BookResponse {
 
+    // This now represents Book_ID, not ISBN
     private String id;
     private String title;
     private String author;
@@ -78,4 +79,3 @@ public class BookResponse {
         return coverTheme;
     }
 }
-

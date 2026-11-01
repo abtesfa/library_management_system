@@ -1,12 +1,6 @@
-
 package com.library.library_backend.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 
 @Entity
 @Table(name = "book_copy")
@@ -17,8 +11,8 @@ public class BookCopy {
     @Column(name = "Copy_ID")
     private Integer copyId;
 
-    @Column(name = "ISBN", length = 20, nullable = false)
-    private String isbn;
+    @Column(name = "Book_ID", nullable = false)
+    private Integer bookId;
 
     @Column(name = "Status", nullable = false)
     private String status;
@@ -37,12 +31,12 @@ public class BookCopy {
         this.copyId = copyId;
     }
 
-    public String getIsbn() {
-        return isbn;
+    public Integer getBookId() {
+        return bookId;
     }
 
-    public void setIsbn(String isbn) {
-        this.isbn = isbn;
+    public void setBookId(Integer bookId) {
+        this.bookId = bookId;
     }
 
     public String getStatus() {
@@ -61,4 +55,3 @@ public class BookCopy {
         this.location = location;
     }
 }
-

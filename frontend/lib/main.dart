@@ -14,7 +14,6 @@ import 'screens/reader/reader_home_screen.dart';
 import 'screens/reader/reader_my_books_screen.dart';
 import 'screens/reader/reader_reservations_screen.dart';
 import 'screens/librarian/librarian_notifications_screen.dart';
-import 'api_test_page.dart';
 
 
 void main() {
@@ -38,7 +37,7 @@ class LibraryManagementApp extends StatelessWidget {
       title: 'Library Management System',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-     home: const ApiTestPage(),
+     home: const MainShell(),
     );
   }
 }
