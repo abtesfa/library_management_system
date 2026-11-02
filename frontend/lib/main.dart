@@ -16,7 +16,6 @@ import 'screens/reader/reader_reservations_screen.dart';
 import 'screens/librarian/librarian_notifications_screen.dart';
 import 'api_test_page.dart';
 
-
 void main() {
   runApp(
     MultiProvider(
@@ -38,7 +37,7 @@ class LibraryManagementApp extends StatelessWidget {
       title: 'Library Management System',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-     home: const ApiTestPage(),
+      home: const MainShell(),
     );
   }
 }
@@ -162,14 +161,14 @@ class _MainShellState extends State<MainShell> {
           return const AdminInventoryScreen();
       }
     } else if (_currentRole == UserRole.librarian) {
-  switch (_selectedNavIndex) {
-    case 1:
-      return const LibrarianNotificationsScreen();
-    case 0:
-    default:
-      return const LibrarianDeskScreen();
-  }
-}else {
+      switch (_selectedNavIndex) {
+        case 1:
+          return const LibrarianNotificationsScreen();
+        case 0:
+        default:
+          return const LibrarianDeskScreen();
+      }
+    } else {
       switch (_selectedNavIndex) {
         case 1:
           return const ReaderMyBooksScreen();

@@ -1,11 +1,11 @@
-
 package com.library.library_backend.repository;
 
+import com.library.library_backend.entity.Category; // or Category
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+import java.util.Optional;
 
-import com.library.library_backend.entity.Category;
-
-public interface CategoryRepository
-        extends JpaRepository<Category, Integer> {
+@Repository
+public interface CategoryRepository extends JpaRepository<Category, Integer> {
+        Optional<Category> findByCategoryName(String categoryName);
 }
-

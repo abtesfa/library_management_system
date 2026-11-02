@@ -1,4 +1,3 @@
-
 package com.library.library_backend.entity;
 
 import jakarta.persistence.Column;
@@ -8,7 +7,6 @@ import jakarta.persistence.Table;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.FetchType;
-
 import java.math.BigDecimal;
 
 @Entity
@@ -16,7 +14,7 @@ import java.math.BigDecimal;
 public class book {
 
     @Id
-    @Column(name = "ISBN", length = 20, nullable = false)
+    @Column(name = "ISBN", length = 20, nullable = true)
     private String isbn;
 
     @Column(name = "Title", length = 200, nullable = false)
@@ -24,11 +22,7 @@ public class book {
 
     @Column(name = "Description", columnDefinition = "TEXT")
     private String description;
-//entitiy relationship diagram for srping 
-// boot before was ust like other column 
-//joincloumn points to as aforeign key and manyto one on book side 
-@Column(name = "Author_ID", nullable = false, insertable = false, updatable = false)
-private Integer authorId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "Author_ID", nullable = false)
     private Author author;
@@ -54,7 +48,6 @@ private Integer authorId;
     public book() {
     }
 
-    // ISBN
     public String getIsbn() {
         return isbn;
     }
@@ -63,7 +56,6 @@ private Integer authorId;
         this.isbn = isbn;
     }
 
-    // Title
     public String getTitle() {
         return title;
     }
@@ -72,7 +64,6 @@ private Integer authorId;
         this.title = title;
     }
 
-    // Description
     public String getDescription() {
         return description;
     }
@@ -81,22 +72,14 @@ private Integer authorId;
         this.description = description;
     }
 
-    // Author ID
-    public Integer getAuthorId() {
-        return authorId;
-    }
-public Author getAuthor() {
-    return author;
-}
-
-public void setAuthor(Author author) {
-    this.author = author;
-}
-    public void setAuthorId(Integer authorId) {
-        this.authorId = authorId;
+    public Author getAuthor() {
+        return author;
     }
 
-    // Publisher ID
+    public void setAuthor(Author author) {
+        this.author = author;
+    }
+
     public Integer getPublisherId() {
         return publisherId;
     }
@@ -105,7 +88,6 @@ public void setAuthor(Author author) {
         this.publisherId = publisherId;
     }
 
-    // Category ID
     public Integer getCategoryId() {
         return categoryId;
     }
@@ -114,7 +96,6 @@ public void setAuthor(Author author) {
         this.categoryId = categoryId;
     }
 
-    // Edition
     public String getEdition() {
         return edition;
     }
@@ -123,7 +104,6 @@ public void setAuthor(Author author) {
         this.edition = edition;
     }
 
-    // Price
     public BigDecimal getPrice() {
         return price;
     }
@@ -132,7 +112,6 @@ public void setAuthor(Author author) {
         this.price = price;
     }
 
-    // Publication Year
     public Integer getPublicationYear() {
         return publicationYear;
     }
@@ -141,7 +120,6 @@ public void setAuthor(Author author) {
         this.publicationYear = publicationYear;
     }
 
-    // Cover Image
     public String getCoverImage() {
         return coverImage;
     }

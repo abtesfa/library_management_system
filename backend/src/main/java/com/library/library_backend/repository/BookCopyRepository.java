@@ -6,9 +6,14 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.library.library_backend.entity.BookCopy;
 
+import org.springframework.stereotype.Repository;
+
+
+
+
 public interface BookCopyRepository
         extends JpaRepository<BookCopy, Integer> {
-
+    long countByStatusIgnoreCase(String status);
     // Count all physical copies of a book
     long countByIsbn(String isbn);
 
@@ -23,3 +28,4 @@ public interface BookCopyRepository
     // Find the first copy regardless of status
     Optional<BookCopy> findFirstByIsbn(String isbn);
 }
+

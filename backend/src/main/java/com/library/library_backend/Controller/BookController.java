@@ -3,6 +3,7 @@ package com.library.library_backend.Controller;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.library.library_backend.Service.BookService;
 import com.library.library_backend.dto.BookResponse;
+import com.library.library_backend.dto.InventorySummaryDTO;
 import com.library.library_backend.entity.book;
 import jakarta.validation.Valid;
 import com.library.library_backend.dto.BookRequest;
@@ -40,55 +42,66 @@ public class BookController {
     public List<BookResponse> getAllBooks() {
         return bookService.getAllBookResponses();
     }
+
     @GetMapping("/search")
-public List<BookResponse> searchBooks(
-        @RequestParam String keyword) {
+    public List<BookResponse> searchBooks(
+            @RequestParam String keyword) {
 
-    return bookService.searchBooks(keyword);
-}
-   @GetMapping("/search/author")
-   public List<BookResponse> searchBooksByAuthor(
-        @RequestParam String name) {
+        return bookService.searchBooks(keyword);
+    }
 
-    return bookService.searchBooksByAuthor(name);
-}
-@GetMapping("/search/category")
-public List<BookResponse> searchBooksByCategory(
-        @RequestParam String name) {
+    @GetMapping("/search/author")
+    public List<BookResponse> searchBooksByAuthor(
+            @RequestParam String name) {
 
-    return bookService.searchBooksByCategory(name);
-}
-@GetMapping("/advanced-search")
-public List<BookResponse> advancedSearch(
-        @RequestParam(required = false) String title,
-        @RequestParam(required = false) String author,
-        @RequestParam(required = false) String category) {
+        return bookService.searchBooksByAuthor(name);
+    }
 
-    return bookService.advancedSearch(title, author, category);
-}
-@GetMapping("/page")
-public Page<BookResponse> getBooksWithPagination(
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "5") int size) {
+    @GetMapping("/search/category")
+    public List<BookResponse> searchBooksByCategory(
+            @RequestParam String name) {
 
-    Pageable pageable = PageRequest.of(page, size);
+        return bookService.searchBooksByCategory(name);
+    }
 
-    return bookService.getBooksWithPagination(pageable);
-}
+    @GetMapping("/advanced-search")
+    public List<BookResponse> advancedSearch(
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) String author,
+            @RequestParam(required = false) String category) {
+
+        return bookService.advancedSearch(title, author, category);
+    }
+
+    @GetMapping("/page")
+    public Page<BookResponse> getBooksWithPagination(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size) {
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        return bookService.getBooksWithPagination(pageable);
+    }
+
     // Get one book by ISBN
+    @GetMapping("/inventory-summary")
+    public ResponseEntity<InventorySummaryDTO> getInventorySummary() {
+        return ResponseEntity.ok(bookService.getInventorySummary());
+    }
+
     @GetMapping("/{isbn}")
     public BookResponse getBookByIsbn(@PathVariable String isbn) {
         return bookService.getBookResponseByIsbn(isbn);
     }
 
     // Create a new book
-   @PostMapping
-   @ResponseStatus(HttpStatus.CREATED)
-   public BookResponse createBook(
-        @Valid @RequestBody BookRequest request) {
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public BookResponse createBook(
+            @Valid @RequestBody BookRequest request) {
 
-    return bookService.createBook(request);
-   }
+        return bookService.createBook(request);
+    }
 
     // Update an existing book
     @PutMapping("/{isbn}")

@@ -1,5 +1,6 @@
 {
     "java.compile.nullAnalysis.mode": "automatic",
     "jdk.advanced.disable.nbjavac": false,
-    "cmake.sourceDirectory": "C:/Users/Admin/Downloads/library-managementsystem/frontend/windows"
+    "cmake.sourceDirectory": "C:/Users/Admin/Downloads/library-managementsystem/frontend/windows",
+    "java.configuration.updateBuildConfiguration": "interactive"
 }
