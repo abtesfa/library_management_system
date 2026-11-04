@@ -8,7 +8,7 @@ class BorrowRecord {
   final String borrowDate;
   final String dueDate;
   final String? returnDate;
-  final String status; // 'Active', 'Returned', 'Overdue'
+  final String status;
   final double fineAmount;
   final int daysLeft;
 
@@ -26,48 +26,88 @@ class BorrowRecord {
     this.fineAmount = 0.0,
     this.daysLeft = 0,
   });
-  
-BorrowRecord copyWith({
-  String? id,
-  String? studentId,
-  String? studentName,
-  String? bookId,
-  String? bookTitle,
-  String? isbn,
-  String? borrowDate,
-  String? dueDate,
-  String? returnDate,
-  String? status,
-  double? fineAmount,
-  int? daysLeft,
-}) {
-  return BorrowRecord(
-    id: id ?? this.id,
-    studentId: studentId ?? this.studentId,
-    studentName: studentName ?? this.studentName,
-    bookId: bookId ?? this.bookId,
-    bookTitle: bookTitle ?? this.bookTitle,
-    isbn: isbn ?? this.isbn,
-    borrowDate: borrowDate ?? this.borrowDate,
-    dueDate: dueDate ?? this.dueDate,
-    returnDate: returnDate ?? this.returnDate,
-    status: status ?? this.status,
-    fineAmount: fineAmount ?? this.fineAmount,
-    daysLeft: daysLeft ?? this.daysLeft,
-  );
+
+  factory BorrowRecord.fromJson(
+    Map<String, dynamic> json, {
+    required String studentId,
+  }) {
+    final dueDateValue = DateTime.tryParse(
+      json['dueDate']?.toString() ?? '',
+    );
+
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+
+    final daysRemaining = dueDateValue == null
+        ? 0
+        : DateTime(
+            dueDateValue.year,
+            dueDateValue.month,
+            dueDateValue.day,
+          ).difference(todayDate).inDays;
+
+    final apiStatus =
+        json['status']?.toString().toUpperCase() ?? 'BORROWED';
+
+    return BorrowRecord(
+      id: json['borrowingId']?.toString() ?? '',
+      studentId: studentId,
+      studentName: '',
+      bookId: '',
+      bookTitle: json['bookTitle']?.toString() ?? 'Unknown Book',
+      isbn: json['isbn']?.toString() ?? '',
+      borrowDate: json['borrowDate']?.toString() ?? '',
+      dueDate: json['dueDate']?.toString() ?? '',
+      returnDate: json['returnDate']?.toString(),
+      status: apiStatus == 'OVERDUE' || daysRemaining < 0
+          ? 'Overdue'
+          : 'Active',
+      fineAmount: 0.0,
+      daysLeft: daysRemaining,
+    );
+  }
+
+  BorrowRecord copyWith({
+    String? id,
+    String? studentId,
+    String? studentName,
+    String? bookId,
+    String? bookTitle,
+    String? isbn,
+    String? borrowDate,
+    String? dueDate,
+    String? returnDate,
+    String? status,
+    double? fineAmount,
+    int? daysLeft,
+  }) {
+    return BorrowRecord(
+      id: id ?? this.id,
+      studentId: studentId ?? this.studentId,
+      studentName: studentName ?? this.studentName,
+      bookId: bookId ?? this.bookId,
+      bookTitle: bookTitle ?? this.bookTitle,
+      isbn: isbn ?? this.isbn,
+      borrowDate: borrowDate ?? this.borrowDate,
+      dueDate: dueDate ?? this.dueDate,
+      returnDate: returnDate ?? this.returnDate,
+      status: status ?? this.status,
+      fineAmount: fineAmount ?? this.fineAmount,
+      daysLeft: daysLeft ?? this.daysLeft,
+    );
+  }
 }
 
-}
-
+// RESERVATION MODEL
 class ReservationRecord {
   final String id;
   final String bookId;
   final String bookTitle;
   final String author;
   final String reservedDate;
-  final String holdUntil;
+  final String? holdUntil;
   final String pickupLocation;
-  final String status; // 'Ready for Pickup', 'In Queue', 'Completed', 'Cancelled'
+  final String status;
   final int queuePosition;
 
   ReservationRecord({
@@ -76,9 +116,24 @@ class ReservationRecord {
     required this.bookTitle,
     required this.author,
     required this.reservedDate,
-    required this.holdUntil,
+    this.holdUntil,
     required this.pickupLocation,
     required this.status,
     this.queuePosition = 1,
   });
+
+  factory ReservationRecord.fromJson(Map<String, dynamic> json) {
+    return ReservationRecord(
+      id: json['reservationId']?.toString() ?? '',
+      bookId: json['bookId']?.toString() ?? '',
+      bookTitle: json['bookTitle']?.toString() ?? 'Unknown Book',
+      author: json['author']?.toString() ?? 'Unknown Author',
+      reservedDate: json['reservedDate']?.toString() ?? '',
+      holdUntil: json['holdUntil']?.toString(),
+      pickupLocation:
+          json['pickupLocation']?.toString() ?? 'Main Library',
+      status: json['status']?.toString() ?? 'WAITING',
+      queuePosition: (json['queuePosition'] as num?)?.toInt() ?? 1,
+    );
+  }
 }

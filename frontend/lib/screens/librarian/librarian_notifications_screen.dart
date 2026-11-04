@@ -1,30 +1,8 @@
 
 import 'package:flutter/material.dart';
 
-enum NotificationType {
-  dueSoon,
-  overdue,
-  reservation,
-  announcement,
-}
-
-class LibraryNotification {
-  final String title;
-  final String message;
-  final String? details;
-  final String time;
-  final NotificationType type;
-  final IconData icon;
-
-  const LibraryNotification({
-    required this.title,
-    required this.message,
-    this.details,
-    required this.time,
-    required this.type,
-    required this.icon,
-  });
-}
+import '../../models/notification_model.dart';
+import '../../services/notification_api_service.dart';
 
 class LibrarianNotificationsScreen extends StatefulWidget {
   const LibrarianNotificationsScreen({super.key});
@@ -39,108 +17,105 @@ class _LibrarianNotificationsScreenState
   static const Color primaryBlue = Color(0xFF0052CC);
   static const Color pageBackground = Color(0xFFF4F7FC);
 
-  String _selectedFilter = 'All';
-  final Set<int> _readNotifications = {};
+  final NotificationApiService _apiService = NotificationApiService();
 
-  final List<LibraryNotification> _notifications = const [
-    LibraryNotification(
-      title: 'Overdue Book',
-      message: "The book 'Atomic Habits' is overdue.",
-      details: 'Due date: 2025-06-22 · Student: S-00123 (Abebe Kebede)',
-      time: '2 hours ago',
-      type: NotificationType.overdue,
-      icon: Icons.notifications_active,
-    ),
-    LibraryNotification(
-      title: 'Due Soon',
-      message: "'The Great Gatsby' will be due in 2 days.",
-      details: 'Due date: 2025-06-25 · Student: S-00145 (Selam Tesfaye)',
-      time: '4 hours ago',
-      type: NotificationType.dueSoon,
-      icon: Icons.access_time_filled,
-    ),
-    LibraryNotification(
-      title: 'Reservation Available',
-      message: "A reserved copy of 'Dune' is now available.",
-      details: 'Book ID: B-00127',
-      time: '6 hours ago',
-      type: NotificationType.reservation,
-      icon: Icons.calendar_month,
-    ),
-    LibraryNotification(
-      title: 'Overdue Book',
-      message: "The book 'Clean Code' is overdue.",
-      details: 'Due date: 2025-06-19 · Student: S-00102 (Yonas Tadesse)',
-      time: '1 day ago',
-      type: NotificationType.overdue,
-      icon: Icons.notifications_active,
-    ),
-    LibraryNotification(
-      title: 'New Reservation',
-      message: "A new reservation was made for 'The Martian'.",
-      details: 'Student: S-00167 (Mekdes Alemu)',
-      time: '1 day ago',
-      type: NotificationType.reservation,
-      icon: Icons.info,
-    ),
-    LibraryNotification(
-      title: 'Library Announcement',
-      message: 'The library will be closed for maintenance.',
-      details: 'Please check the official library schedule for updates.',
-      time: '2 days ago',
-      type: NotificationType.announcement,
-      icon: Icons.campaign,
-    ),
-    LibraryNotification(
-      title: 'Due Soon',
-      message: "'Sapiens' will be due in 3 days.",
-      details: 'Student: S-00178 (Hana Girma)',
-      time: '2 days ago',
-      type: NotificationType.dueSoon,
-      icon: Icons.calendar_month,
-    ),
-    LibraryNotification(
-      title: 'Library Announcement',
-      message: 'New books have been added to the collection.',
-      details: 'Check the latest titles in the library catalog.',
-      time: '3 days ago',
-      type: NotificationType.announcement,
-      icon: Icons.campaign,
-    ),
-  ];
+  String _selectedFilter = 'All';
+  List<LibraryNotification> _notifications = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotifications();
+  }
+
+  Future<void> _loadNotifications() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final notifications = await _apiService.getNotifications();
+
+      if (!mounted) return;
+
+      setState(() {
+        _notifications = notifications;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  String _typeForFilter(String filter) {
+    switch (filter) {
+      case 'Due Soon':
+        return 'DUE_SOON';
+      case 'Overdue':
+        return 'OVERDUE';
+      case 'Reservations':
+        return 'RESERVATION';
+      case 'Announcements':
+        return 'ANNOUNCEMENT';
+      default:
+        return '';
+    }
+  }
 
   List<LibraryNotification> get _filteredNotifications {
-    if (_selectedFilter == 'All') {
-      return _notifications;
-    }
+    if (_selectedFilter == 'All') return _notifications;
 
-    final type = switch (_selectedFilter) {
-      'Due Soon' => NotificationType.dueSoon,
-      'Overdue' => NotificationType.overdue,
-      'Reservations' => NotificationType.reservation,
-      'Announcements' => NotificationType.announcement,
-      _ => null,
-    };
+    final type = _typeForFilter(_selectedFilter);
 
     return _notifications
-        .where((notification) => notification.type == type)
+        .where((notification) =>
+            notification.notificationType == type)
         .toList();
   }
 
   int _countFor(String filter) {
     if (filter == 'All') return _notifications.length;
 
-    final type = switch (filter) {
-      'Due Soon' => NotificationType.dueSoon,
-      'Overdue' => NotificationType.overdue,
-      'Reservations' => NotificationType.reservation,
-      'Announcements' => NotificationType.announcement,
-      _ => null,
-    };
+    final type = _typeForFilter(filter);
 
     return _notifications
-        .where((notification) => notification.type == type)
+        .where((notification) =>
+            notification.notificationType == type)
         .length;
+  }
+
+  NotificationType _notificationType(LibraryNotification notification) {
+    switch (notification.notificationType) {
+      case 'OVERDUE':
+        return NotificationType.overdue;
+      case 'DUE_SOON':
+        return NotificationType.dueSoon;
+      case 'RESERVATION':
+        return NotificationType.reservation;
+      default:
+        return NotificationType.announcement;
+    }
+  }
+
+  IconData _notificationIcon(NotificationType type) {
+    switch (type) {
+      case NotificationType.overdue:
+        return Icons.notifications_active;
+      case NotificationType.dueSoon:
+        return Icons.access_time_filled;
+      case NotificationType.reservation:
+        return Icons.calendar_month;
+      case NotificationType.announcement:
+        return Icons.campaign;
+    }
   }
 
   Color _notificationColor(NotificationType type) {
@@ -182,18 +157,68 @@ class _LibrarianNotificationsScreenState
     }
   }
 
-  void _openNotification(
-    LibraryNotification notification,
-    int originalIndex,
-  ) {
-    setState(() {
-      _readNotifications.add(originalIndex);
-    });
+  String _timeAgo(DateTime? date) {
+    if (date == null) return '';
+
+    final difference = DateTime.now().difference(date.toLocal());
+
+    if (difference.inMinutes < 1) return 'Just now';
+    if (difference.inHours < 1) {
+      return '${difference.inMinutes} min ago';
+    }
+    if (difference.inDays < 1) {
+      return '${difference.inHours} hours ago';
+    }
+    if (difference.inDays == 1) return '1 day ago';
+
+    return '${difference.inDays} days ago';
+  }
+
+  Future<void> _openNotification(
+      LibraryNotification notification) async {
+    if (!notification.isRead) {
+      try {
+        await _apiService.markAsRead(notification.notificationId);
+
+        if (!mounted) return;
+
+        setState(() {
+          final index = _notifications.indexWhere(
+            (item) =>
+                item.notificationId == notification.notificationId,
+          );
+
+          if (index != -1) {
+            final old = _notifications[index];
+
+            _notifications[index] = LibraryNotification(
+              notificationId: old.notificationId,
+              title: old.title,
+              message: old.message,
+              details: old.details,
+              createdAt: old.createdAt,
+              notificationType: old.notificationType,
+              isRead: true,
+            );
+          }
+        });
+      } catch (e) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not mark as read: $e')),
+        );
+      }
+    }
+
+    if (!mounted) return;
+
+    final type = _notificationType(notification);
 
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        final color = _notificationColor(notification.type);
+        final color = _notificationColor(type);
 
         return AlertDialog(
           shape: RoundedRectangleBorder(
@@ -201,7 +226,7 @@ class _LibrarianNotificationsScreenState
           ),
           title: Row(
             children: [
-              Icon(notification.icon, color: color),
+              Icon(_notificationIcon(type), color: color),
               const SizedBox(width: 12),
               Expanded(child: Text(notification.title)),
             ],
@@ -223,7 +248,7 @@ class _LibrarianNotificationsScreenState
               ],
               const SizedBox(height: 12),
               Text(
-                notification.time,
+                _timeAgo(notification.createdAt),
                 style: const TextStyle(
                   color: Colors.grey,
                   fontSize: 12,
@@ -259,16 +284,75 @@ class _LibrarianNotificationsScreenState
           builder: (context, constraints) {
             final compact = constraints.maxWidth < 700;
 
+            if (_isLoading) {
+              return const Center(
+                child: CircularProgressIndicator(
+                  color: primaryBlue,
+                ),
+              );
+            }
+
+            if (_error != null) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.cloud_off,
+                        size: 48,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Unable to load notifications',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: _loadNotifications,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Try Again'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
             return ListView(
               padding: EdgeInsets.all(compact ? 16 : 24),
               children: [
-                const Text(
-                  'Notifications',
-                  style: TextStyle(
-                    color: Color(0xFF103E91),
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Notifications',
+                        style: TextStyle(
+                          color: Color(0xFF103E91),
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Refresh notifications',
+                      onPressed: _loadNotifications,
+                      icon: const Icon(
+                        Icons.refresh,
+                        color: primaryBlue,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 6),
                 const Text(
@@ -281,7 +365,6 @@ class _LibrarianNotificationsScreenState
                 ),
                 const SizedBox(height: 22),
 
-                // Filter tabs
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
@@ -291,9 +374,7 @@ class _LibrarianNotificationsScreenState
                       return Padding(
                         padding: const EdgeInsets.only(right: 10),
                         child: Material(
-                          color: selected
-                              ? primaryBlue
-                              : Colors.white,
+                          color: selected ? primaryBlue : Colors.white,
                           borderRadius: BorderRadius.circular(9),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(9),
@@ -347,7 +428,6 @@ class _LibrarianNotificationsScreenState
                 ),
                 const SizedBox(height: 16),
 
-                // Notification list
                 if (_filteredNotifications.isEmpty)
                   const Padding(
                     padding: EdgeInsets.all(40),
@@ -365,13 +445,10 @@ class _LibrarianNotificationsScreenState
                   )
                 else
                   ..._filteredNotifications.map((notification) {
-                    final originalIndex =
-                        _notifications.indexOf(notification);
-                    final color = _notificationColor(notification.type);
+                    final type = _notificationType(notification);
+                    final color = _notificationColor(type);
                     final background =
-                        _notificationBackground(notification.type);
-                    final isRead =
-                        _readNotifications.contains(originalIndex);
+                        _notificationBackground(type);
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: 8),
@@ -385,10 +462,7 @@ class _LibrarianNotificationsScreenState
                       ),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(12),
-                        onTap: () => _openNotification(
-                          notification,
-                          originalIndex,
-                        ),
+                        onTap: () => _openNotification(notification),
                         child: Padding(
                           padding: EdgeInsets.all(compact ? 12 : 16),
                           child: Row(
@@ -398,7 +472,7 @@ class _LibrarianNotificationsScreenState
                                 radius: compact ? 23 : 28,
                                 backgroundColor: background,
                                 child: Icon(
-                                  notification.icon,
+                                  _notificationIcon(type),
                                   color: color,
                                   size: 24,
                                 ),
@@ -414,7 +488,7 @@ class _LibrarianNotificationsScreenState
                                       style: TextStyle(
                                         color: primaryBlue,
                                         fontSize: 14,
-                                        fontWeight: isRead
+                                        fontWeight: notification.isRead
                                             ? FontWeight.w500
                                             : FontWeight.bold,
                                       ),
@@ -441,7 +515,8 @@ class _LibrarianNotificationsScreenState
                                     ],
                                     const SizedBox(height: 10),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(
+                                      padding:
+                                          const EdgeInsets.symmetric(
                                         horizontal: 12,
                                         vertical: 5,
                                       ),
@@ -451,7 +526,7 @@ class _LibrarianNotificationsScreenState
                                             BorderRadius.circular(20),
                                       ),
                                       child: Text(
-                                        _statusLabel(notification.type),
+                                        _statusLabel(type),
                                         style: TextStyle(
                                           color: color,
                                           fontSize: 11,
@@ -464,10 +539,11 @@ class _LibrarianNotificationsScreenState
                               ),
                               const SizedBox(width: 10),
                               Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.end,
                                 children: [
                                   Text(
-                                    notification.time,
+                                    _timeAgo(notification.createdAt),
                                     style: const TextStyle(
                                       color: Color(0xFF3678D8),
                                       fontSize: 11,
@@ -479,11 +555,12 @@ class _LibrarianNotificationsScreenState
                                     color: primaryBlue,
                                     size: 22,
                                   ),
-                                  if (!isRead)
+                                  if (!notification.isRead)
                                     Container(
                                       width: 7,
                                       height: 7,
-                                      margin: const EdgeInsets.only(top: 8),
+                                      margin:
+                                          const EdgeInsets.only(top: 8),
                                       decoration: const BoxDecoration(
                                         color: primaryBlue,
                                         shape: BoxShape.circle,

@@ -1,5 +1,9 @@
+
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
 
 import '../../models/book.dart';
 import '../../services/library_service.dart';
@@ -15,6 +19,7 @@ class AdminInventoryScreen extends StatefulWidget {
 
 class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
   final BookService _bookService = BookService();
+
   final TextEditingController _searchController =
       TextEditingController();
 
@@ -24,321 +29,395 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
-    final BookService _bookService = BookService();
-bool _isAddingBook = false;
   }
 
-Future<void> _showAddBookDialog() async {
-  final formKey = GlobalKey<FormState>();
+  // =========================================================
+  // ADD NEW BOOK DIALOG
+  // =========================================================
 
-  final isbnController = TextEditingController();
-  final titleController = TextEditingController();
-  final descriptionController = TextEditingController();
-  final authorIdController = TextEditingController();
-  final publisherIdController = TextEditingController();
-  final categoryIdController = TextEditingController();
-  final editionController = TextEditingController();
-  final priceController = TextEditingController();
-  final yearController = TextEditingController();
-  final coverImageController = TextEditingController();
-  final copiesController = TextEditingController(text: '1');
-  final locationController = TextEditingController();
+  Future<void> _showAddBookDialog() async {
+    final formKey = GlobalKey<FormState>();
 
-  try {
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        bool submitting = false;
+    final titleController = TextEditingController();
+    final authorController = TextEditingController();
+    final copiesController = TextEditingController(text: '1');
+    final locationController = TextEditingController();
 
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Row(
-                children: [
-                  Icon(Icons.library_add, color: Color(0xFF1877F2)),
-                  SizedBox(width: 10),
-                  Text('Add New Book'),
-                ],
-              ),
-              content: SizedBox(
-                width: 520,
-                child: Form(
-                  key: formKey,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _formField(
-                          isbnController,
-                          'ISBN',
-                          requiredField: true,
-                        ),
-                        _formField(
-                          titleController,
-                          'Book Title',
-                          requiredField: true,
-                        ),
-                        _formField(
-                          descriptionController,
-                          'Description',
-                          maxLines: 3,
-                        ),
-                        const SizedBox(height: 8),
-                        const Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Book Information',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF1877F2),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _formField(
-                          authorIdController,
-                          'Author ID',
-                          requiredField: true,
-                          isNumber: true,
-                        ),
-                        _formField(
-                          publisherIdController,
-                          'Publisher ID',
-                          requiredField: true,
-                          isNumber: true,
-                        ),
-                        _formField(
-                          categoryIdController,
-                          'Category ID',
-                          requiredField: true,
-                          isNumber: true,
-                        ),
-                        _formField(
-                          editionController,
-                          'Edition',
-                        ),
-                        _formField(
-                          priceController,
-                          'Price',
-                          isNumber: true,
-                        ),
-                        _formField(
-                          yearController,
-                          'Publication Year',
-                          isNumber: true,
-                        ),
-                        _formField(
-                          coverImageController,
-                          'Cover Image URL',
-                        ),
-                        const Divider(height: 28),
-                        const Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Physical Copies',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF1877F2),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _formField(
-                          copiesController,
-                          'Number of Copies',
-                          requiredField: true,
-                          isNumber: true,
-                          minimum: 1,
-                        ),
-                        _formField(
-                          locationController,
-                          'Shelf Location',
-                          hint: 'Example: Shelf A-02',
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: submitting
-                      ? null
-                      : () => Navigator.pop(dialogContext, false),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton.icon(
-                  onPressed: submitting
-                      ? null
-                      : () async {
-                          if (!formKey.currentState!.validate()) {
-                            return;
-                          }
-
-                          setDialogState(() => submitting = true);
-
-                          final bookData = {
-                            'isbn': isbnController.text.trim(),
-                            'title': titleController.text.trim(),
-                            'description':
-                                descriptionController.text.trim(),
-                            'authorId':
-                                int.parse(authorIdController.text.trim()),
-                            'publisherId':
-                                int.parse(publisherIdController.text.trim()),
-                            'categoryId':
-                                int.parse(categoryIdController.text.trim()),
-                            'edition': editionController.text.trim(),
-                            'price': priceController.text.trim().isEmpty
-                                ? null
-                                : double.parse(priceController.text.trim()),
-                            'publicationYear':
-                                yearController.text.trim().isEmpty
-                                    ? null
-                                    : int.parse(
-                                        yearController.text.trim(),
-                                      ),
-                            'coverImage': coverImageController.text.trim(),
-                            'numberOfCopies':
-                                int.parse(copiesController.text.trim()),
-                            'location': locationController.text.trim(),
-                          };
-
-                          try {
-                            await _bookService.createBook(bookData);
-
-                            if (!mounted) return;
-
-                            Navigator.pop(dialogContext, true);
-                          } catch (error) {
-                            setDialogState(() => submitting = false);
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Could not add book: $error',
-                                ),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        },
-                  icon: submitting
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.save, size: 18),
-                  label: Text(submitting ? 'Saving...' : 'Save Book'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1877F2),
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    if (result == true && mounted) {
-      await context.read<LibraryService>().loadBooksFromApi();
+    try {
+      // LOAD CATEGORIES FROM SPRING BOOT / MYSQL
+      final categoryResponse = await http
+          .get(
+            Uri.parse(
+              'http://localhost:8080/api/books/categories',
+            ),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (!mounted) return;
 
+      if (categoryResponse.statusCode != 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not load categories: ${categoryResponse.body}',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      final List<dynamic> categories =
+          jsonDecode(categoryResponse.body) as List<dynamic>;
+
+      if (categories.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No categories found. Please add a category first.',
+            ),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      int? selectedCategoryId;
+
+      // SHOW ADD BOOK DIALOG
+      final bool? result = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          bool submitting = false;
+
+          return StatefulBuilder(
+            builder: (dialogContext, setDialogState) {
+              return AlertDialog(
+                title: const Row(
+                  children: [
+                    Icon(
+                      Icons.library_add,
+                      color: Color(0xFF1877F2),
+                    ),
+                    SizedBox(width: 10),
+                    Text('Add New Book'),
+                  ],
+                ),
+
+                content: SizedBox(
+                  width: 520,
+                  child: Form(
+                    key: formKey,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // BOOK TITLE
+                          _formField(
+                            titleController,
+                            'Book Title',
+                            requiredField: true,
+                          ),
+
+                          // AUTHOR NAME
+                          _formField(
+                            authorController,
+                            'Author Name',
+                            requiredField: true,
+                          ),
+
+                          // CATEGORY DROPDOWN
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: 12,
+                            ),
+                            child: DropdownButtonFormField<int>(
+                              initialValue: selectedCategoryId,
+                              isExpanded: true,
+                              decoration: InputDecoration(
+                                labelText: 'Category',
+                                border: OutlineInputBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(8),
+                                ),
+                                contentPadding:
+                                    const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 14,
+                                ),
+                              ),
+                              items: categories.map((category) {
+                                final int id =
+                                    (category['categoryId'] as num)
+                                        .toInt();
+
+                                final String name =
+                                    category['categoryName'].toString();
+
+                                return DropdownMenuItem<int>(
+                                  value: id,
+                                  child: Text(name),
+                                );
+                              }).toList(),
+                              onChanged: submitting
+                                  ? null
+                                  : (value) {
+                                      setDialogState(() {
+                                        selectedCategoryId = value;
+                                      });
+                                    },
+                              validator: (value) {
+                                if (value == null) {
+                                  return 'Please select a category';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+
+                          // NUMBER OF COPIES
+                          _formField(
+                            copiesController,
+                            'Number of Copies',
+                            requiredField: true,
+                            isNumber: true,
+                            minimum: 1,
+                          ),
+
+                          // SHELF LOCATION
+                          _formField(
+                            locationController,
+                            'Shelf Location',
+                            hint: 'Example: Shelf A-02',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // DIALOG ACTIONS
+                actions: [
+                  // CANCEL BUTTON
+                  TextButton(
+                    onPressed: submitting
+                        ? null
+                        : () {
+                            Navigator.pop(dialogContext, false);
+                          },
+                    child: const Text('Cancel'),
+                  ),
+
+                  // SAVE BOOK BUTTON
+                  ElevatedButton.icon(
+                    onPressed: submitting
+                        ? null
+                        : () async {
+                            if (!formKey.currentState!.validate()) {
+                              return;
+                            }
+
+                            setDialogState(() {
+                              submitting = true;
+                            });
+
+                            try {
+                              // PREPARE BOOK DATA
+                              final bookData = {
+                                'title': titleController.text.trim(),
+                                'authorName':
+                                    authorController.text.trim(),
+                                'categoryId': selectedCategoryId,
+                                'numberOfCopies': int.parse(
+                                  copiesController.text.trim(),
+                                ),
+                                'location':
+                                    locationController.text
+                                            .trim()
+                                            .isEmpty
+                                        ? null
+                                        : locationController.text
+                                            .trim(),
+                              };
+
+                              // SEND BOOK DATA TO SPRING BOOT
+                              await _bookService.createBook(bookData);
+
+                              if (!mounted) return;
+
+                              // CLOSE DIALOG AFTER SUCCESSFUL SAVE
+                              Navigator.pop(dialogContext, true);
+                            } catch (error) {
+                              setDialogState(() {
+                                submitting = false;
+                              });
+
+                              if (!mounted) return;
+
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Could not add book: $error',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          },
+                    icon: submitting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.save,
+                            size: 18,
+                          ),
+                    label: Text(
+                      submitting ? 'Saving...' : 'Save Book',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1877F2),
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+
+      // =====================================================
+      // SHOW SUCCESS MESSAGE AFTER BOOK IS SAVED
+      // =====================================================
+
+      if (result == true && mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(
+                    Icons.check_circle,
+                    color: Colors.white,
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Book and physical copies added successfully!',
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 4),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+
+        // REFRESH INVENTORY AFTER SHOWING SUCCESS
+        try {
+          await context
+              .read<LibraryService>()
+              .loadBooksFromApi();
+        } catch (error) {
+          debugPrint(
+            'Inventory refresh failed: $error',
+          );
+        }
+      }
+    } catch (error) {
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Book and physical copies added successfully!'),
-          backgroundColor: Colors.green,
+        SnackBar(
+          content: Text('Error: $error'),
+          backgroundColor: Colors.red,
         ),
       );
+    } finally {
+      titleController.dispose();
+      authorController.dispose();
+      copiesController.dispose();
+      locationController.dispose();
     }
-  } finally {
-    isbnController.dispose();
-    titleController.dispose();
-    descriptionController.dispose();
-    authorIdController.dispose();
-    publisherIdController.dispose();
-    categoryIdController.dispose();
-    editionController.dispose();
-    priceController.dispose();
-    yearController.dispose();
-    coverImageController.dispose();
-    copiesController.dispose();
-    locationController.dispose();
   }
-}
 
-// Reusable form input
-Widget _formField(
-  TextEditingController controller,
-  String label, {
-  bool requiredField = false,
-  bool isNumber = false,
-  int maxLines = 1,
-  int? minimum,
-  String? hint,
-}) {
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: TextFormField(
-      controller: controller,
-      maxLines: maxLines,
-      keyboardType: isNumber
-          ? const TextInputType.numberWithOptions(decimal: true)
-          : TextInputType.text,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+  // =========================================================
+  // REUSABLE FORM INPUT
+  // =========================================================
+
+  Widget _formField(
+    TextEditingController controller,
+    String label, {
+    bool requiredField = false,
+    bool isNumber = false,
+    int maxLines = 1,
+    int? minimum,
+    String? hint,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextFormField(
+        controller: controller,
+        maxLines: maxLines,
+        keyboardType: isNumber
+            ? TextInputType.number
+            : TextInputType.text,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 14,
+          ),
         ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 14,
-        ),
-      ),
-      validator: (value) {
-        final text = value?.trim() ?? '';
+        validator: (value) {
+          final text = value?.trim() ?? '';
 
-        if (requiredField && text.isEmpty) {
-          return '$label is required';
-        }
-
-        if (text.isNotEmpty && isNumber) {
-          if (minimum != null) {
-            final number = int.tryParse(text);
-            if (number == null || number < minimum) {
-              return 'Enter a whole number of at least $minimum';
-            }
-          } else if (label == 'Price') {
-            final number = double.tryParse(text);
-            if (number == null || number < 0) {
-              return 'Enter a valid non-negative price';
-            }
-          } else if (int.tryParse(text) == null) {
-            return 'Enter a valid whole number';
+          if (requiredField && text.isEmpty) {
+            return '$label is required';
           }
-        }
 
-        return null;
-      },
-    ),
-  );
-}
+          if (text.isNotEmpty && isNumber) {
+            final number = int.tryParse(text);
+
+            if (number == null) {
+              return 'Enter a valid whole number';
+            }
+
+            if (minimum != null && number < minimum) {
+              return 'Enter a number of at least $minimum';
+            }
+          }
+
+          return null;
+        },
+      ),
+    );
+  }
+
+  // =========================================================
+  // MAIN INVENTORY SCREEN
+  // =========================================================
 
   @override
   Widget build(BuildContext context) {
     final libraryService = context.watch<LibraryService>();
     final List<Book> books = libraryService.books;
 
-    // Search books using title, author, ISBN, or category.
+    // SEARCH BOOKS
     final List<Book> filteredBooks = books.where((book) {
       final query = _searchQuery.toLowerCase();
 
@@ -348,7 +427,7 @@ Widget _formField(
           book.category.toLowerCase().contains(query);
     }).toList();
 
-    // Calculate statistics from the actual book records.
+    // INVENTORY STATISTICS
     final int totalBooks = books.length;
 
     final int totalCopies = books.fold(
@@ -414,10 +493,16 @@ Widget _formField(
                   ],
                 ),
               ),
+
               const SizedBox(width: 12),
+
+              // ADD NEW BOOK BUTTON
               ElevatedButton.icon(
                 onPressed: _showAddBookDialog,
-                icon: const Icon(Icons.add, size: 18),
+                icon: const Icon(
+                  Icons.add,
+                  size: 18,
+                ),
                 label: const Text('Add New Book'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1877F2),
@@ -463,12 +548,13 @@ Widget _formField(
                         color: Color(0xFF94A3B8),
                       ),
                       hintText:
-                          'Search by title, author, ISBN, or category...',
+                          'Search by title, author, category...',
                       border: InputBorder.none,
                       isDense: true,
                     ),
                   ),
                 ),
+
                 ElevatedButton.icon(
                   onPressed: () {
                     setState(() {
@@ -476,7 +562,10 @@ Widget _formField(
                           _searchController.text.trim();
                     });
                   },
-                  icon: const Icon(Icons.search, size: 16),
+                  icon: const Icon(
+                    Icons.search,
+                    size: 16,
+                  ),
                   label: const Text('Search'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1877F2),
@@ -492,7 +581,8 @@ Widget _formField(
           // INVENTORY STATISTICS
           LayoutBuilder(
             builder: (context, constraints) {
-              final bool isNarrow = constraints.maxWidth < 900;
+              final bool isNarrow =
+                  constraints.maxWidth < 900;
 
               final cards = [
                 _buildStatCard(
@@ -533,7 +623,8 @@ Widget _formField(
                 return GridView.count(
                   crossAxisCount: 2,
                   shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
+                  physics:
+                      const NeverScrollableScrollPhysics(),
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
                   childAspectRatio: 2.5,
@@ -544,7 +635,9 @@ Widget _formField(
               return Row(
                 children: [
                   for (int i = 0; i < cards.length; i++) ...[
-                    Expanded(child: cards[i]),
+                    Expanded(
+                      child: cards[i],
+                    ),
                     if (i != cards.length - 1)
                       const SizedBox(width: 12),
                   ],
@@ -568,6 +661,7 @@ Widget _formField(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // TABLE HEADER
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(
@@ -735,6 +829,7 @@ Widget _formField(
                           ),
                         ),
                       ],
+
                       rows: filteredBooks.map((book) {
                         final bool isAvailable =
                             book.availableCopies > 0;
@@ -754,7 +849,11 @@ Widget _formField(
                                 ),
                               ),
                             ),
-                            DataCell(Text(book.author)),
+
+                            DataCell(
+                              Text(book.author),
+                            ),
+
                             DataCell(
                               Text(
                                 book.isbn,
@@ -763,13 +862,23 @@ Widget _formField(
                                 ),
                               ),
                             ),
-                            DataCell(Text(book.category)),
+
                             DataCell(
-                              Text(book.totalCopies.toString()),
+                              Text(book.category),
                             ),
+
                             DataCell(
-                              Text(book.availableCopies.toString()),
+                              Text(
+                                book.totalCopies.toString(),
+                              ),
                             ),
+
+                            DataCell(
+                              Text(
+                                book.availableCopies.toString(),
+                              ),
+                            ),
+
                             DataCell(
                               Container(
                                 padding:
@@ -796,7 +905,10 @@ Widget _formField(
                                 ),
                               ),
                             ),
-                            DataCell(Text(book.location)),
+
+                            DataCell(
+                              Text(book.location),
+                            ),
                           ],
                         );
                       }).toList(),
@@ -810,7 +922,10 @@ Widget _formField(
     );
   }
 
+  // =========================================================
   // STATISTICS CARD
+  // =========================================================
+
   Widget _buildStatCard(
     String title,
     String count,
@@ -842,7 +957,9 @@ Widget _formField(
               size: 22,
             ),
           ),
+
           const SizedBox(width: 12),
+
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -854,6 +971,7 @@ Widget _formField(
                     color: Color(0xFF64748B),
                   ),
                 ),
+
                 Text(
                   count,
                   style: const TextStyle(
@@ -862,6 +980,7 @@ Widget _formField(
                     color: Color(0xFF0F172A),
                   ),
                 ),
+
                 Text(
                   subtitle,
                   style: const TextStyle(

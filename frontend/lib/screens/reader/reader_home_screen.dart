@@ -1,7 +1,11 @@
 
 import 'package:flutter/material.dart';
-import '../../data/mock_library_data.dart';
+
 import '../../models/book.dart';
+import '../../models/student_dashboard.dart';
+import '../../services/book_service.dart';
+import '../../services/student_dashboard_service.dart';
+import '../../services/reservation_service.dart';
 import '../../config/app_images.dart';
 
 class ReaderHomeScreen extends StatefulWidget {
@@ -17,9 +21,28 @@ class ReaderHomeScreen extends StatefulWidget {
 }
 
 class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
-  final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _searchController =
+      TextEditingController();
+
+  final StudentDashboardService _dashboardService =
+      StudentDashboardService();
+
+  final BookService _bookService = BookService();
+
+  final ReservationService _reservationService =
+      ReservationService();
+
+  // Temporary test student ID.
+  // Later, use the logged-in student's ID.
+  final int _studentId = 1;
+
+  late Future<StudentDashboard> _dashboardFuture;
+  late Future<List<Book>> _booksFuture;
 
   String _searchQuery = '';
+
+  // Tracks which book is currently being reserved.
+  String? _reservingBookId;
 
   static const Color primaryBlue = Color(0xFF0052CC);
   static const Color darkBlue = Color(0xFF003B95);
@@ -28,14 +51,107 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
   static const Color borderColor = Color(0xFFE2E8F0);
 
   @override
+  void initState() {
+    super.initState();
+
+    _dashboardFuture =
+        _dashboardService.getDashboard(_studentId);
+
+    _booksFuture = _bookService.getAvailableBooks();
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
 
-  List<Book> get _filteredBooks {
-    final books = MockLibraryData.getInitialBooks();
+  // ---------------------------------------------------------
+  // RESERVE BOOK THROUGH BACKEND
+  // ---------------------------------------------------------
 
+  Future<void> _reserveBook(Book book) async {
+    if (_reservingBookId != null) return;
+
+    // Use database Book_ID instead of ISBN.
+    final int? bookId = int.tryParse(book.id);
+
+    if (bookId == null || bookId <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid book ID.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _reservingBookId = book.id;
+    });
+
+    try {
+      await _reservationService.createReservation(
+        studentId: _studentId.toString(),
+        bookId: bookId,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Reservation for "${book.title}" created successfully!',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not reserve "${book.title}": $e',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _reservingBookId = null;
+        });
+      }
+    }
+  }
+
+  // ---------------------------------------------------------
+  // REFRESH DASHBOARD
+  // ---------------------------------------------------------
+
+  void _refreshDashboard() {
+    setState(() {
+      _dashboardFuture =
+          _dashboardService.getDashboard(_studentId);
+    });
+  }
+
+  // ---------------------------------------------------------
+  // REFRESH BOOKS FROM BACKEND
+  // ---------------------------------------------------------
+
+  void _refreshBooks() {
+    setState(() {
+      _booksFuture = _bookService.getAvailableBooks();
+    });
+  }
+
+  // ---------------------------------------------------------
+  // FILTER BOOKS FROM DATABASE
+  // ---------------------------------------------------------
+
+  List<Book> _filterBooks(List<Book> books) {
     if (_searchQuery.trim().isEmpty) {
       return books;
     }
@@ -44,7 +160,8 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
 
     return books.where((book) {
       return book.title.toLowerCase().contains(query) ||
-          book.author.toLowerCase().contains(query);
+          book.author.toLowerCase().contains(query) ||
+          book.category.toLowerCase().contains(query);
     }).toList();
   }
 
@@ -62,10 +179,12 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
     });
   }
 
+  // ---------------------------------------------------------
+  // MAIN BUILD
+  // ---------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
-    final borrowed = MockLibraryData.getReaderBorrowedBooks();
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 700;
@@ -76,13 +195,22 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Welcome Heading
-              const Text(
-                'Welcome back, Abiye!',
-                style: TextStyle(
-                  fontSize: 27,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF103E91),
-                ),
+              FutureBuilder<StudentDashboard>(
+                future: _dashboardFuture,
+                builder: (context, snapshot) {
+                  final name = snapshot.hasData
+                      ? snapshot.data!.fullName
+                      : 'Student';
+
+                  return Text(
+                    'Welcome back, $name!',
+                    style: const TextStyle(
+                      fontSize: 27,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF103E91),
+                    ),
+                  );
+                },
               ),
 
               const SizedBox(height: 5),
@@ -98,17 +226,14 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
 
               const SizedBox(height: 20),
 
-              // Search Bar
               _buildSearchBar(compact),
 
               const SizedBox(height: 24),
 
-              // Library Hero Banner
               _buildHeroBanner(compact),
 
               const SizedBox(height: 28),
 
-              // Reading Statistics
               const Text(
                 'Your Reading Overview',
                 style: TextStyle(
@@ -120,62 +245,7 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
 
               const SizedBox(height: 14),
 
-              if (compact)
-                Column(
-                  children: [
-                    _snapshotTile(
-                      'Currently Borrowed',
-                      borrowed.length.toString(),
-                      Icons.menu_book_outlined,
-                      primaryBlue,
-                    ),
-                    const SizedBox(height: 12),
-                    _snapshotTile(
-                      'Due This Week',
-                      '1 Book',
-                      Icons.warning_amber_rounded,
-                      const Color(0xFFD97706),
-                    ),
-                    const SizedBox(height: 12),
-                    _snapshotTile(
-                      'Books Read This Year',
-                      '14 Books',
-                      Icons.military_tech_outlined,
-                      const Color(0xFF059669),
-                    ),
-                  ],
-                )
-              else
-                Row(
-                  children: [
-                    Expanded(
-                      child: _snapshotTile(
-                        'Currently Borrowed',
-                        borrowed.length.toString(),
-                        Icons.menu_book_outlined,
-                        primaryBlue,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _snapshotTile(
-                        'Due This Week',
-                        '1 Book',
-                        Icons.warning_amber_rounded,
-                        const Color(0xFFD97706),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _snapshotTile(
-                        'Books Read This Year',
-                        '14 Books',
-                        Icons.military_tech_outlined,
-                        const Color(0xFF059669),
-                      ),
-                    ),
-                  ],
-                ),
+              _buildDashboardStats(compact),
 
               const SizedBox(height: 30),
 
@@ -186,7 +256,7 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
                     child: Text(
                       _searchQuery.isEmpty
                           ? 'Recommended Books For You'
-                          : 'Search Results (${_filteredBooks.length})',
+                          : 'Search Results',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -194,10 +264,23 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
                       ),
                     ),
                   ),
+
+                  IconButton(
+                    onPressed: _refreshBooks,
+                    tooltip: 'Refresh books',
+                    icon: const Icon(
+                      Icons.refresh,
+                      color: primaryBlue,
+                    ),
+                  ),
+
                   if (_searchQuery.isNotEmpty)
                     TextButton.icon(
                       onPressed: _clearSearch,
-                      icon: const Icon(Icons.close, size: 16),
+                      icon: const Icon(
+                        Icons.close,
+                        size: 16,
+                      ),
                       label: const Text('Clear search'),
                     ),
                 ],
@@ -205,64 +288,163 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
 
               const SizedBox(height: 14),
 
-              // Recommended Books Grid
-              if (_filteredBooks.isEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(36),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: const Column(
-                    children: [
-                      Icon(
-                        Icons.search_off,
-                        size: 48,
-                        color: Color(0xFF94A3B8),
+              // Books loaded from backend
+              FutureBuilder<List<Book>>(
+                future: _booksFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(35),
+                        child: CircularProgressIndicator(),
                       ),
-                      SizedBox(height: 12),
-                      Text(
-                        'No books found',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: textDark,
-                        ),
-                      ),
-                      SizedBox(height: 6),
-                      Text(
-                        'Try another book title or author.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: textMuted,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate:
-                      SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: compact ? 1 : 3,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: compact ? 2.0 : 1.65,
-                  ),
-                  itemCount: _filteredBooks.length,
-                  itemBuilder: (context, index) {
-                    final book = _filteredBooks[index];
+                    );
+                  }
 
-                    return _buildBookItem(context, book);
-                  },
-                ),
+                  if (snapshot.hasError) {
+                    return _buildBooksError();
+                  }
+
+                  if (!snapshot.hasData ||
+                      snapshot.data!.isEmpty) {
+                    return _buildEmptyBooks();
+                  }
+
+                  final filteredBooks =
+                      _filterBooks(snapshot.data!);
+
+                  if (filteredBooks.isEmpty) {
+                    return _buildNoSearchResults();
+                  }
+
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics:
+                        const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: compact ? 1 : 3,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      childAspectRatio: compact ? 2.0 : 1.65,
+                    ),
+                    itemCount: filteredBooks.length,
+                    itemBuilder: (context, index) {
+                      final book = filteredBooks[index];
+
+                      return _buildBookItem(context, book);
+                    },
+                  );
+                },
+              ),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  // ---------------------------------------------------------
+  // DASHBOARD STATISTICS FROM BACKEND
+  // ---------------------------------------------------------
+
+  Widget _buildDashboardStats(bool compact) {
+    return FutureBuilder<StudentDashboard>(
+      future: _dashboardFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState ==
+            ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: borderColor),
+            ),
+            child: Column(
+              children: [
+                const Icon(
+                  Icons.cloud_off_outlined,
+                  size: 35,
+                  color: Color(0xFF94A3B8),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Unable to load reading statistics.',
+                  style: TextStyle(
+                    color: textMuted,
+                    fontSize: 13,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _refreshDashboard,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Try again'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        if (!snapshot.hasData) {
+          return const Text(
+            'No dashboard information available.',
+            style: TextStyle(color: textMuted),
+          );
+        }
+
+        final dashboard = snapshot.data!;
+
+        final tiles = [
+          _snapshotTile(
+            'Currently Borrowed',
+            '${dashboard.currentlyBorrowed} Books',
+            Icons.menu_book_outlined,
+            primaryBlue,
+          ),
+          _snapshotTile(
+            'Due This Week',
+            '${dashboard.dueThisWeek} Books',
+            Icons.warning_amber_rounded,
+            const Color(0xFFD97706),
+          ),
+          _snapshotTile(
+            'Books Read This Year',
+            '${dashboard.booksReadThisYear} Books',
+            Icons.military_tech_outlined,
+            const Color(0xFF059669),
+          ),
+        ];
+
+        if (compact) {
+          return Column(
+            children: [
+              for (int i = 0; i < tiles.length; i++) ...[
+                if (i > 0) const SizedBox(height: 12),
+                tiles[i],
+              ],
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            for (int i = 0; i < tiles.length; i++) ...[
+              if (i > 0) const SizedBox(width: 16),
+              Expanded(child: tiles[i]),
+            ],
+          ],
         );
       },
     );
@@ -286,15 +468,12 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
       child: Row(
         children: [
           const SizedBox(width: 10),
-
           const Icon(
             Icons.search,
             color: Color(0xFF1877F2),
             size: 23,
           ),
-
           const SizedBox(width: 12),
-
           Expanded(
             child: TextField(
               controller: _searchController,
@@ -305,16 +484,16 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
               },
               onSubmitted: (_) => _searchBooks(),
               decoration: InputDecoration(
-                hintText: 'Search for books, authors, or genres...',
+                hintText:
+                    'Search for books, authors, or genres...',
                 hintStyle: TextStyle(
                   color: const Color(0xFF94A3B8),
                   fontSize: compact ? 12 : 14,
                 ),
                 border: InputBorder.none,
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                ),
+                contentPadding:
+                    const EdgeInsets.symmetric(vertical: 12),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
                         onPressed: _clearSearch,
@@ -328,9 +507,7 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
               ),
             ),
           ),
-
           const SizedBox(width: 8),
-
           ElevatedButton.icon(
             onPressed: _searchBooks,
             icon: const Icon(
@@ -378,36 +555,36 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Background Library Image
-         Image.network(
-  'https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=1600&q=85',
-  fit: BoxFit.cover,
-  width: double.infinity,
-  height: double.infinity,
-  loadingBuilder: (context, child, loadingProgress) {
-    if (loadingProgress == null) return child;
+          Image.network(
+            'https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=1600&q=85',
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+            loadingBuilder:
+                (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
 
-    return Container(
-      color: const Color(0xFF003B95),
-      alignment: Alignment.center,
-      child: const CircularProgressIndicator(
-        color: Colors.white,
-      ),
-    );
-  },
-  errorBuilder: (context, error, stackTrace) {
-    return Container(
-      color: const Color(0xFF003B95),
-      alignment: Alignment.center,
-      child: const Icon(
-        Icons.local_library,
-        size: 80,
-        color: Colors.white70,
-      ),
-    );
-  },
-),
-          // Dark Blue Overlay for Text Readability
+              return Container(
+                color: const Color(0xFF003B95),
+                alignment: Alignment.center,
+                child: const CircularProgressIndicator(
+                  color: Colors.white,
+                ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                color: const Color(0xFF003B95),
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.local_library,
+                  size: 80,
+                  color: Colors.white70,
+                ),
+              );
+            },
+          ),
+
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -424,7 +601,6 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
             ),
           ),
 
-          // Banner Text
           Padding(
             padding: EdgeInsets.all(compact ? 20 : 28),
             child: Align(
@@ -444,9 +620,7 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
                         color: Colors.white,
                       ),
                     ),
-
                     const SizedBox(height: 14),
-
                     Text(
                       'Explore new worlds, gain new perspectives, '
                       'and keep reading!',
@@ -456,10 +630,6 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
                         color: const Color(0xFFE0ECFF),
                       ),
                     ),
-
-                    
-
-          
                   ],
                 ),
               ),
@@ -502,9 +672,7 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
               size: 22,
             ),
           ),
-
           const SizedBox(width: 12),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -566,6 +734,9 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
   Widget _buildBookItem(BuildContext context, Book book) {
     final coverUrl = _coverForBook(book);
 
+    // Compare using Book_ID instead of ISBN.
+    final isReserving = _reservingBookId == book.id;
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -575,7 +746,6 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
       ),
       child: Row(
         children: [
-          // Book Cover
           SizedBox(
             width: 90,
             height: 115,
@@ -585,7 +755,8 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
                   ? Image.network(
                       coverUrl,
                       fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
+                      errorBuilder:
+                          (context, error, stackTrace) {
                         return _bookPlaceholder();
                       },
                     )
@@ -595,7 +766,6 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
 
           const SizedBox(width: 13),
 
-          // Book Details
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -636,28 +806,41 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 10),
+                const SizedBox(height: 5),
+
+                Text(
+                  '${book.availableCopies} copies available',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFF059669),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+
+                const SizedBox(height: 7),
 
                 Align(
                   alignment: Alignment.centerLeft,
                   child: TextButton.icon(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Reservation submitted for "${book.title}"!',
+                    onPressed: isReserving ||
+                            _reservingBookId != null
+                        ? null
+                        : () => _reserveBook(book),
+                    icon: isReserving
+                        ? const SizedBox(
+                            height: 15,
+                            width: 15,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.bookmark_add_outlined,
+                            size: 15,
                           ),
-                          backgroundColor: primaryBlue,
-                        ),
-                      );
-                    },
-                    icon: const Icon(
-                      Icons.bookmark_add_outlined,
-                      size: 15,
-                    ),
-                    label: const Text(
-                      'Reserve',
-                      style: TextStyle(
+                    label: Text(
+                      isReserving ? 'Reserving...' : 'Reserve',
+                      style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
@@ -669,11 +852,147 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
                         vertical: 5,
                       ),
                       minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      tapTargetSize:
+                          MaterialTapTargetSize.shrinkWrap,
                     ),
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------
+  // BOOKS ERROR STATE
+  // ---------------------------------------------------------
+
+  Widget _buildBooksError() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.cloud_off_outlined,
+            size: 45,
+            color: Color(0xFF94A3B8),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Unable to load books',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: textDark,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Please check your backend connection and try again.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: textMuted,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: _refreshBooks,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Try again'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------
+  // EMPTY BOOKS STATE
+  // ---------------------------------------------------------
+
+  Widget _buildEmptyBooks() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(36),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor),
+      ),
+      child: const Column(
+        children: [
+          Icon(
+            Icons.menu_book_outlined,
+            size: 48,
+            color: Color(0xFF94A3B8),
+          ),
+          SizedBox(height: 12),
+          Text(
+            'No available books',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: textDark,
+            ),
+          ),
+          SizedBox(height: 6),
+          Text(
+            'There are currently no books available for borrowing.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: textMuted,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------
+  // NO SEARCH RESULTS STATE
+  // ---------------------------------------------------------
+
+  Widget _buildNoSearchResults() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(36),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor),
+      ),
+      child: const Column(
+        children: [
+          Icon(
+            Icons.search_off,
+            size: 48,
+            color: Color(0xFF94A3B8),
+          ),
+          SizedBox(height: 12),
+          Text(
+            'No books found',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: textDark,
+            ),
+          ),
+          SizedBox(height: 6),
+          Text(
+            'Try another book title, author, or category.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: textMuted,
+              fontSize: 13,
             ),
           ),
         ],

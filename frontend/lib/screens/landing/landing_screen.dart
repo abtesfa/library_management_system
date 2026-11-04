@@ -1,19 +1,29 @@
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '/../models/user.dart';
-import '/../widgets/dialogs/sign_in_dialog.dart';
-import '/../data/mock_library_data.dart';
-import '/../models/book.dart';
-import '/../config/app_images.dart';
+import '../../models/user.dart';
+import '../../models/book.dart';
+import '../../widgets/dialogs/sign_in_dialog.dart';
+import '../../config/app_images.dart';
+import '../../services/library_service.dart';
 
-class LandingScreen extends StatelessWidget {
+class LandingScreen extends StatefulWidget {
   final Function(UserRole role) onEnterPortal;
 
   const LandingScreen({
     super.key,
     required this.onEnterPortal,
   });
+
+  @override
+  State<LandingScreen> createState() => _LandingScreenState();
+}
+
+class _LandingScreenState extends State<LandingScreen> {
+  final TextEditingController _searchController = TextEditingController();
+
+  String _searchQuery = '';
 
   void _openSignIn(
     BuildContext context, [
@@ -23,17 +33,69 @@ class LandingScreen extends StatelessWidget {
       context: context,
       builder: (ctx) => SignInDialog(
         initialRole: role,
-        onSignIn: onEnterPortal,
+        onSignIn: widget.onEnterPortal,
       ),
     );
   }
 
+  void _searchBooks(String query) {
+    setState(() {
+      _searchQuery = query.trim();
+    });
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final featuredBooks = MockLibraryData.getInitialBooks().take(6).toList();
+    final libraryService = context.watch<LibraryService>();
+
+    final allBooks = libraryService.books;
+
+    // Remove duplicate books using ISBN.
+    // If ISBN is missing, use the title instead.
+    final Map<String, Book> uniqueBooks = {};
+
+    for (final book in allBooks) {
+      final isbn = book.isbn.trim().toLowerCase();
+      final title = book.title.trim().toLowerCase();
+
+      final key = isbn.isNotEmpty ? 'isbn:$isbn' : 'title:$title';
+
+      uniqueBooks.putIfAbsent(key, () => book);
+    }
+
+    final distinctBooks = uniqueBooks.values.toList();
+
+    // Display the first six unique books.
+    final featuredBooks = distinctBooks.take(6).toList();
+
+    // Search through unique books only.
+    final searchResults = _searchQuery.isEmpty
+        ? <Book>[]
+        : distinctBooks.where((book) {
+            final query = _searchQuery.toLowerCase();
+
+            return book.title.toLowerCase().contains(query) ||
+                book.author.toLowerCase().contains(query) ||
+                book.isbn.toLowerCase().contains(query);
+          }).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FC),
+
+      // APP BAR
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(64),
         child: Container(
@@ -42,7 +104,6 @@ class LandingScreen extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // LIBRARY LOGO AND TITLE
               Row(
                 children: [
                   Container(
@@ -68,8 +129,6 @@ class LandingScreen extends StatelessWidget {
                   ),
                 ],
               ),
-
-              // SIGN IN BUTTON ONLY
               ElevatedButton.icon(
                 onPressed: () => _openSignIn(context),
                 icon: const Icon(Icons.login, size: 16),
@@ -95,6 +154,8 @@ class LandingScreen extends StatelessWidget {
           ),
         ),
       ),
+
+      // PAGE BODY
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -178,8 +239,8 @@ class LandingScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
                         const Text(
-                         'Explore our library collection, find books you enjoy, '
-  'and borrow the ones you need for your studies or personal reading.',
+                          'Explore our library collection, find books you enjoy, '
+                          'and borrow the ones you need for your studies or personal reading.',
                           style: TextStyle(
                             fontSize: 14,
                             color: Color(0xFF64748B),
@@ -187,6 +248,8 @@ class LandingScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 24),
+
+                        // PUBLIC BOOK SEARCH
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 14,
@@ -207,24 +270,37 @@ class LandingScreen extends StatelessWidget {
                                 color: Color(0xFF94A3B8),
                               ),
                               const SizedBox(width: 10),
-                              const Expanded(
+                              Expanded(
                                 child: TextField(
+                                  controller: _searchController,
+                                  onChanged: _searchBooks,
+                                  onSubmitted: _searchBooks,
                                   decoration: InputDecoration(
                                     hintText: 'Search books, authors, ISBN...',
-                                    hintStyle: TextStyle(
+                                    hintStyle: const TextStyle(
                                       fontSize: 13,
                                       color: Color(0xFF94A3B8),
                                     ),
                                     border: InputBorder.none,
                                     isDense: true,
+                                    suffixIcon: _searchQuery.isNotEmpty
+                                        ? IconButton(
+                                            tooltip: 'Clear search',
+                                            icon: const Icon(
+                                              Icons.close,
+                                              size: 18,
+                                            ),
+                                            onPressed: _clearSearch,
+                                          )
+                                        : null,
                                   ),
                                 ),
                               ),
                               ElevatedButton(
-                                onPressed: () => _openSignIn(
-                                  context,
-                                  UserRole.reader,
-                                ),
+                                onPressed: () {
+                                  _searchBooks(_searchController.text);
+                                  FocusScope.of(context).unfocus();
+                                },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF1877F2),
                                   foregroundColor: Colors.white,
@@ -237,12 +313,131 @@ class LandingScreen extends StatelessWidget {
                             ],
                           ),
                         ),
+
+                        // SEARCH RESULTS
+                        if (_searchQuery.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Container(
+                            width: double.infinity,
+                            constraints: const BoxConstraints(
+                              maxHeight: 240,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFFE2E8F0),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: libraryService.isLoadingBooks
+                                ? const Padding(
+                                    padding: EdgeInsets.all(20),
+                                    child: Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  )
+                                : libraryService.booksError != null
+                                    ? Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: Column(
+                                          children: [
+                                            const Text(
+                                              'Unable to load books.',
+                                              style: TextStyle(
+                                                color: Color(0xFF64748B),
+                                              ),
+                                            ),
+                                            TextButton(
+                                              onPressed: libraryService
+                                                  .loadBooksFromApi,
+                                              child: const Text('Try Again'),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    : searchResults.isEmpty
+                                        ? const Padding(
+                                            padding: EdgeInsets.all(16),
+                                            child: Text(
+                                              'No matching books found.',
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                color: Color(0xFF64748B),
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          )
+                                        : ListView.separated(
+                                            shrinkWrap: true,
+                                            itemCount: searchResults.length,
+                                            separatorBuilder: (_, __) =>
+                                                const Divider(height: 1),
+                                            itemBuilder: (context, index) {
+                                              final book =
+                                                  searchResults[index];
+
+                                              return ListTile(
+                                                dense: true,
+                                                leading: const CircleAvatar(
+                                                  backgroundColor:
+                                                      Color(0xFFEFF6FF),
+                                                  child: Icon(
+                                                    Icons.menu_book,
+                                                    color: Color(0xFF1877F2),
+                                                  ),
+                                                ),
+                                                title: Text(
+                                                  book.title,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                                subtitle: Text(
+                                                  '${book.author} • ${book.isbn}',
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                  ),
+                                                ),
+                                                trailing: Text(
+                                                  book.availableCopies > 0
+                                                      ? 'Available'
+                                                      : 'Unavailable',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight:
+                                                        FontWeight.bold,
+                                                    color:
+                                                        book.availableCopies >
+                                                                0
+                                                            ? Colors.green
+                                                            : Colors.red,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
                   const SizedBox(width: 32),
 
-                  // LIBRARY IMAGE WITH BOOK COUNT
+                  // LIBRARY IMAGE
                   Expanded(
                     flex: 2,
                     child: Container(
@@ -309,7 +504,6 @@ class LandingScreen extends StatelessWidget {
             ),
 
             // 2. FEATURE CARDS
-            // The library statistics row has been removed.
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Row(
@@ -392,21 +586,71 @@ class LandingScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    SizedBox(
-                      height: 260,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: featuredBooks.length,
-                        separatorBuilder: (ctx, i) =>
-                            const SizedBox(width: 12),
-                        itemBuilder: (ctx, index) {
-                          return _buildBookCard(
-                            context,
-                            featuredBooks[index],
-                          );
-                        },
+
+                    // LOADING, ERROR, EMPTY OR BOOK LIST
+                    if (libraryService.isLoadingBooks)
+                      const SizedBox(
+                        height: 260,
+                        child: Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      )
+                    else if (libraryService.booksError != null)
+                      SizedBox(
+                        height: 260,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.cloud_off,
+                                size: 35,
+                                color: Color(0xFF94A3B8),
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Unable to load featured books.',
+                                style: TextStyle(
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                              TextButton.icon(
+                                onPressed: libraryService.loadBooksFromApi,
+                                icon: const Icon(Icons.refresh),
+                                label: const Text('Try Again'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else if (featuredBooks.isEmpty)
+                      const SizedBox(
+                        height: 180,
+                        child: Center(
+                          child: Text(
+                            'No books available yet.',
+                            style: TextStyle(
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      SizedBox(
+                        height: 260,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: featuredBooks.length,
+                          separatorBuilder: (ctx, i) =>
+                              const SizedBox(width: 12),
+                          itemBuilder: (ctx, index) {
+                            return _buildBookCard(
+                              context,
+                              featuredBooks[index],
+                            );
+                          },
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -599,84 +843,81 @@ class LandingScreen extends StatelessWidget {
     );
   }
 
-
-Widget _footerLinks(BuildContext context) {
-  final services = [
-    (
-      icon: Icons.menu_book_rounded,
-      title: 'Book Collection',
-      description: 'Explore books across different subjects.',
-    ),
-    (
-      icon: Icons.search_rounded,
-      title: 'Book Search',
-      description: 'Find books for study and reading.',
-    ),
-    (
-      icon: Icons.bookmark_added_rounded,
-      title: 'Borrowing Services',
-      description: 'Borrow books for your learning needs.',
-    ),
-    
-  ];
-
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const Text(
-        'LIBRARY SERVICES',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 15,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 0.5,
-        ),
+  Widget _footerLinks(BuildContext context) {
+    final services = [
+      (
+        icon: Icons.menu_book_rounded,
+        title: 'Book Collection',
+        description: 'Explore books across different subjects.',
       ),
-      const SizedBox(height: 12),
+      (
+        icon: Icons.search_rounded,
+        title: 'Book Search',
+        description: 'Find books for study and reading.',
+      ),
+      (
+        icon: Icons.bookmark_added_rounded,
+        title: 'Borrowing Services',
+        description: 'Borrow books for your learning needs.',
+      ),
+    ];
 
-      ...services.map(
-        (service) => Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                service.icon,
-                color: const Color(0xFF8DBBFF),
-                size: 22,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      service.title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      service.description,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'LIBRARY SERVICES',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
           ),
         ),
-      ),
-    ],
-  );
-}
+        const SizedBox(height: 12),
+        ...services.map(
+          (service) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  service.icon,
+                  color: const Color(0xFF8DBBFF),
+                  size: 22,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        service.title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        service.description,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   Widget _footerContact() {
     return const Column(
@@ -735,22 +976,6 @@ Widget _footerLinks(BuildContext context) {
           ],
         ),
       ],
-    );
-  }
-
-  Widget _footerLink(String label, VoidCallback onTap) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
-        onTap: onTap,
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: Color(0xFFBFDBFE),
-            fontSize: 13,
-          ),
-        ),
-      ),
     );
   }
 
@@ -816,7 +1041,7 @@ Widget _footerLinks(BuildContext context) {
 
   // FEATURED BOOK CARD
   Widget _buildBookCard(BuildContext context, Book book) {
-    final isAvailable = book.status == 'Available';
+    final isAvailable = book.availableCopies > 0;
     final title = book.title.toLowerCase();
 
     final String? coverUrl = title.contains('clean code')
@@ -901,7 +1126,7 @@ Widget _footerLinks(BuildContext context) {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    book.status,
+                    isAvailable ? 'Available' : 'Unavailable',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(

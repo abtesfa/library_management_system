@@ -1,7 +1,7 @@
 
 import 'package:flutter/material.dart';
-import '../../data/mock_library_data.dart';
 import '../../models/borrow_record.dart';
+import '../../services/my_books_service.dart';
 
 class ReaderMyBooksScreen extends StatefulWidget {
   const ReaderMyBooksScreen({super.key});
@@ -12,23 +12,58 @@ class ReaderMyBooksScreen extends StatefulWidget {
 }
 
 class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
-  late List<BorrowRecord> _borrowed;
+  List<BorrowRecord> _borrowed = [];
+
+  final MyBooksService _myBooksService = MyBooksService();
+
+  // Temporary student ID. Later, use the logged-in student's ID.
+  final String _studentId = '1';
 
   final TextEditingController _searchController =
       TextEditingController();
 
   String _searchQuery = '';
 
+  bool _isLoading = true;
+  String? _errorMessage;
+
   @override
   void initState() {
     super.initState();
-    _borrowed = MockLibraryData.getReaderBorrowedBooks();
+    _loadBorrowedBooks();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  // Load borrowed books from the Spring Boot backend.
+  Future<void> _loadBorrowedBooks() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final books =
+          await _myBooksService.getMyBooks(_studentId);
+
+      if (!mounted) return;
+
+      setState(() {
+        _borrowed = books;
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = error.toString();
+        _isLoading = false;
+      });
+    }
   }
 
   // Filter borrowed books by title or ISBN.
@@ -62,6 +97,7 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
   }
 
   // Renew a borrowed book.
+  // Actual renewal functionality will be connected later.
   void _renewBook(BorrowRecord record) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -78,6 +114,77 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
   String _getCoverUrl(String title) {
     final encodedTitle = Uri.encodeComponent(title);
     return 'https://covers.openlibrary.org/b/title/$encodedTitle-M.jpg';
+  }
+
+  // Loading, error, empty and successful states.
+  Widget _buildBorrowedBooksSection() {
+    if (_isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: CircularProgressIndicator(
+            color: Color(0xFF0052CC),
+          ),
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: const Color(0xFFE2E8F0),
+          ),
+        ),
+        child: Column(
+          children: [
+            const Icon(
+              Icons.error_outline,
+              size: 40,
+              color: Colors.red,
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Unable to load your borrowed books.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF64748B),
+              ),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: _loadBorrowedBooks,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Try Again'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_filteredBorrowed.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    return Column(
+      children: _filteredBorrowed
+          .map((book) => _buildBorrowedCard(book))
+          .toList(),
+    );
   }
 
   @override
@@ -124,6 +231,17 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
                       ),
                     ),
                   ],
+                ),
+              ),
+
+              // Refresh button.
+              IconButton(
+                tooltip: 'Refresh borrowed books',
+                onPressed:
+                    _isLoading ? null : _loadBorrowedBooks,
+                icon: const Icon(
+                  Icons.refresh,
+                  color: Color(0xFF0052CC),
                 ),
               ),
             ],
@@ -232,15 +350,7 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
               // Borrowed books list.
               Expanded(
                 flex: 3,
-                child: Column(
-                  children: _filteredBorrowed.isEmpty
-                      ? [
-                          _buildEmptyState(),
-                        ]
-                      : _filteredBorrowed
-                          .map((book) => _buildBorrowedCard(book))
-                          .toList(),
-                ),
+                child: _buildBorrowedBooksSection(),
               ),
 
               const SizedBox(width: 24),
@@ -378,7 +488,8 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
               fontSize: 14,
             ),
           ),
-          if (!hasNoBorrowedBooks && _searchQuery.isNotEmpty) ...[
+          if (!hasNoBorrowedBooks &&
+              _searchQuery.isNotEmpty) ...[
             const SizedBox(height: 12),
             TextButton(
               onPressed: _clearSearch,
@@ -446,15 +557,18 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
   // Individual borrowed book card.
   Widget _buildBorrowedCard(BorrowRecord book) {
     final bool isOverdue = book.daysLeft < 0;
-    final bool isUrgent = book.daysLeft >= 0 && book.daysLeft <= 3;
+    final bool isUrgent =
+        book.daysLeft >= 0 && book.daysLeft <= 3;
 
-    final Color statusColor = isOverdue || isUrgent
-        ? const Color(0xFFDC2626)
-        : const Color(0xFF1D4ED8);
+    final Color statusColor =
+        isOverdue || isUrgent
+            ? const Color(0xFFDC2626)
+            : const Color(0xFF1D4ED8);
 
-    final Color statusBackground = isOverdue || isUrgent
-        ? const Color(0xFFFEF2F2)
-        : const Color(0xFFEFF6FF);
+    final Color statusBackground =
+        isOverdue || isUrgent
+            ? const Color(0xFFFEF2F2)
+            : const Color(0xFFEFF6FF);
 
     final String dueStatus;
 
@@ -464,7 +578,8 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
     } else if (book.daysLeft == 0) {
       dueStatus = 'Due today';
     } else {
-      dueStatus = 'Due: ${book.dueDate} (${book.daysLeft} days left)';
+      dueStatus =
+          'Due: ${book.dueDate} (${book.daysLeft} days left)';
     }
 
     return Container(

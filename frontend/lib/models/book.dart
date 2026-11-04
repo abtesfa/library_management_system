@@ -10,34 +10,6 @@ class Book {
   final String location;
   final String? coverTheme;
 
-  
-Book copyWith({
-  String? id,
-  String? title,
-  String? author,
-  String? isbn,
-  String? category,
-  int? totalCopies,
-  int? availableCopies,
-  String? status,
-  String? location,
-  String? coverTheme,
-}) {
-  return Book(
-    id: id ?? this.id,
-    title: title ?? this.title,
-    author: author ?? this.author,
-    isbn: isbn ?? this.isbn,
-    category: category ?? this.category,
-    totalCopies: totalCopies ?? this.totalCopies,
-    availableCopies: availableCopies ?? this.availableCopies,
-    status: status ?? this.status,
-    location: location ?? this.location,
-    coverTheme: coverTheme ?? this.coverTheme,
-  );
-}
-
-
   Book({
     required this.id,
     required this.title,
@@ -51,18 +23,58 @@ Book copyWith({
     this.coverTheme,
   });
 
-  factory Book.fromJson(Map<String, dynamic> json) {
+ factory Book.fromJson(Map<String, dynamic> json) {
+  return Book(
+    id: (json['id'] ?? json['bookId'] ?? json['Book_ID'])
+            ?.toString() ??
+        '',
+    title: json['title']?.toString() ??
+        json['Title']?.toString() ??
+        '',
+    author: json['author']?.toString() ??
+        'Unknown Author',
+
+    // Support different ISBN field names from the backend.
+    isbn: (json['isbn'] ??
+            json['ISBN'] ??
+            json['iSBN'] ??
+            json['bookIsbn'] ??
+            '')
+        .toString()
+        .trim(),
+
+    category: json['category']?.toString() ?? 'General',
+    totalCopies: (json['totalCopies'] as num?)?.toInt() ?? 0,
+    availableCopies:
+        (json['availableCopies'] as num?)?.toInt() ?? 0,
+    status: json['status']?.toString() ?? 'Unknown',
+    location: json['location']?.toString() ?? 'Not assigned',
+    coverTheme: json['coverTheme']?.toString(),
+  );
+}
+  Book copyWith({
+    String? id,
+    String? title,
+    String? author,
+    String? isbn,
+    String? category,
+    int? totalCopies,
+    int? availableCopies,
+    String? status,
+    String? location,
+    String? coverTheme,
+  }) {
     return Book(
-      id: json['id'].toString(),
-      title: json['title'] ?? '',
-      author: json['author'] ?? '',
-      isbn: json['isbn'] ?? '',
-      category: json['category'] ?? 'General',
-      totalCopies: json['totalCopies'] ?? 1,
-      availableCopies: json['availableCopies'] ?? 1,
-      status: json['status'] ?? 'Available',
-      location: json['location'] ?? 'Shelf A1',
-      coverTheme: json['coverTheme'],
+      id: id ?? this.id,
+      title: title ?? this.title,
+      author: author ?? this.author,
+      isbn: isbn ?? this.isbn,
+      category: category ?? this.category,
+      totalCopies: totalCopies ?? this.totalCopies,
+      availableCopies: availableCopies ?? this.availableCopies,
+      status: status ?? this.status,
+      location: location ?? this.location,
+      coverTheme: coverTheme ?? this.coverTheme,
     );
   }
 

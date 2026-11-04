@@ -1,5 +1,8 @@
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 import '../models/book.dart';
 import '../models/borrow_record.dart';
@@ -8,8 +11,9 @@ import '../models/system_settings.dart';
 import '../data/mock_library_data.dart';
 import 'book_service.dart';
 
-
 class LibraryService extends ChangeNotifier {
+  static const String _apiBaseUrl = 'http://localhost:8080/api';
+
   List<Book> _books = [];
   List<BorrowRecord> _borrowRecords = [];
   List<ReservationRecord> _reservations = [];
@@ -21,6 +25,11 @@ class LibraryService extends ChangeNotifier {
 
   bool _isLoadingBooks = false;
   String? _booksError;
+  String? _operationError;
+  bool _isProcessingBorrow = false;
+  bool _isProcessingReturn = false;
+
+  Map<String, dynamic>? _lastReturnResponse;
 
   LibraryService() {
     _initData();
@@ -28,30 +37,13 @@ class LibraryService extends ChangeNotifier {
   }
 
   void _initData() {
-    // Keep mock data for borrowing, reservations and staff for now.
+    // Keep mock data for reservations and staff.
+    // Borrowing operations now use the Spring Boot API.
     _borrowRecords = MockLibraryData.getReaderBorrowedBooks();
     _reservations = MockLibraryData.getReaderReservations();
     _staff = MockLibraryData.getInitialStaff();
   }
 
-  // Fetch actual books from Spring Boot.
-  Future<void> loadBooksFromApi() async {
-    _isLoadingBooks = true;
-    _booksError = null;
-    notifyListeners();
-
-    try {
-      final fetchedBooks = await _bookService.getAllBooks();
-
-      _books = fetchedBooks;
-      _booksError = null;
-    } catch (error) {
-      _booksError = error.toString();
-    } finally {
-      _isLoadingBooks = false;
-      notifyListeners();
-    }
-  }
   // -------------------- GETTERS --------------------
 
   List<Book> get books => List.unmodifiable(_books);
@@ -65,9 +57,36 @@ class LibraryService extends ChangeNotifier {
   List<StaffMember> get staff => List.unmodifiable(_staff);
 
   SystemSettings get settings => _settings;
+
   bool get isLoadingBooks => _isLoadingBooks;
 
-String? get booksError => _booksError;
+  String? get booksError => _booksError;
+
+  String? get operationError => _operationError;
+
+  bool get isProcessingBorrow => _isProcessingBorrow;
+
+  bool get isProcessingReturn => _isProcessingReturn;
+
+  Map<String, dynamic>? get lastReturnResponse => _lastReturnResponse;
+
+  // -------------------- BOOK LOADING --------------------
+
+  Future<void> loadBooksFromApi() async {
+    _isLoadingBooks = true;
+    _booksError = null;
+    notifyListeners();
+
+    try {
+      _books = await _bookService.getAllBooks();
+      _booksError = null;
+    } catch (error) {
+      _booksError = error.toString();
+    } finally {
+      _isLoadingBooks = false;
+      notifyListeners();
+    }
+  }
 
   // -------------------- BOOK MANAGEMENT --------------------
 
@@ -90,8 +109,6 @@ String? get booksError => _booksError;
     notifyListeners();
   }
 
-  /// Searches by exact ISBN first, then by exact title,
-  /// and finally by a title containing the search text.
   Book? findBook(String query) {
     final search = query.trim().toLowerCase();
 
@@ -120,122 +137,139 @@ String? get booksError => _booksError;
 
   // -------------------- BORROWING --------------------
 
-  /// Borrows a book using the selected date and configured
-  /// maximum borrowing duration.
+  /// Creates a borrowing record through the Spring Boot API.
   ///
-  /// Returns false if the book does not exist, the student ID
-  /// is empty, or no copies are available.
-  bool borrowBook(
+  /// The book is identified by its ISBN. If no ISBN is available,
+  /// its title is sent instead.
+  Future<bool> borrowBook(
     String bookId,
     String studentId,
     String studentName, {
     DateTime? borrowDate,
-  }) {
-    
+  }) async {
+    _operationError = null;
+
     final id = studentId.trim();
 
-    if (id.isEmpty) return false;
-       //Update the available copies
-    final bookIndex = _books.indexWhere(
-      (book) => book.id == bookId,
+    if (id.isEmpty) {
+      _operationError = 'Please enter a student ID.';
+      return false;
+    }
+
+    final book = _books.cast<Book?>().firstWhere(
+      (item) => item?.id == bookId,
+      orElse: () => null,
     );
 
-    if (bookIndex == -1) return false;
+    if (book == null) {
+      _operationError = 'Book not found.';
+      return false;
+    }
 
-    final book = _books[bookIndex];
+    if (book.availableCopies <= 0) {
+      _operationError = 'No copies of this book are available.';
+      return false;
+    }
 
-    if (book.availableCopies <= 0) return false;
+    final bookQuery =
+        book.isbn.trim().isNotEmpty ? book.isbn.trim() : book.title.trim();
 
     final selectedDate = borrowDate ?? DateTime.now();
 
-    final startDate = DateTime(
-      selectedDate.year,
-      selectedDate.month,
-      selectedDate.day,
-    );
+    final dateString = _formatIsoDate(selectedDate);
 
-    final dueDate = startDate.add(
-      Duration(days: _settings.maxBorrowDays),
-    );
-
-    final remainingCopies = book.availableCopies - 1;
-
-    _books[bookIndex] = book.copyWith(
-      availableCopies: remainingCopies,
-      status: remainingCopies == 0 ? 'Borrowed' : 'Available',
-    );
-
-    _borrowRecords.insert(
-      0,
-      BorrowRecord(
-        id: 'br-${DateTime.now().microsecondsSinceEpoch}',
-        studentId: id,
-        studentName: studentName.trim().isEmpty
-            ? id
-            : studentName.trim(),
-        bookId: book.id,
-        bookTitle: book.title,
-        isbn: book.isbn,
-        borrowDate: _formatIsoDate(startDate),
-        dueDate: _formatIsoDate(dueDate),
-        status: 'Active',
-        fineAmount: 0.0,
-        daysLeft: _settings.maxBorrowDays,
-      ),
-    );
-
+    _isProcessingBorrow = true;
     notifyListeners();
-    return true;
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_apiBaseUrl/librarian/borrow'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'studentId': id,
+              'bookQuery': bookQuery,
+              'borrowDate': dateString,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        // Refresh the real copy counts and availability from the database.
+        await loadBooksFromApi();
+
+        return true;
+      }
+
+      _operationError = _extractErrorMessage(response);
+      return false;
+    } catch (error) {
+      _operationError = 'Unable to borrow book: $error';
+      return false;
+    } finally {
+      _isProcessingBorrow = false;
+      notifyListeners();
+    }
   }
 
-  /// Finds a student's active borrowing by ISBN or title.
-  BorrowRecord? findActiveBorrowing(
+  // -------------------- ACTIVE BORROWING SEARCH --------------------
+
+  /// Finds a student's active borrowing through the backend.
+  ///
+  /// Search can use an ISBN or book title.
+  Future<BorrowRecord?> findActiveBorrowing(
     String studentId,
     String bookQuery,
-  ) {
-    final id = studentId.trim().toLowerCase();
-    final query = bookQuery.trim().toLowerCase();
+  ) async {
+    _operationError = null;
 
-    if (id.isEmpty || query.isEmpty) return null;
+    final id = studentId.trim();
+    final query = bookQuery.trim();
 
-    // Prefer exact ISBN or exact title matches.
-    for (final record in _borrowRecords) {
-      final active = record.status == 'Active' ||
-          record.status == 'Overdue';
-
-      if (!active) continue;
-
-      final matchesStudent =
-          record.studentId.trim().toLowerCase() == id;
-
-      final matchesBook =
-          record.isbn.trim().toLowerCase() == query ||
-          record.bookTitle.trim().toLowerCase() == query;
-
-      if (matchesStudent && matchesBook) {
-        return record;
-      }
+    if (id.isEmpty || query.isEmpty) {
+      _operationError = 'Enter a student ID and book ISBN or title.';
+      return null;
     }
 
-    // If the user typed part of a title, allow title matching.
-    for (final record in _borrowRecords) {
-      final active = record.status == 'Active' ||
-          record.status == 'Overdue';
+    try {
+      final uri = Uri.parse(
+        '$_apiBaseUrl/librarian/active-borrowing',
+      ).replace(
+        queryParameters: {
+          'studentId': id,
+          'bookQuery': query,
+        },
+      );
 
-      if (!active) continue;
+      final response = await http
+          .get(uri)
+          .timeout(const Duration(seconds: 15));
 
-      final matchesStudent =
-          record.studentId.trim().toLowerCase() == id;
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> json =
+            jsonDecode(response.body) as Map<String, dynamic>;
 
-      final matchesTitle =
-          record.bookTitle.toLowerCase().contains(query);
+        final record = BorrowRecord.fromJson(
+          json,
+          studentId: id,
+        );
 
-      if (matchesStudent && matchesTitle) {
+        // Keep the record in memory for the return workflow.
+        _borrowRecords.removeWhere(
+          (item) => item.id == record.id,
+        );
+        _borrowRecords.insert(0, record);
+
+        notifyListeners();
         return record;
       }
-    }
 
-    return null;
+      _operationError = _extractErrorMessage(response);
+      return null;
+    } catch (error) {
+      _operationError = 'Unable to search active borrowing: $error';
+      return null;
+    }
   }
 
   // -------------------- DATES AND FINES --------------------
@@ -250,8 +284,6 @@ String? get booksError => _booksError;
     return DateTime.tryParse(value);
   }
 
-  /// Counts calendar days past the due date.
-  /// A book returned on its due date has zero overdue days.
   int overdueDays(
     BorrowRecord record, {
     DateTime? asOf,
@@ -279,76 +311,134 @@ String? get booksError => _booksError;
     return difference > 0 ? difference : 0;
   }
 
-  /// Fine = overdue days multiplied by the configured daily rate.
   double calculateFine(
     BorrowRecord record, {
     DateTime? asOf,
   }) {
-    return overdueDays(record, asOf: asOf) *
-        _settings.finePerDay;
+    return overdueDays(record, asOf: asOf) * _settings.finePerDay;
   }
 
-  /// Marks a borrowing as returned, stores the return date and
-  /// the calculated fine, and increases available book copies.
-  bool returnBookWithFine(
+  // -------------------- RETURN BOOK --------------------
+
+  /// Returns a book through the Spring Boot API.
+  ///
+  /// If studentId and bookQuery are not supplied, the method
+  /// tries to obtain them from the cached borrowing record.
+  Future<bool> returnBookWithFine(
     String recordId, {
+    String? studentId,
+    String? bookQuery,
+    String condition = 'GOOD',
     DateTime? returnDate,
-  }) {
-    final recordIndex = _borrowRecords.indexWhere(
-      (record) => record.id == recordId,
+  }) async {
+    _operationError = null;
+    _lastReturnResponse = null;
+
+    final cachedRecord = _borrowRecords.cast<BorrowRecord?>().firstWhere(
+      (record) => record?.id == recordId,
+      orElse: () => null,
     );
 
-    if (recordIndex == -1) return false;
+    final resolvedStudentId =
+        studentId ?? cachedRecord?.studentId ?? '';
 
-    final record = _borrowRecords[recordIndex];
+    final resolvedBookQuery =
+        bookQuery ??
+        cachedRecord?.isbn ??
+        '';
 
-    if (record.status != 'Active' &&
-        record.status != 'Overdue') {
+    if (resolvedStudentId.trim().isEmpty ||
+        resolvedBookQuery.trim().isEmpty) {
+      _operationError =
+          'Student ID and book ISBN are required to return this book.';
       return false;
     }
 
-    final selectedReturnDate = returnDate ?? DateTime.now();
-
-    final daysLate = overdueDays(
-      record,
-      asOf: selectedReturnDate,
+    final normalizedCondition = condition.toUpperCase().replaceAll(
+      ' ',
+      '_',
     );
 
-    final fine = daysLate * _settings.finePerDay;
+    const allowedConditions = {
+      'GOOD',
+      'MINOR_DAMAGE',
+      'LOST',
+    };
 
-    final bookIndex = _books.indexWhere(
-      (book) => book.id == record.bookId,
-    );
-
-    if (bookIndex != -1) {
-      final book = _books[bookIndex];
-
-      final newAvailableCopies =
-          (book.availableCopies + 1).clamp(0, book.totalCopies);
-
-      _books[bookIndex] = book.copyWith(
-        availableCopies: newAvailableCopies,
-        status: newAvailableCopies > 0
-            ? 'Available'
-            : 'Borrowed',
-      );
+    if (!allowedConditions.contains(normalizedCondition)) {
+      _operationError = 'Invalid book condition.';
+      return false;
     }
 
-    _borrowRecords[recordIndex] = record.copyWith(
-      status: 'Returned',
-      returnDate: _formatIsoDate(selectedReturnDate),
-      fineAmount: fine,
-      daysLeft: 0,
-    );
-
+    _isProcessingReturn = true;
     notifyListeners();
-    return true;
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_apiBaseUrl/librarian/return'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'studentId': resolvedStudentId.trim(),
+              'bookQuery': resolvedBookQuery.trim(),
+              'condition': normalizedCondition,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        if (response.body.isNotEmpty) {
+          final decoded = jsonDecode(response.body);
+
+          if (decoded is Map<String, dynamic>) {
+            _lastReturnResponse = decoded;
+          }
+        }
+
+        // Refresh the real copy counts after the return.
+        await loadBooksFromApi();
+
+        // Remove the cached active borrowing.
+        _borrowRecords.removeWhere(
+          (record) => record.id == recordId,
+        );
+
+        notifyListeners();
+        return true;
+      }
+
+      _operationError = _extractErrorMessage(response);
+      return false;
+    } catch (error) {
+      _operationError = 'Unable to return book: $error';
+      return false;
+    } finally {
+      _isProcessingReturn = false;
+      notifyListeners();
+    }
   }
 
-  /// Backwards-compatible method for existing screens.
-  /// New return workflows should use returnBookWithFine().
-  void returnBook(String recordId) {
-    returnBookWithFine(recordId);
+  /// Backwards-compatible wrapper for older screens.
+  Future<void> returnBook(String recordId) async {
+    await returnBookWithFine(recordId);
+  }
+
+  // -------------------- ERROR HANDLING --------------------
+
+  String _extractErrorMessage(http.Response response) {
+    try {
+      final decoded = jsonDecode(response.body);
+
+      if (decoded is Map<String, dynamic>) {
+        return decoded['message']?.toString() ??
+            decoded['error']?.toString() ??
+            'Request failed (${response.statusCode}).';
+      }
+    } catch (_) {
+      // The response may not contain JSON.
+    }
+
+    return 'Request failed (${response.statusCode}): ${response.body}';
   }
 
   // -------------------- RESERVATIONS --------------------

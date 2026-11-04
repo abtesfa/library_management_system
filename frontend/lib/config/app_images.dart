@@ -10,8 +10,14 @@ class AppImages {
   static const String cleanCode =
       'https://covers.openlibrary.org/b/isbn/9780132350884-L.jpg';
 
+  static const String effectiveJava =
+      'https://covers.openlibrary.org/b/isbn/9780134685991-L.jpg';
+
   static const String atomicHabits =
       'https://covers.openlibrary.org/b/isbn/9780735211292-L.jpg';
+
+  static const String thePragmaticProgrammer =
+      'https://covers.openlibrary.org/b/isbn/9780135957059-L.jpg';
 
   static const String theMartian =
       'https://covers.openlibrary.org/b/isbn/9780553418026-L.jpg';

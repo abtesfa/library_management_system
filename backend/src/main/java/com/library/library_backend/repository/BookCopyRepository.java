@@ -1,5 +1,5 @@
 package com.library.library_backend.repository;
-
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -18,6 +18,10 @@ public interface BookCopyRepository
     Optional<BookCopy> findFirstByBookIdAndStatus(
             Integer bookId, String status
     );
+    List<BookCopy> findByBookIdAndStatus(
+        Integer bookId,
+        String status
+);
 
     // Find the first copy regardless of status
     Optional<BookCopy> findFirstByBookId(Integer bookId);

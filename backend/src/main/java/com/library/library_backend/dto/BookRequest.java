@@ -8,10 +8,6 @@ import jakarta.validation.constraints.Size;
 
 public class BookRequest {
 
-    // Optional ISBN
-    @Size(max = 20, message = "ISBN cannot exceed 20 characters")
-    private String isbn;
-
     // Required book title
     @NotBlank(message = "Book title is required")
     @Size(max = 200, message = "Title cannot exceed 200 characters")
@@ -22,8 +18,9 @@ public class BookRequest {
     @Size(max = 150, message = "Author name cannot exceed 150 characters")
     private String authorName;
 
-    // Optional description
-    private String description;
+    // Required category selected from dropdown
+    @NotNull(message = "Please select a category")
+    private Integer categoryId;
 
     // Required number of physical copies
     @NotNull(message = "Number of copies is required")
@@ -35,14 +32,6 @@ public class BookRequest {
     private String location;
 
     public BookRequest() {
-    }
-
-    public String getIsbn() {
-        return isbn;
-    }
-
-    public void setIsbn(String isbn) {
-        this.isbn = isbn;
     }
 
     public String getTitle() {
@@ -61,12 +50,12 @@ public class BookRequest {
         this.authorName = authorName;
     }
 
-    public String getDescription() {
-        return description;
+    public Integer getCategoryId() {
+        return categoryId;
     }
 
-    public void setDescription(String description) {
-        this.description = description;
+    public void setCategoryId(Integer categoryId) {
+        this.categoryId = categoryId;
     }
 
     public Integer getNumberOfCopies() {

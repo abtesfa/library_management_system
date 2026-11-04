@@ -27,6 +27,9 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
 
   String _bookCondition = 'Good';
 
+  final bool _isSearchingBorrowBook = false;
+  bool _isSearchingReturnBook = false;
+
   @override
   void dispose() {
     _borrowStudentController.dispose();
@@ -36,11 +39,15 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
     super.dispose();
   }
 
+  // -------------------- DATE FORMATTING --------------------
+
   String _formatDate(DateTime date) {
     return '${date.year}-'
         '${date.month.toString().padLeft(2, '0')}-'
         '${date.day.toString().padLeft(2, '0')}';
   }
+
+  // -------------------- MESSAGES --------------------
 
   void _showMessage(String message) {
     if (!mounted) return;
@@ -51,6 +58,8 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
         SnackBar(content: Text(message)),
       );
   }
+
+  // -------------------- BORROW DATE --------------------
 
   Future<void> _selectBorrowDate() async {
     final today = DateTime.now();
@@ -69,6 +78,8 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
       });
     }
   }
+
+  // -------------------- SEARCH BOOK TO BORROW --------------------
 
   void _searchBorrowBook(LibraryService service) {
     final query = _borrowBookController.text.trim();
@@ -91,7 +102,11 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
     }
   }
 
-  void _confirmBorrow(LibraryService service) {
+  // -------------------- CONFIRM BORROWING --------------------
+
+  Future<void> _confirmBorrow(LibraryService service) async {
+    if (service.isProcessingBorrow) return;
+
     final studentId = _borrowStudentController.text.trim();
     final query = _borrowBookController.text.trim();
 
@@ -112,15 +127,20 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
       return;
     }
 
-    final success = service.borrowBook(
+    final success = await service.borrowBook(
       book.id,
       studentId,
       studentId,
       borrowDate: _borrowDate,
     );
 
+    if (!mounted) return;
+
     if (!success) {
-      _showMessage('Borrowing failed. Please check the details.');
+      _showMessage(
+        service.operationError ??
+            'Borrowing failed. Please check the details.',
+      );
       return;
     }
 
@@ -138,7 +158,11 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
     );
   }
 
-  void _searchReturnBook(LibraryService service) {
+  // -------------------- SEARCH ACTIVE BORROWING --------------------
+
+  Future<void> _searchReturnBook(LibraryService service) async {
+    if (_isSearchingReturnBook) return;
+
     final studentId = _returnStudentController.text.trim();
     final query = _returnBookController.text.trim();
 
@@ -147,39 +171,93 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
       return;
     }
 
-    final record = service.findActiveBorrowing(studentId, query);
+    setState(() {
+      _isSearchingReturnBook = true;
+      _selectedRecord = null;
+    });
+
+    try {
+      final record = await service.findActiveBorrowing(
+        studentId,
+        query,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _selectedRecord = record;
+      });
+
+      if (record == null) {
+        _showMessage(
+          service.operationError ??
+              'No active borrowing found for this student and book.',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSearchingReturnBook = false;
+        });
+      }
+    }
+  }
+
+  // -------------------- CONFIRM RETURN --------------------
+
+  Future<void> _confirmReturn(LibraryService service) async {
+    if (service.isProcessingReturn || _isSearchingReturnBook) {
+      return;
+    }
+
+    final studentId = _returnStudentController.text.trim();
+    final query = _returnBookController.text.trim();
+
+    if (studentId.isEmpty || query.isEmpty) {
+      _showMessage('Enter the Student ID and book title or ISBN.');
+      return;
+    }
+
+    // Always retrieve the latest active borrowing from the backend.
+    setState(() {
+      _isSearchingReturnBook = true;
+    });
+
+    BorrowRecord? record;
+
+    try {
+      record = await service.findActiveBorrowing(
+        studentId,
+        query,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSearchingReturnBook = false;
+        });
+      }
+    }
+
+    if (!mounted) return;
+
+    if (record == null) {
+      setState(() {
+        _selectedRecord = null;
+      });
+
+      _showMessage(
+        service.operationError ??
+            'No active borrowing found. Search again.',
+      );
+      return;
+    }
 
     setState(() {
       _selectedRecord = record;
     });
 
-    if (record == null) {
-      _showMessage(
-        'No active borrowing found for this student and book.',
-      );
-    }
-  }
-
-  Future<void> _confirmReturn(LibraryService service) async {
-    final studentId = _returnStudentController.text.trim();
-    final query = _returnBookController.text.trim();
-
-    if (studentId.isEmpty || query.isEmpty) {
-      _showMessage('Enter the Student ID and book title or ISBN.');
-      return;
-    }
-
-    // Search again to avoid relying on an outdated selection.
-    final record = service.findActiveBorrowing(studentId, query);
-
-    if (record == null) {
-      setState(() => _selectedRecord = null);
-      _showMessage('No active borrowing found. Search again.');
-      return;
-    }
-
     final daysOverdue = service.overdueDays(record);
-    final fine = service.calculateFine(record);
+    final estimatedFine = service.calculateFine(record);
 
     final approved = await showDialog<bool>(
       context: context,
@@ -190,7 +268,7 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Book: ${record.bookTitle}'),
+              Text('Book: ${record!.bookTitle}'),
               Text('Student ID: ${record.studentId}'),
               Text('Due date: ${record.dueDate}'),
               Text('Overdue days: $daysOverdue'),
@@ -198,7 +276,10 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
                 'Daily fine rate: '
                 'ETB ${service.settings.finePerDay.toStringAsFixed(2)}',
               ),
-              Text('Total fine: ETB ${fine.toStringAsFixed(2)}'),
+              Text(
+                'Estimated fine: '
+                'ETB ${estimatedFine.toStringAsFixed(2)}',
+              ),
               Text('Condition: $_bookCondition'),
               const SizedBox(height: 12),
               const Text('Do you want to confirm this return?'),
@@ -220,21 +301,53 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
 
     if (!mounted || approved != true) return;
 
-    final success = service.returnBookWithFine(record.id);
+    // Convert the selected condition into the backend enum format.
+    final condition = switch (_bookCondition) {
+      'Minor damage' => 'MINOR_DAMAGE',
+      'Lost' => 'LOST',
+      _ => 'GOOD',
+    };
 
-    if (success) {
-      setState(() {
-        _selectedRecord = null;
-        _returnBookController.clear();
-      });
+    final success = await service.returnBookWithFine(
+      record.id,
+      studentId: studentId,
+      bookQuery: query,
+      condition: condition,
+    );
 
+    if (!mounted) return;
+
+    if (!success) {
       _showMessage(
-        'Return completed. Fine recorded:ETB ${fine.toStringAsFixed(2)}.',
+        service.operationError ??
+            'The return could not be completed.',
       );
-    } else {
-      _showMessage('The return could not be completed.');
+      return;
     }
+
+    setState(() {
+      _selectedRecord = null;
+      _returnBookController.clear();
+      _bookCondition = 'Good';
+    });
+
+    // Use the fine returned by the backend when available.
+    final response = service.lastReturnResponse;
+
+    final backendFine = response?['fineAmount'] ??
+        response?['fine'] ??
+        response?['Fine_Amount'];
+
+    final fineMessage = backendFine != null
+        ? 'ETB $backendFine'
+        : 'ETB ${estimatedFine.toStringAsFixed(2)}';
+
+    _showMessage(
+      'Return completed. Fine recorded: $fineMessage.',
+    );
   }
+
+  // -------------------- MAIN BUILD --------------------
 
   @override
   Widget build(BuildContext context) {
@@ -247,9 +360,11 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
         );
 
         final record = _selectedRecord;
+
         final overdueDays = record == null
             ? 0
             : service.overdueDays(record);
+
         final fine = record == null
             ? 0.0
             : service.calculateFine(record);
@@ -320,6 +435,8 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
     );
   }
 
+  // -------------------- BORROW CARD --------------------
+
   Widget _buildBorrowCard(
     LibraryService service,
     DateTime dueDate,
@@ -364,7 +481,9 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
 
           const SizedBox(height: 10),
           OutlinedButton.icon(
-            onPressed: () => _searchBorrowBook(service),
+            onPressed: service.isProcessingBorrow
+                ? null
+                : () => _searchBorrowBook(service),
             icon: const Icon(Icons.search),
             label: const Text('Find book'),
           ),
@@ -377,7 +496,10 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
                 _infoRow('Title', book.title),
                 _infoRow('Author', book.author),
                 _infoRow('ISBN', book.isbn),
-                _infoRow('Available copies', '${book.availableCopies}'),
+                _infoRow(
+                  'Available copies',
+                  '${book.availableCopies}',
+                ),
                 _infoRow('Location', book.location),
               ],
             ),
@@ -389,7 +511,9 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: _selectBorrowDate,
+              onPressed: service.isProcessingBorrow
+                  ? null
+                  : _selectBorrowDate,
               icon: const Icon(Icons.calendar_month),
               label: Text(_formatDate(_borrowDate)),
             ),
@@ -399,22 +523,34 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
           _infoBox(
             background: const Color(0xFFEFF6FF),
             children: [
-              _infoRow('Maximum borrowing period', '$maxDays days'),
-              _infoRow('Calculated due date', _formatDate(dueDate)),
+              _infoRow(
+                'Maximum borrowing period',
+                '$maxDays days',
+              ),
+              _infoRow(
+                'Calculated due date',
+                _formatDate(dueDate),
+              ),
             ],
           ),
 
           const SizedBox(height: 20),
           _actionButton(
-            label: 'Confirm Borrowing',
+            label: service.isProcessingBorrow
+                ? 'Processing...'
+                : 'Confirm Borrowing',
             icon: Icons.book,
             color: const Color(0xFF1877F2),
-            onPressed: () => _confirmBorrow(service),
+            onPressed: service.isProcessingBorrow
+                ? null
+                : () => _confirmBorrow(service),
           ),
         ],
       ),
     );
   }
+
+  // -------------------- RETURN CARD --------------------
 
   Widget _buildReturnCard(
     LibraryService service,
@@ -459,9 +595,24 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
 
           const SizedBox(height: 10),
           OutlinedButton.icon(
-            onPressed: () => _searchReturnBook(service),
-            icon: const Icon(Icons.search),
-            label: const Text('Find active borrowing'),
+            onPressed: _isSearchingReturnBook ||
+                    service.isProcessingReturn
+                ? null
+                : () => _searchReturnBook(service),
+            icon: _isSearchingReturnBook
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Icon(Icons.search),
+            label: Text(
+              _isSearchingReturnBook
+                  ? 'Searching...'
+                  : 'Find active borrowing',
+            ),
           ),
 
           const SizedBox(height: 18),
@@ -470,15 +621,21 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
           Wrap(
             spacing: 6,
             runSpacing: 6,
-            children: ['Good', 'Minor damage', 'Lost'].map((condition) {
-              return ChoiceChip(
-                label: Text(condition),
-                selected: _bookCondition == condition,
-                onSelected: (_) {
-                  setState(() => _bookCondition = condition);
-                },
-              );
-            }).toList(),
+            children: ['Good', 'Minor damage', 'Lost'].map(
+              (condition) {
+                return ChoiceChip(
+                  label: Text(condition),
+                  selected: _bookCondition == condition,
+                  onSelected: service.isProcessingReturn
+                      ? null
+                      : (_) {
+                          setState(() {
+                            _bookCondition = condition;
+                          });
+                        },
+                );
+              },
+            ).toList(),
           ),
 
           const SizedBox(height: 18),
@@ -534,21 +691,31 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
                   'ETB ${service.settings.finePerDay.toStringAsFixed(2)}',
                 ),
                 _infoRow('Overdue days', '$overdueDays'),
-                _infoRow('Total fine', 'ETB ${fine.toStringAsFixed(2)}'),
+                _infoRow(
+                  'Estimated fine',
+                  'ETB ${fine.toStringAsFixed(2)}',
+                ),
               ],
             ),
 
           const SizedBox(height: 20),
           _actionButton(
-            label: 'Confirm Return',
+            label: service.isProcessingReturn
+                ? 'Processing...'
+                : 'Confirm Return',
             icon: Icons.swap_horiz,
             color: const Color(0xFF10B981),
-            onPressed: () => _confirmReturn(service),
+            onPressed: service.isProcessingReturn ||
+                    _isSearchingReturnBook
+                ? null
+                : () => _confirmReturn(service),
           ),
         ],
       ),
     );
   }
+
+  // -------------------- REUSABLE UI COMPONENTS --------------------
 
   Widget _card({required Widget child}) {
     return Container(
@@ -557,7 +724,9 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: const Color(0xFFE2E8F0),
+        ),
       ),
       child: child,
     );
@@ -686,7 +855,7 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
     required String label,
     required IconData icon,
     required Color color,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
   }) {
     return SizedBox(
       width: double.infinity,
@@ -697,6 +866,8 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
           foregroundColor: Colors.white,
+          disabledBackgroundColor: color.withValues(alpha: 0.5),
+          disabledForegroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),

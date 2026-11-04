@@ -56,6 +56,7 @@ public class BookService {
     }
 
     public List<book> getAllBooks() {
+
         return bookRepository.findAll();
     }
 
@@ -106,7 +107,8 @@ public class BookService {
     // PAGINATION
     // ==========================================
 
-    public Page<BookResponse> getBooksWithPagination(Pageable pageable) {
+    public Page<BookResponse> getBooksWithPagination(
+            Pageable pageable) {
 
         return bookRepository.findAll(pageable)
                 .map(this::convertToResponse);
@@ -142,7 +144,7 @@ public class BookService {
                 ? b.getAuthor().getAuthorName()
                 : "Unknown Author";
 
-        // Get category name if available
+        // Get category name
         String categoryName = "General";
 
         if (b.getCategoryId() != null) {
@@ -153,23 +155,27 @@ public class BookService {
                     .orElse("General");
         }
 
-        // Count physical copies using Book_ID
+        // Get Book ID
         Integer bookId = b.getBookId();
 
+        // Count all physical copies
         int totalCopies = Math.toIntExact(
                 bookCopyRepository.countByBookId(bookId)
         );
 
+        // Count available copies
         int availableCopies = Math.toIntExact(
                 bookCopyRepository.countByBookIdAndStatus(
-                        bookId, "Available"
+                        bookId,
+                        "Available"
                 )
         );
 
         // Find a copy to obtain its shelf location
         Optional<BookCopy> copy =
                 bookCopyRepository.findFirstByBookIdAndStatus(
-                        bookId, "Available"
+                        bookId,
+                        "Available"
                 );
 
         if (copy.isEmpty()) {
@@ -211,26 +217,23 @@ public class BookService {
 
     public BookResponse createBook(BookRequest request) {
 
-        // 1. Normalize and validate ISBN if provided
-        String isbn = request.getIsbn();
-
-        if (isbn != null) {
-            isbn = isbn.trim();
-
-            if (isbn.isEmpty()) {
-                isbn = null;
-            }
-        }
-
-        // 2. Check duplicate ISBN only when provided
-        if (isbn != null && bookRepository.findByIsbn(isbn).isPresent()) {
+        // 1. Validate the request
+        if (request.getNumberOfCopies() == null
+                || request.getNumberOfCopies() < 1) {
 
             throw new IllegalArgumentException(
-                    "A book with this ISBN already exists"
+                    "At least one physical copy is required."
             );
         }
 
-        // 3. Find existing author or create a new author
+        if (request.getCategoryId() == null) {
+
+            throw new IllegalArgumentException(
+                    "Please select a book category."
+            );
+        }
+
+        // 2. Find existing author or create a new author
         String authorName = request.getAuthorName().trim();
 
         Author author = authorRepository
@@ -243,46 +246,58 @@ public class BookService {
                     return authorRepository.save(newAuthor);
                 });
 
-        // 4. Create book entity
+        // 3. Find selected category
+        Category category = categoryRepository
+                .findById(request.getCategoryId())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Category not found with ID: "
+                                        + request.getCategoryId()
+                        )
+                );
+
+        // 4. Create book
         book newBook = new book();
 
-        newBook.setIsbn(isbn);
         newBook.setTitle(request.getTitle().trim());
-        newBook.setDescription(request.getDescription());
         newBook.setAuthor(author);
+        newBook.setCategoryId(category.getCategoryId());
 
-        // Publisher and category are optional
+        // These fields are not required in the new Flutter form
+        newBook.setDescription(null);
+        newBook.setIsbn(null);
         newBook.setPublisherId(null);
-        newBook.setCategoryId(null);
 
-        // 5. Save book first to generate Book_ID
+        // 5. Save book
         book savedBook = bookRepository.save(newBook);
 
-        // 6. Create requested physical copies
+        // 6. Create physical copies
         List<BookCopy> copies = new ArrayList<>();
 
-        for (int i = 0; i < request.getNumberOfCopies(); i++) {
+        String location = request.getLocation();
 
-            BookCopy copy = new BookCopy();
-
-            copy.setBookId(savedBook.getBookId());
-            copy.setStatus("Available");
-
-            String location = request.getLocation();
-
-            copy.setLocation(
-                    location == null || location.isBlank()
-                            ? null
-                            : location.trim()
-            );
-
-            copies.add(copy);
+        if (location != null && location.isBlank()) {
+            location = null;
+        } else if (location != null) {
+            location = location.trim();
         }
+
+      for (int i = 0; i < request.getNumberOfCopies(); i++) {
+
+    BookCopy copy = new BookCopy();
+
+    copy.setBookId(savedBook.getBookId());
+    copy.setStatus("Available");
+    copy.setLocation(location);
+
+
+    copies.add(copy);
+}
 
         // 7. Save all physical copies
         bookCopyRepository.saveAll(copies);
 
-        // 8. Return the saved book information
+        // 8. Return saved book with copy information
         return convertToResponse(savedBook);
     }
 
@@ -312,14 +327,16 @@ public class BookService {
             existingBook.setAuthor(author);
         }
 
-        // Optional fields
+        // Update optional fields
         existingBook.setPublisherId(updatedBook.getPublisherId());
         existingBook.setCategoryId(updatedBook.getCategoryId());
         existingBook.setEdition(updatedBook.getEdition());
         existingBook.setPrice(updatedBook.getPrice());
+
         existingBook.setPublicationYear(
                 updatedBook.getPublicationYear()
         );
+
         existingBook.setCoverImage(updatedBook.getCoverImage());
 
         // Update ISBN if supplied
@@ -333,7 +350,7 @@ public class BookService {
                             .isPresent()) {
 
                 throw new IllegalArgumentException(
-                        "Another book already uses this ISBN"
+                        "Another book already uses this ISBN."
                 );
             }
 
@@ -358,7 +375,7 @@ public class BookService {
 
             throw new IllegalStateException(
                     "Cannot delete this book because physical copies exist. "
-                    + "Remove its copies first."
+                            + "Remove its copies first."
             );
         }
 

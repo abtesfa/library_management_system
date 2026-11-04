@@ -4,6 +4,7 @@ package com.library.library_backend.Controller;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import org.springframework.data.domain.Page;
@@ -14,6 +15,8 @@ import com.library.library_backend.Service.BookService;
 import com.library.library_backend.dto.BookRequest;
 import com.library.library_backend.dto.BookResponse;
 import com.library.library_backend.entity.book;
+import com.library.library_backend.entity.Category;
+import com.library.library_backend.repository.CategoryRepository;
 
 import jakarta.validation.Valid;
 
@@ -23,15 +26,26 @@ import jakarta.validation.Valid;
 public class BookController {
 
     private final BookService bookService;
+    private final CategoryRepository categoryRepository;
 
-    public BookController(BookService bookService) {
+    public BookController(
+            BookService bookService,
+            CategoryRepository categoryRepository) {
+
         this.bookService = bookService;
+        this.categoryRepository = categoryRepository;
     }
 
     // Get all books
     @GetMapping
     public List<BookResponse> getAllBooks() {
         return bookService.getAllBookResponses();
+    }
+
+    // Get all categories for the Flutter dropdown
+    @GetMapping("/categories")
+    public List<Category> getAllCategories() {
+        return categoryRepository.findAll();
     }
 
     // Search by title
@@ -82,14 +96,19 @@ public class BookController {
     }
 
     // Create a new book
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public BookResponse createBook(
-            @Valid @RequestBody BookRequest request) {
-        return bookService.createBook(request);
-    }
+   // Create a new book
+@PostMapping
+public ResponseEntity<BookResponse> createBook(
+        @Valid @RequestBody BookRequest request) {
 
-    // Update an existing book by Book_ID
+    BookResponse savedBook = bookService.createBook(request);
+
+    return ResponseEntity
+            .status(HttpStatus.CREATED)
+            .body(savedBook);
+}
+
+ // Update an existing book by Book_ID
     @PutMapping("/{bookId}")
     public book updateBook(
             @PathVariable Integer bookId,
