@@ -1,0 +1,26 @@
+﻿# Flutter generated files
+.dart_tool/
+**/.dart_tool/
+build/
+**/build/
+
+# Java generated files
+backend/target/
+
+# IDE settings
+.idea/
+.vscode/
+**/.idea/
+**/.vscode/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

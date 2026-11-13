@@ -1,0 +1,11 @@
+{
+  "name": "Library Management System",
+  "short_name": "Library LMS",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0052CC",
+  "theme_color": "#0052CC",
+  "description": "Library Management System with Admin, Librarian, and Reader Portals",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false
+}
