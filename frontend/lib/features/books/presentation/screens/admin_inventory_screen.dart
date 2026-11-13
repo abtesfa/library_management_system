@@ -6,8 +6,11 @@ import '../../../library/presentation/providers/library_service.dart';
 import '../../../../core/di/injector.dart';
 import '../../../../core/error/api_exception.dart';
 import '../../domain/usecases/create_book.dart';
+import '../../domain/usecases/delete_book.dart';
 import '../../domain/usecases/get_categories.dart';
+import '../../domain/usecases/update_book.dart';
 import '../widgets/add_book_dialog.dart';
+import '../widgets/edit_book_dialog.dart';
 
 class AdminInventoryScreen extends StatefulWidget {
   const AdminInventoryScreen({super.key});
@@ -18,6 +21,8 @@ class AdminInventoryScreen extends StatefulWidget {
 
 class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
   final CreateBook _createBookUseCase = injector.createBook;
+  final UpdateBook _updateBookUseCase = injector.updateBook;
+  final DeleteBook _deleteBookUseCase = injector.deleteBook;
   final GetCategories _getCategoriesUseCase = injector.getCategories;
   final TextEditingController _searchController = TextEditingController();
 
@@ -151,6 +156,112 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
     }
   }
 
+  Future<void> _editBook(Book book) async {
+    try {
+      final categories = await _getCategoriesUseCase();
+
+      if (!mounted) return;
+      if (categories.isEmpty) {
+        _showInventoryMessage(
+          'No categories found. Please add a category first.',
+          color: Colors.orange,
+        );
+        return;
+      }
+
+      final updated = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => EditBookDialog(
+          book: book,
+          categories: categories,
+          updateBook: _updateBookUseCase,
+        ),
+      );
+
+      if (updated != true || !mounted) return;
+
+      try {
+        await context.read<LibraryService>().loadBooksFromApi();
+        if (!mounted) return;
+        _showInventoryMessage('Book updated successfully.');
+      } catch (error) {
+        if (!mounted) return;
+        _showInventoryMessage(
+          'Book updated, but the inventory could not refresh: $error',
+          color: Colors.orange,
+        );
+      }
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      _showInventoryMessage(error.message, color: Colors.red);
+    } catch (error) {
+      if (!mounted) return;
+      _showInventoryMessage('Could not edit book: $error', color: Colors.red);
+    }
+  }
+
+  Future<void> _deleteBook(Book book) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete book permanently?'),
+        content: Text(
+          'Deleting "${book.title}" will also permanently delete its physical '
+          'copies, reservations, and borrowing history. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete permanently'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await _deleteBookUseCase(book.id);
+      if (!mounted) return;
+
+      try {
+        await context.read<LibraryService>().loadBooksFromApi();
+        if (!mounted) return;
+        _showInventoryMessage('Book deleted successfully.');
+      } catch (error) {
+        if (!mounted) return;
+        _showInventoryMessage(
+          'Book deleted, but the inventory could not refresh: $error',
+          color: Colors.orange,
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      _showInventoryMessage('Could not delete book: $error', color: Colors.red);
+    }
+  }
+
+  void _showInventoryMessage(String message, {Color color = Colors.green}) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: color,
+        ),
+      );
+  }
+
   // =========================================================
   // MAIN INVENTORY SCREEN
   // =========================================================
@@ -172,7 +283,9 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
       bool matchesFilter = true;
 
       if (_selectedInventoryFilter == 'available') {
-        matchesFilter = book.availableCopies > 0;
+        final hasCopiesOnLoan =
+            book.totalCopies > book.availableCopies + book.reservedCopies;
+        matchesFilter = book.availableCopies > 0 && !hasCopiesOnLoan;
       } else if (_selectedInventoryFilter == 'onLoan') {
         matchesFilter =
             book.totalCopies > book.availableCopies + book.reservedCopies;
@@ -423,36 +536,6 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
 
           const SizedBox(height: 12),
 
-          // ACTIVE FILTER INDICATOR
-          if (_selectedInventoryFilter != 'all')
-            Row(
-              children: [
-                const Icon(
-                  Icons.filter_alt,
-                  color: primaryBlue,
-                  size: 17,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  _selectedInventoryFilter == 'available'
-                      ? 'Showing books with available copies'
-                      : 'Showing books currently on loan',
-                  style: const TextStyle(
-                    color: primaryBlue,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: () => _selectInventoryFilter('all'),
-                  child: const Text('Clear filter'),
-                ),
-              ],
-            ),
-
-          const SizedBox(height: 12),
-
           // INVENTORY TABLE
           Container(
             width: double.infinity,
@@ -634,6 +717,14 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
                             ),
                           ),
                         ),
+                        DataColumn(
+                          label: Text(
+                            'Actions',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
                       ],
                       rows: filteredBooks.map((book) {
                         final bool isAvailable = book.availableCopies > 0;
@@ -693,6 +784,29 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
                               ),
                             ),
                             DataCell(Text(book.location)),
+                            DataCell(
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    tooltip: 'Edit book',
+                                    onPressed: () => _editBook(book),
+                                    icon: const Icon(
+                                      Icons.edit_outlined,
+                                      color: primaryBlue,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Delete book',
+                                    onPressed: () => _deleteBook(book),
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      color: Colors.red,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         );
                       }).toList(),

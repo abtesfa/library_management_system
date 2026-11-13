@@ -56,6 +56,42 @@ class BookRemoteDataSource {
     );
   }
 
+  /// Updates a book's catalog details.
+  Future<void> updateBook(
+    String bookId,
+    Map<String, dynamic> bookData,
+  ) async {
+    final response = await http
+        .put(
+          Uri.parse('$baseUrl/$bookId'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: jsonEncode(bookData),
+        )
+        .timeout(_requestTimeout);
+
+    if (response.statusCode != 200) {
+      throw ApiException(
+        'Failed to update book (${response.statusCode}): ${response.body}',
+      );
+    }
+  }
+
+  /// Permanently deletes a book and its related records.
+  Future<void> deleteBook(String bookId) async {
+    final response = await http
+        .delete(Uri.parse('$baseUrl/$bookId'))
+        .timeout(_requestTimeout);
+
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw ApiException(
+        'Failed to delete book (${response.statusCode}): ${response.body}',
+      );
+    }
+  }
+
   /// Loads the categories a new book can be filed under.
   Future<List<dynamic>> getCategories() async {
     final response = await http

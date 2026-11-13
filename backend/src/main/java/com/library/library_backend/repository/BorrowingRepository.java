@@ -2,12 +2,20 @@ package com.library.library_backend.repository;
 
 import com.library.library_backend.entity.Borrowing;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import java.util.Collection;
 import java.util.Optional;
 
 public interface BorrowingRepository
         extends JpaRepository<Borrowing, Integer> {
+
+    @Modifying
+    @Query("DELETE FROM Borrowing borrowing "
+            + "WHERE borrowing.copyId IN :copyIds")
+    int deleteAllByCopyIdIn(@Param("copyIds") Collection<Integer> copyIds);
 
     @Query(value = """
         SELECT COUNT(*)

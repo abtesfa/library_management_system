@@ -21,6 +21,13 @@ class BookRepositoryImpl implements BookRepository {
       remoteDataSource.createBook(bookData);
 
   @override
+  Future<void> updateBook(String bookId, Map<String, dynamic> bookData) =>
+      remoteDataSource.updateBook(bookId, bookData);
+
+  @override
+  Future<void> deleteBook(String bookId) => remoteDataSource.deleteBook(bookId);
+
+  @override
   Future<List<dynamic>> getCategories() => remoteDataSource.getCategories();
 
   @override

@@ -367,23 +367,31 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
                     return _buildNoSearchResults();
                   }
 
-                  return GridView.builder(
-                    shrinkWrap: true,
-                    // Lets the hover lift and shadow show outside the grid.
-                    clipBehavior: Clip.none,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: compact ? 1 : 3,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: compact ? 2.0 : 1.65,
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: borderColor),
                     ),
-                    itemCount: filteredBooks.length,
-                    itemBuilder: (context, index) {
-                      final book = filteredBooks[index];
+                    child: GridView.builder(
+                      shrinkWrap: true,
+                      // Lets the hover lift and shadow show outside the grid.
+                      clipBehavior: Clip.none,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: compact ? 1 : 3,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: compact ? 2.0 : 1.65,
+                      ),
+                      itemCount: filteredBooks.length,
+                      itemBuilder: (context, index) {
+                        final book = filteredBooks[index];
 
-                      return _buildBookItem(context, book);
-                    },
+                        return _buildBookItem(context, book);
+                      },
+                    ),
                   );
                 },
               ),

@@ -34,6 +34,8 @@ public interface ReservationRepository
             @Param("userId") Integer userId
     );
 
+    List<Reservation> findAllByBookId(Integer bookId);
+
     // Check whether the student already has an active reservation.
     @Query(value = """
         SELECT COUNT(*)

@@ -4,8 +4,11 @@ package com.library.library_backend.repository;
 import com.library.library_backend.entity.Notification;
 import com.library.library_backend.entity.NotificationType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface NotificationRepository
@@ -42,4 +45,10 @@ public interface NotificationRepository
 
     // Find notifications related to a particular reservation
     List<Notification> findByReservationId(Integer reservationId);
+
+    @Modifying
+    @Query("DELETE FROM Notification notification "
+            + "WHERE notification.reservationId IN :reservationIds")
+    int deleteAllByReservationIdIn(
+            @Param("reservationIds") Collection<Integer> reservationIds);
 }

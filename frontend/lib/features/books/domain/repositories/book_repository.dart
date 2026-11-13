@@ -8,6 +8,12 @@ abstract class BookRepository {
   /// Adds a new book and its physical copies.
   Future<Map<String, dynamic>> createBook(Map<String, dynamic> bookData);
 
+  /// Updates a book's details.
+  Future<void> updateBook(String bookId, Map<String, dynamic> bookData);
+
+  /// Permanently deletes a book, its copies, and related circulation history.
+  Future<void> deleteBook(String bookId);
+
   /// Loads the categories a new book can be filed under.
   Future<List<dynamic>> getCategories();
 

@@ -18,8 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.library.library_backend.Service.BookService;
 import com.library.library_backend.dto.BookRequest;
 import com.library.library_backend.dto.BookResponse;
+import com.library.library_backend.dto.BookUpdateRequest;
 import com.library.library_backend.entity.Category;
-import com.library.library_backend.entity.book;
 import com.library.library_backend.repository.CategoryRepository;
 
 import jakarta.validation.Valid;
@@ -68,9 +68,9 @@ public class BookController {
     }
 
     @PutMapping("/{bookId}")
-    public book updateBook(
+    public BookResponse updateBook(
             @PathVariable Integer bookId,
-            @RequestBody book updatedBook) {
+            @Valid @RequestBody BookUpdateRequest updatedBook) {
 
         return bookService.updateBook(bookId, updatedBook);
     }

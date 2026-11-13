@@ -3,11 +3,13 @@ import '../../features/books/data/datasources/google_books_remote_data_source.da
 import '../../features/books/data/repositories/book_repository_impl.dart';
 import '../../features/books/domain/repositories/book_repository.dart';
 import '../../features/books/domain/usecases/create_book.dart';
+import '../../features/books/domain/usecases/delete_book.dart';
 import '../../features/books/domain/usecases/find_book.dart';
 import '../../features/books/domain/usecases/get_all_books.dart';
 import '../../features/books/domain/usecases/get_available_books.dart';
 import '../../features/books/domain/usecases/get_categories.dart';
 import '../../features/books/domain/usecases/lookup_book_by_isbn.dart';
+import '../../features/books/domain/usecases/update_book.dart';
 import '../../features/borrowing/data/datasources/borrowing_remote_data_source.dart';
 import '../../features/borrowing/data/repositories/borrowing_repository_impl.dart';
 import '../../features/borrowing/domain/repositories/borrowing_repository.dart';
@@ -98,6 +100,8 @@ class Injector {
   late final GetAvailableBooks getAvailableBooks =
       GetAvailableBooks(_bookRepository);
   late final CreateBook createBook = CreateBook(_bookRepository);
+  late final UpdateBook updateBook = UpdateBook(_bookRepository);
+  late final DeleteBook deleteBook = DeleteBook(_bookRepository);
   late final GetCategories getCategories = GetCategories(_bookRepository);
   late final LookupBookByIsbn lookupBookByIsbn =
       LookupBookByIsbn(_bookRepository);
