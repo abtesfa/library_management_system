@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../books/domain/entities/book.dart';
+import '../../../borrowing/domain/entities/borrow_record.dart';
 import '../../domain/entities/student_dashboard.dart';
 import '../../../library/presentation/providers/library_service.dart';
 import '../../../../core/config/app_images.dart';
 import '../../../../core/di/injector.dart';
 import '../../../books/domain/usecases/get_available_books.dart';
+import '../../../borrowing/domain/usecases/get_my_books.dart';
 import '../../domain/usecases/get_student_dashboard.dart';
 import '../../../reservations/domain/usecases/create_reservation.dart';
 
@@ -31,6 +33,8 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
   final GetAvailableBooks _getAvailableBooksUseCase =
       injector.getAvailableBooks;
 
+  final GetMyBooks _getMyBooksUseCase = injector.getMyBooks;
+
   final CreateReservation _createReservationUseCase =
       injector.createReservation;
 
@@ -40,6 +44,7 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
 
   late Future<StudentDashboard> _dashboardFuture;
   late Future<List<Book>> _booksFuture;
+  late Future<List<BorrowRecord>> _borrowingsFuture;
 
   String _searchQuery = '';
 
@@ -59,6 +64,7 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
     _dashboardFuture = _getStudentDashboardUseCase(_studentId);
 
     _booksFuture = _getAvailableBooksUseCase();
+    _borrowingsFuture = _getMyBooksUseCase(_studentId.toString());
   }
 
   @override
@@ -186,6 +192,12 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
     });
   }
 
+  void _refreshDueDateNotifications() {
+    setState(() {
+      _borrowingsFuture = _getMyBooksUseCase(_studentId.toString());
+    });
+  }
+
   // ---------------------------------------------------------
   // FILTER BOOKS FROM DATABASE
   // ---------------------------------------------------------
@@ -284,6 +296,10 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
               const SizedBox(height: 14),
 
               _buildDashboardStats(compact),
+
+              const SizedBox(height: 30),
+
+              _buildDueDateNotifications(),
 
               const SizedBox(height: 30),
 
@@ -449,7 +465,7 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
             'Due This Week',
             '${dashboard.dueThisWeek} Books',
             Icons.warning_amber_rounded,
-            const Color(0xFFD97706),
+            primaryBlue,
           ),
           _snapshotTile(
             'Books Read This Year',
@@ -479,6 +495,181 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildDueDateNotifications() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Due-date reminders',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: textDark,
+                ),
+              ),
+            ),
+            IconButton(
+              onPressed: _refreshDueDateNotifications,
+              tooltip: 'Refresh due-date reminders',
+              icon: const Icon(Icons.refresh, color: primaryBlue),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        FutureBuilder<List<BorrowRecord>>(
+          future: _borrowingsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: CircularProgressIndicator(color: primaryBlue),
+                ),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return _dueDateReminderMessage(
+                'Unable to load due-date reminders.',
+                trailing: TextButton(
+                  onPressed: _refreshDueDateNotifications,
+                  child: const Text('Try again'),
+                ),
+              );
+            }
+
+            final today = DateTime.now();
+            final todayDate = DateTime(today.year, today.month, today.day);
+            final reminders =
+                (snapshot.data ?? <BorrowRecord>[]).where((record) {
+              final dueDate = DateTime.tryParse(record.dueDate);
+              if (dueDate == null) return false;
+
+              final dueDateOnly =
+                  DateTime(dueDate.year, dueDate.month, dueDate.day);
+              return dueDateOnly.difference(todayDate).inDays <= 7;
+            }).toList()
+                  ..sort((first, second) {
+                    return DateTime.parse(first.dueDate)
+                        .compareTo(DateTime.parse(second.dueDate));
+                  });
+
+            if (reminders.isEmpty) {
+              return _dueDateReminderMessage(
+                'No books are due within the next 7 days.',
+              );
+            }
+
+            return Column(
+              children: reminders
+                  .map((record) => _buildDueDateReminder(record, todayDate))
+                  .toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDueDateReminder(BorrowRecord record, DateTime today) {
+    final dueDate = DateTime.parse(record.dueDate);
+    final daysLeft = DateTime(dueDate.year, dueDate.month, dueDate.day)
+        .difference(today)
+        .inDays;
+    final color = daysLeft < 0 ? const Color(0xFFDC2626) : primaryBlue;
+    final status = daysLeft < 0
+        ? 'Overdue by ${daysLeft.abs()} day${daysLeft.abs() == 1 ? '' : 's'}'
+        : daysLeft == 0
+            ? 'Due today'
+            : 'Due in $daysLeft day${daysLeft == 1 ? '' : 's'}';
+    final formattedDueDate =
+        '${dueDate.year}-${dueDate.month.toString().padLeft(2, '0')}-'
+        '${dueDate.day.toString().padLeft(2, '0')}';
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.notifications_active_outlined, color: color),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  record.bookTitle,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: textDark,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Due date: $formattedDueDate',
+                  style: const TextStyle(fontSize: 12, color: textMuted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            status,
+            textAlign: TextAlign.end,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _dueDateReminderMessage(
+    String message, {
+    Widget? trailing,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFBF1E4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(fontSize: 13, color: textMuted),
+            ),
+          ),
+          if (trailing != null) trailing,
+        ],
+      ),
     );
   }
 
@@ -626,10 +817,10 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
                 colors: [
-                  darkBlue.withValues(alpha: 0.98),
-                  darkBlue.withValues(alpha: 0.90),
-                  darkBlue.withValues(alpha: 0.55),
-                  darkBlue.withValues(alpha: 0.05),
+                  darkBlue.withValues(alpha: 0.82),
+                  darkBlue.withValues(alpha: 0.62),
+                  darkBlue.withValues(alpha: 0.32),
+                  darkBlue.withValues(alpha: 0.04),
                 ],
                 stops: const [0.0, 0.38, 0.68, 1.0],
               ),
@@ -645,8 +836,21 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Good Books\nBuild Better Futures',
+                    Text.rich(
+                      const TextSpan(
+                        children: [
+                          TextSpan(
+                            text: 'Good ',
+                            style: TextStyle(color: primaryBlue),
+                          ),
+                          TextSpan(text: 'Books\nBuild '),
+                          TextSpan(
+                            text: 'Better ',
+                            style: TextStyle(color: primaryBlue),
+                          ),
+                          TextSpan(text: 'Futures'),
+                        ],
+                      ),
                       style: TextStyle(
                         fontSize: compact ? 23 : 27,
                         height: 1.25,
@@ -778,6 +982,9 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
 
   Widget _buildBookItem(BuildContext context, Book book) {
     return _HoverLift(
+      hoverBorderColor: const Color(0xFFF6B7A5),
+      hoverShadowColor: primaryBlue,
+      hoverShadowOpacity: 0.16,
       child: _bookItemBody(context, book),
     );
   }
@@ -791,7 +998,7 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFFBF1E4),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: borderColor),
       ),
@@ -1072,10 +1279,16 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
 class _HoverLift extends StatefulWidget {
   final Widget child;
   final double radius;
+  final Color hoverBorderColor;
+  final Color hoverShadowColor;
+  final double hoverShadowOpacity;
 
   const _HoverLift({
     required this.child,
     this.radius = 14,
+    this.hoverBorderColor = Colors.white,
+    this.hoverShadowColor = Colors.black,
+    this.hoverShadowOpacity = 0.06,
   });
 
   @override
@@ -1104,7 +1317,9 @@ class _HoverLiftState extends State<_HoverLift> {
           boxShadow: _isHovered
               ? [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
+                    color: widget.hoverShadowColor.withValues(
+                      alpha: widget.hoverShadowOpacity,
+                    ),
                     blurRadius: 14,
                     offset: const Offset(0, 6),
                   ),
@@ -1114,7 +1329,7 @@ class _HoverLiftState extends State<_HoverLift> {
         foregroundDecoration: BoxDecoration(
           borderRadius: BorderRadius.circular(widget.radius),
           border: Border.all(
-            color: _isHovered ? Colors.white : Colors.transparent,
+            color: _isHovered ? widget.hoverBorderColor : Colors.transparent,
             width: 1.5,
           ),
         ),
