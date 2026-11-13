@@ -670,7 +670,7 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
                 ? 'Searching...'
                 : 'Find active borrowing',
             icon: _isSearchingReturnBook ? Icons.hourglass_top : Icons.search,
-            color: successGreen,
+            color: primaryBlue,
             outlined: true,
             onPressed: _isSearchingReturnBook || service.isProcessingReturn
                 ? null
@@ -793,7 +793,7 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
             label:
                 service.isProcessingReturn ? 'Processing...' : 'Confirm Return',
             icon: Icons.swap_horiz,
-            color: successGreen,
+            color: primaryBlue,
             onPressed: service.isProcessingReturn || _isSearchingReturnBook
                 ? null
                 : () => _confirmReturn(service),
@@ -1110,8 +1110,8 @@ class _InteractiveDeskButtonState extends State<_InteractiveDeskButton> {
                         : widget.color.withValues(alpha: 0.45),
                   ),
                   backgroundColor: _isHovered
-                      ? widget.color.withValues(alpha: 0.12)
-                      : widget.color.withValues(alpha: 0.08),
+                      ? widget.color.withValues(alpha: 0.06)
+                      : Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 13),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(9),

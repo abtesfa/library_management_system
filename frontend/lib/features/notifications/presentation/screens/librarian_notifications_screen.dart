@@ -16,6 +16,7 @@ class LibrarianNotificationsScreen extends StatefulWidget {
 class _LibrarianNotificationsScreenState
     extends State<LibrarianNotificationsScreen> {
   static const Color primaryBlue = Color(0xFFF25635);
+  static const Color filterColor = Color(0xFF514746);
   static const Color pageBackground = Color(0xFFFBF1E4);
 
   final GetNotifications _getNotificationsUseCase = injector.getNotifications;
@@ -373,7 +374,7 @@ class _LibrarianNotificationsScreenState
                       return Padding(
                         padding: const EdgeInsets.only(right: 10),
                         child: Material(
-                          color: selected ? primaryBlue : Colors.white,
+                          color: selected ? filterColor : Colors.white,
                           borderRadius: BorderRadius.circular(9),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(9),
@@ -391,8 +392,8 @@ class _LibrarianNotificationsScreenState
                                 borderRadius: BorderRadius.circular(9),
                                 border: Border.all(
                                   color: selected
-                                      ? primaryBlue
-                                      : const Color(0xFFFBE2D9),
+                                      ? filterColor
+                                      : filterColor.withValues(alpha: 0.25),
                                 ),
                               ),
                               child: Row(
@@ -401,14 +402,14 @@ class _LibrarianNotificationsScreenState
                                     filter.$2,
                                     size: 17,
                                     color:
-                                        selected ? Colors.white : primaryBlue,
+                                        selected ? Colors.white : filterColor,
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
                                     '${filter.$1} (${_countFor(filter.$1)})',
                                     style: TextStyle(
                                       color:
-                                          selected ? Colors.white : primaryBlue,
+                                          selected ? Colors.white : filterColor,
                                       fontWeight: selected
                                           ? FontWeight.w600
                                           : FontWeight.normal,
