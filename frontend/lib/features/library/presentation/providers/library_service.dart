@@ -141,59 +141,63 @@ class LibraryService extends ChangeNotifier {
   /// Creates a borrowing record through the backend.
   ///
   /// The book is identified by ISBN, or by title if it has no ISBN.
-  Future<bool> borrowBook(
-    String bookId,
-    String studentId, {
-    DateTime? borrowDate,
-  }) async {
-    _operationError = null;
+  
+Future<String?> borrowBook(
+  String bookId,
+  String studentId, {
+  DateTime? borrowDate,
+}) async {
+  _operationError = null;
 
-    final id = studentId.trim();
+  final id = studentId.trim();
 
-    if (id.isEmpty) {
-      _operationError = 'Please enter a student ID.';
-      notifyListeners();
-      return false;
-    }
-
-    final book = _books.cast<Book?>().firstWhere(
-          (item) => item?.id == bookId,
-          orElse: () => null,
-        );
-
-    if (book == null) {
-      _operationError = 'Book not found.';
-      notifyListeners();
-      return false;
-    }
-
-    final bookQuery = book.isbn.trim().isNotEmpty
-        ? book.isbn.trim()
-        : book.title.trim();
-
-    _isProcessingBorrow = true;
+  if (id.isEmpty) {
+    _operationError = 'Please enter a student ID.';
     notifyListeners();
+    return null;
+  }
 
-    try {
-      await _borrowBook(
-        studentId: id,
-        bookQuery: bookQuery,
-        borrowDate: borrowDate ?? DateTime.now(),
+  final book = _books.cast<Book?>().firstWhere(
+        (item) => item?.id == bookId,
+        orElse: () => null,
       );
 
-      await loadBooksFromApi();
-      return true;
-    } on ApiException catch (error) {
-      _operationError = error.message;
-      return false;
-    } catch (error) {
-      _operationError = 'Unable to borrow book: $error';
-      return false;
-    } finally {
-      _isProcessingBorrow = false;
-      notifyListeners();
-    }
+  if (book == null) {
+    _operationError = 'Book not found.';
+    notifyListeners();
+    return null;
   }
+
+  final bookQuery = book.isbn.trim().isNotEmpty
+      ? book.isbn.trim()
+      : book.title.trim();
+
+  _isProcessingBorrow = true;
+  notifyListeners();
+
+  try {
+    // The backend calculates and returns the official due date.
+    final dueDate = await _borrowBook(
+      studentId: id,
+      bookQuery: bookQuery,
+      borrowDate: borrowDate ?? DateTime.now(),
+    );
+
+    await loadBooksFromApi();
+
+    return dueDate;
+  } on ApiException catch (error) {
+    _operationError = error.message;
+    return null;
+  } catch (error) {
+    _operationError = 'Unable to borrow book: $error';
+    return null;
+  } finally {
+    _isProcessingBorrow = false;
+    notifyListeners();
+  }
+}
+
 
   // ---------------------------------------------------------------------------
   // Find Active Borrowing

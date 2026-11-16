@@ -16,33 +16,47 @@ class BorrowingRemoteDataSource {
   // Librarian desk
   // ---------------------------------------------------------------------------
 
-  Future<void> borrowBook({
-    required String studentId,
-    required String bookQuery,
-    required DateTime borrowDate,
-  }) async {
-    final response = await http
-        .post(
-          Uri.parse(
-            '${ApiConfig.baseUrl}/librarian/borrow',
-          ),
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode({
-            'studentId': studentId,
-            'bookQuery': bookQuery,
-            'borrowDate': _formatIsoDate(borrowDate),
-          }),
-        )
-        .timeout(_requestTimeout);
+  
+Future<String> borrowBook({
+  required String studentId,
+  required String bookQuery,
+  required DateTime borrowDate,
+}) async {
+  final response = await http
+      .post(
+        Uri.parse(
+          '${ApiConfig.baseUrl}/librarian/borrow',
+        ),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'studentId': studentId,
+          'bookQuery': bookQuery,
+          'borrowDate': _formatIsoDate(borrowDate),
+        }),
+      )
+      .timeout(_requestTimeout);
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return;
+  if (response.statusCode == 200 ||
+      response.statusCode == 201) {
+    final decoded =
+        jsonDecode(response.body) as Map<String, dynamic>;
+
+    final dueDate = decoded['dueDate']?.toString();
+
+    if (dueDate == null || dueDate.isEmpty) {
+      throw ApiException(
+        'Borrowing succeeded, but the server did not return a due date.',
+      );
     }
 
-    throw ApiException(_extractErrorMessage(response));
+    return dueDate;
   }
+
+  throw ApiException(_extractErrorMessage(response));
+}
+
 
   Future<BorrowRecordModel> findActiveBorrowing({
     required String studentId,

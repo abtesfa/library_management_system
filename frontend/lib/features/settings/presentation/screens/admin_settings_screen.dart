@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../../../../core/di/injector.dart';
+import '../../../library/presentation/providers/library_service.dart';
 import '../../domain/usecases/get_settings.dart';
 import '../../domain/usecases/update_settings.dart';
 
@@ -179,6 +182,10 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
         finePerDay: fine,
         reservationHoldMinutes: reservationHoldMinutes,
       );
+
+      if (!mounted) return;
+
+      await context.read<LibraryService>().loadSettingsFromApi();
 
       if (!mounted) return;
 

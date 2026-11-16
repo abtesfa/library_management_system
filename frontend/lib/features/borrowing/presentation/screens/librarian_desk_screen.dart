@@ -162,7 +162,7 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
       return;
     }
 
-    final success = await service.borrowBook(
+    final dueDate = await service.borrowBook(
       book.id,
       studentId,
       borrowDate: _borrowDate,
@@ -170,16 +170,12 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
 
     if (!mounted) return;
 
-    if (!success) {
+    if (dueDate == null) {
       _showMessage(
         service.operationError ?? 'Borrowing failed. Please check the details.',
       );
       return;
     }
-
-    final dueDate = _borrowDate.add(
-      Duration(days: service.settings.maxBorrowDays),
-    );
 
     setState(() {
       _selectedBook = null;
@@ -187,8 +183,9 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
       _borrowBookController.clear();
     });
 
+    // Display the actual due date returned by Spring Boot.
     _showMessage(
-      'Borrowing confirmed. Due date: ${_formatDate(dueDate)}',
+      'Borrowing confirmed. Due date: $dueDate',
     );
   }
 
@@ -601,7 +598,7 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
                 '$maxDays days',
               ),
               _infoRow(
-                'Calculated due date',
+                'Estimated due date',
                 _formatDate(dueDate),
               ),
             ],

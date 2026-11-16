@@ -3,11 +3,11 @@ import '../entities/borrow_record.dart';
 abstract class BorrowingRepository {
   /// Creates a borrowing record. Throws an `ApiException` when the server
   /// rejects the request.
-  Future<void> borrowBook({
-    required String studentId,
-    required String bookQuery,
-    required DateTime borrowDate,
-  });
+  Future<String> borrowBook({
+  required String studentId,
+  required String bookQuery,
+  required DateTime borrowDate,
+});
 
   /// Finds a student's active borrowing by ISBN or book title. Throws an
   /// `ApiException` when the server rejects the request.

@@ -12,7 +12,7 @@ import com.library.library_backend.repository.BookCopyRepository;
 import com.library.library_backend.repository.BookRepository;
 import com.library.library_backend.repository.StudentRepository;
 import com.library.library_backend.repository.ReservationRepository;
-import com.library.library_backend.repository.LibrarySettingsRepository;
+
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,27 +27,27 @@ public class LibrarianBorrowingService {
     private final BookCopyRepository bookCopyRepository;
     private final BookRepository bookRepository;
     private final StudentRepository studentRepository;
-    private final LibrarySettingsRepository settingsRepository;
+    private final LibrarySettingsService settingsService;
     private final ReservationRepository reservationRepository;
     private final ReservationService reservationService;
 
     public LibrarianBorrowingService(
-            BorrowingRepository borrowingRepository,
-            BookCopyRepository bookCopyRepository,
-            BookRepository bookRepository,
-            StudentRepository studentRepository,
-            LibrarySettingsRepository settingsRepository,
-            ReservationRepository reservationRepository,
-            ReservationService reservationService
-    ) {
-        this.borrowingRepository = borrowingRepository;
-        this.bookCopyRepository = bookCopyRepository;
-        this.bookRepository = bookRepository;
-        this.studentRepository = studentRepository;
-        this.settingsRepository = settingsRepository;
-        this.reservationRepository = reservationRepository;
-        this.reservationService = reservationService;
-    }
+        BorrowingRepository borrowingRepository,
+        BookCopyRepository bookCopyRepository,
+        BookRepository bookRepository,
+        StudentRepository studentRepository,
+        LibrarySettingsService settingsService,
+        ReservationRepository reservationRepository,
+        ReservationService reservationService
+) {
+    this.borrowingRepository = borrowingRepository;
+    this.bookCopyRepository = bookCopyRepository;
+    this.bookRepository = bookRepository;
+    this.studentRepository = studentRepository;
+    this.settingsService = settingsService;
+    this.reservationRepository = reservationRepository;
+    this.reservationService = reservationService;
+}
 
     @Transactional
     public BorrowBookResponse borrowBook(BorrowBookRequest request) {
@@ -125,12 +125,8 @@ public class LibrarianBorrowingService {
         }
 
         // 5. Read library settings.
-        LibrarySettings settings = settingsRepository.findById(1)
-                .orElseThrow(() ->
-                        new IllegalStateException(
-                                "Library settings record was not found."
-                        )
-                );
+        // 5. Read the latest library settings.
+LibrarySettings settings = settingsService.getSettings();
 
         // 6. Determine the borrowing date.
         LocalDate borrowDate = request.getBorrowDate() != null

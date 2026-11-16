@@ -19,17 +19,16 @@ public class LibrarySettingsService {
     }
 
     // Get the library settings
-    public LibrarySettings getSettings() {
-        List<LibrarySettings> settings = repository.findAll();
-
-        if (settings.isEmpty()) {
-            throw new RuntimeException(
-                "Library settings have not been configured."
+    
+public LibrarySettings getSettings() {
+    return repository.findFirstByOrderBySettingIdAsc()
+            .orElseThrow(() ->
+                    new IllegalStateException(
+                            "Library settings have not been configured."
+                    )
             );
-        }
+}
 
-        return settings.get(0);
-    }
 
     // Update the library settings
     @Transactional

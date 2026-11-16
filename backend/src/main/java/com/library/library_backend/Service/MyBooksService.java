@@ -6,7 +6,6 @@ import com.library.library_backend.dto.RenewBookResponse;
 import com.library.library_backend.entity.Borrowing;
 import com.library.library_backend.entity.LibrarySettings;
 import com.library.library_backend.repository.BorrowingRepository;
-import com.library.library_backend.repository.LibrarySettingsRepository;
 import com.library.library_backend.repository.MyBooksRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -26,17 +25,17 @@ public class MyBooksService {
 
     private final MyBooksRepository myBooksRepository;
     private final BorrowingRepository borrowingRepository;
-    private final LibrarySettingsRepository settingsRepository;
+    private final LibrarySettingsService settingsService;
 
-    public MyBooksService(
-            MyBooksRepository myBooksRepository,
-            BorrowingRepository borrowingRepository,
-            LibrarySettingsRepository settingsRepository) {
+   public MyBooksService(
+        MyBooksRepository myBooksRepository,
+        BorrowingRepository borrowingRepository,
+        LibrarySettingsService settingsService) {
 
-        this.myBooksRepository = myBooksRepository;
-        this.borrowingRepository = borrowingRepository;
-        this.settingsRepository = settingsRepository;
-    }
+    this.myBooksRepository = myBooksRepository;
+    this.borrowingRepository = borrowingRepository;
+    this.settingsService = settingsService;
+}
 
     public List<MyBookResponse> getMyBooks(Integer userId) {
 
@@ -96,11 +95,7 @@ public class MyBooksService {
             );
         }
 
-        LibrarySettings settings = settingsRepository.findById(1)
-                .orElseThrow(() -> new IllegalStateException(
-                        "Library settings record was not found."
-                ));
-
+        LibrarySettings settings = settingsService.getSettings();
         int maxRenewals = Math.min(MAX_RENEWALS, settings.getRenewalLimit());
 
         if (maxRenewals == 0) {

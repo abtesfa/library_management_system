@@ -1,5 +1,6 @@
 {
     "java.compile.nullAnalysis.mode": "automatic",
     "cmake.sourceDirectory": "C:/Users/Admin/Downloads/library_management_system-clean-architecture/library_management_system-abiypractice/frontend/windows",
-    "jdk.advanced.disable.nbjavac": false
+    "jdk.advanced.disable.nbjavac": false,
+    "java.configuration.updateBuildConfiguration": "interactive"
 }

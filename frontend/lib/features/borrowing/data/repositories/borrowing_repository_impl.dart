@@ -8,17 +8,17 @@ class BorrowingRepositoryImpl implements BorrowingRepository {
   const BorrowingRepositoryImpl(this.remoteDataSource);
 
   @override
-  Future<void> borrowBook({
-    required String studentId,
-    required String bookQuery,
-    required DateTime borrowDate,
-  }) {
-    return remoteDataSource.borrowBook(
-      studentId: studentId,
-      bookQuery: bookQuery,
-      borrowDate: borrowDate,
-    );
-  }
+  Future<String> borrowBook({
+  required String studentId,
+  required String bookQuery,
+  required DateTime borrowDate,
+}) {
+  return remoteDataSource.borrowBook(
+    studentId: studentId,
+    bookQuery: bookQuery,
+    borrowDate: borrowDate,
+  );
+}
 
   @override
   Future<BorrowRecord> findActiveBorrowing({
