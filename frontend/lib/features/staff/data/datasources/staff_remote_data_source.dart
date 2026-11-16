@@ -19,9 +19,7 @@ class StaffRemoteDataSource {
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
 
-      return data
-          .map((json) => StaffModel.fromJson(json))
-          .toList();
+      return data.map((json) => StaffModel.fromJson(json)).toList();
     } else {
       throw Exception(
         'Failed to load staff: ${response.statusCode} ${response.body}',
@@ -30,11 +28,16 @@ class StaffRemoteDataSource {
   }
 
   // POST: Add a new staff member
-  Future<StaffModel> addStaff(StaffMember staff) async {
+  Future<StaffModel> addStaff(
+    StaffMember staff, {
+    required String password,
+  }) async {
+    final request = StaffModel.fromEntity(staff).toJson()
+      ..['password'] = password;
     final response = await http.post(
       Uri.parse(baseUrl),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(StaffModel.fromEntity(staff).toJson()),
+      body: jsonEncode(request),
     );
 
     if (response.statusCode == 200 || response.statusCode == 201) {

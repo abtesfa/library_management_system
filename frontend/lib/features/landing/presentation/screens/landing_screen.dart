@@ -9,7 +9,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../library/presentation/providers/library_service.dart';
 
 class LandingScreen extends StatefulWidget {
-  final Function(UserRole role) onEnterPortal;
+  final ValueChanged<UserAccount> onEnterPortal;
 
   const LandingScreen({
     super.key,

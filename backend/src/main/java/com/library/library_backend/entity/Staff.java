@@ -27,6 +27,9 @@ public class Staff {
     @Column(nullable = false, length = 30)
     private String role;
 
+    @Column(name = "password_hash", length = 255)
+    private String passwordHash;
+
     @Column(length = 100)
     private String position;
 
@@ -35,6 +38,9 @@ public class Staff {
 
     @Column(name = "token_version", nullable = false)
     private Integer tokenVersion = 0;
+
+    @Column(name = "must_change_password", nullable = false)
+    private boolean mustChangePassword = false;
 
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -93,6 +99,14 @@ public class Staff {
         this.role = role;
     }
 
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
     public String getPosition() {
         return position;
     }
@@ -115,6 +129,14 @@ public class Staff {
 
     public void setTokenVersion(Integer tokenVersion) {
         this.tokenVersion = tokenVersion;
+    }
+
+    public boolean isMustChangePassword() {
+        return mustChangePassword;
+    }
+
+    public void setMustChangePassword(boolean mustChangePassword) {
+        this.mustChangePassword = mustChangePassword;
     }
 
     public LocalDateTime getCreatedAt() {

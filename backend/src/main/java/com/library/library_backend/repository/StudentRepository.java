@@ -9,6 +9,10 @@ import java.util.Optional;
 
 public interface StudentRepository extends JpaRepository<Student, Integer> {
 
+   Optional<Student> findByEmailIgnoreCase(String email);
+
+   Optional<Student> findByStudentId(String studentId);
+
    @Query(value = """
     SELECT User_ID
     FROM student

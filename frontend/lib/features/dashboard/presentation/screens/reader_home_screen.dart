@@ -14,10 +14,12 @@ import '../../../reservations/domain/usecases/create_reservation.dart';
 
 class ReaderHomeScreen extends StatefulWidget {
   final VoidCallback onNavigateToMyBooks;
+  final int studentId;
 
   const ReaderHomeScreen({
     super.key,
     required this.onNavigateToMyBooks,
+    required this.studentId,
   });
 
   @override
@@ -38,10 +40,6 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
   final CreateReservation _createReservationUseCase =
       injector.createReservation;
 
-  // Temporary test student ID.
-  // Later, use the logged-in student's ID.
-  final int _studentId = 1;
-
   late Future<StudentDashboard> _dashboardFuture;
   late Future<List<Book>> _booksFuture;
   late Future<List<BorrowRecord>> _borrowingsFuture;
@@ -61,10 +59,10 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
   void initState() {
     super.initState();
 
-    _dashboardFuture = _getStudentDashboardUseCase(_studentId);
+    _dashboardFuture = _getStudentDashboardUseCase(widget.studentId);
 
     _booksFuture = _getAvailableBooksUseCase();
-    _borrowingsFuture = _getMyBooksUseCase(_studentId.toString());
+    _borrowingsFuture = _getMyBooksUseCase(widget.studentId.toString());
   }
 
   @override
@@ -99,7 +97,7 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
 
     try {
       final reservation = await _createReservationUseCase(
-        studentId: _studentId.toString(),
+        studentId: widget.studentId.toString(),
         bookId: bookId,
       );
 
@@ -178,7 +176,7 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
 
   void _refreshDashboard() {
     setState(() {
-      _dashboardFuture = _getStudentDashboardUseCase(_studentId);
+      _dashboardFuture = _getStudentDashboardUseCase(widget.studentId);
     });
   }
 
@@ -194,7 +192,7 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
 
   void _refreshDueDateNotifications() {
     setState(() {
-      _borrowingsFuture = _getMyBooksUseCase(_studentId.toString());
+      _borrowingsFuture = _getMyBooksUseCase(widget.studentId.toString());
     });
   }
 

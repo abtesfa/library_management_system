@@ -1,16 +1,16 @@
 import '../../domain/entities/book.dart';
 import '../../domain/entities/book_metadata.dart';
 import '../../domain/repositories/book_repository.dart';
-import '../datasources/google_books_remote_data_source.dart';
+import '../datasources/open_library_remote_data_source.dart';
 import '../datasources/book_remote_data_source.dart';
 
 class BookRepositoryImpl implements BookRepository {
   final BookRemoteDataSource remoteDataSource;
-  final GoogleBooksRemoteDataSource googleBooksDataSource;
+  final OpenLibraryRemoteDataSource openLibraryDataSource;
 
   const BookRepositoryImpl(
     this.remoteDataSource,
-    this.googleBooksDataSource,
+    this.openLibraryDataSource,
   );
 
   @override
@@ -32,5 +32,5 @@ class BookRepositoryImpl implements BookRepository {
 
   @override
   Future<BookMetadata?> lookupBookByIsbn(String isbn) =>
-      googleBooksDataSource.lookupByIsbn(isbn);
+      openLibraryDataSource.lookupByIsbn(isbn);
 }

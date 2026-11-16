@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import 'core/constants/app_colors.dart';
+import 'core/di/injector.dart';
 import 'features/auth/domain/entities/user.dart';
 import 'features/books/presentation/screens/admin_inventory_screen.dart';
 import 'features/settings/presentation/screens/admin_settings_screen.dart';
@@ -54,19 +56,181 @@ class _MainShellState extends State<MainShell> {
 
   bool _isLandingMode = true;
   UserRole _currentRole = UserRole.admin;
+  UserAccount? _currentAccount;
   int _selectedNavIndex = _adminStartIndex;
 
-  void _enterPortal(UserRole role) {
+  void _enterPortal(UserAccount account) {
+    final role = account.role;
+    final permissions = account.permissions;
+
+    int initialIndex = _defaultStartIndex;
+    if (role == UserRole.admin) {
+      initialIndex = _adminStartIndex;
+    } else if (role == UserRole.librarian) {
+      if (permissions.contains('ADD_BOOK') ||
+          permissions.contains('EDIT_BOOK') ||
+          permissions.contains('DELETE_BOOK')) {
+        initialIndex = 2;
+      } else if (permissions.contains('MANAGE_STAFF')) {
+        initialIndex = 3;
+      } else if (permissions.contains('CONFIGURE_SETTINGS')) {
+        initialIndex = 4;
+      } else {
+        initialIndex = 0;
+      }
+    }
+
     setState(() {
       _isLandingMode = false;
+      _currentAccount = account;
       _currentRole = role;
-      _selectedNavIndex =
-          role == UserRole.admin ? _adminStartIndex : _defaultStartIndex;
+      _selectedNavIndex = initialIndex;
     });
   }
 
   void _returnToLanding() {
-    setState(() => _isLandingMode = true);
+    setState(() {
+      _isLandingMode = true;
+      _currentAccount = null;
+    });
+  }
+
+  Future<void> _changePassword() async {
+    if (_currentAccount == null) return;
+
+    final controllerCurrent = TextEditingController();
+    final controllerNew = TextEditingController();
+    final controllerConfirm = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Change Password'),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: controllerCurrent,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Current Password',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: controllerNew,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'New Password',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: controllerConfirm,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Confirm New Password',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Update'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    final currentPassword = controllerCurrent.text.trim();
+    final newPassword = controllerNew.text;
+    final confirmPassword = controllerConfirm.text;
+
+    controllerCurrent.dispose();
+    controllerNew.dispose();
+    controllerConfirm.dispose();
+
+    if (currentPassword.isEmpty ||
+        newPassword.trim().isEmpty ||
+        confirmPassword.trim().isEmpty) {
+      _showMessage('Please complete all password fields.', isError: true);
+      return;
+    }
+
+    if (newPassword != confirmPassword) {
+      _showMessage('New passwords do not match.', isError: true);
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      _showMessage('Password must be at least 8 characters.', isError: true);
+      return;
+    }
+
+    try {
+      await injector.changePassword(
+        identifier: _currentAccount!.email,
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+        role: _currentAccount!.role,
+      );
+
+      if (!mounted) return;
+      _showMessage('Password updated successfully.');
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(error.toString(), isError: true);
+    }
+  }
+
+  Future<void> _changeProfilePhoto() async {
+    if (_currentAccount == null) return;
+
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+
+    if (pickedFile == null) return;
+
+    setState(() {
+      _currentAccount = _currentAccount!.copyWith(
+        avatarPath: pickedFile.path,
+      );
+    });
+
+    _showMessage('Profile photo updated.');
+  }
+
+  void _showMessage(String message, {bool isError = false}) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor:
+              isError ? Colors.red.shade700 : Colors.green.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
   }
 
   @override
@@ -81,9 +245,11 @@ class _MainShellState extends State<MainShell> {
           TopHeaderBar(
             currentRole: _currentRole,
             selectedNavIndex: _selectedNavIndex,
+            currentAccount: _currentAccount,
             onSelectNav: (index) => setState(() => _selectedNavIndex = index),
             onReturnToLanding: _returnToLanding,
-            onSwitchRole: _enterPortal,
+            onChangePassword: _changePassword,
+            onChangeProfilePhoto: _changeProfilePhoto,
             navItems: _navItemsForRole(),
           ),
           Expanded(
@@ -109,17 +275,75 @@ class _MainShellState extends State<MainShell> {
             'title': 'Staff Management',
             'icon': Icons.people_alt_outlined,
           },
-          {'index': 1, 'title': 'LMS Settings', 'icon': Icons.settings_outlined},
-        ];
-      case UserRole.librarian:
-        return [
-          {'index': 0, 'title': 'Borrow & Return', 'icon': Icons.swap_horiz},
           {
             'index': 1,
-            'title': 'Notifications',
-            'icon': Icons.notifications_outlined,
+            'title': 'LMS Settings',
+            'icon': Icons.settings_outlined
           },
         ];
+      case UserRole.librarian: {
+        final permissions = _currentAccount?.permissions ?? const <String>{};
+        final items = <Map<String, dynamic>>[];
+
+        if (permissions.contains('BORROW_BOOK') ||
+            permissions.contains('RETURN_BOOK') ||
+            permissions.isEmpty) {
+          items.add(
+            {'index': 0, 'title': 'Borrow & Return', 'icon': Icons.swap_horiz},
+          );
+        }
+
+        if (permissions.contains('ADD_BOOK') ||
+            permissions.contains('EDIT_BOOK') ||
+            permissions.contains('DELETE_BOOK')) {
+          items.add(
+            {'index': 2, 'title': 'Book Inventory', 'icon': Icons.menu_book},
+          );
+        }
+
+        if (permissions.contains('MANAGE_STAFF')) {
+          items.add(
+            {
+              'index': 3,
+              'title': 'Staff Management',
+              'icon': Icons.people_alt_outlined,
+            },
+          );
+        }
+
+        if (permissions.contains('CONFIGURE_SETTINGS')) {
+          items.add(
+            {
+              'index': 4,
+              'title': 'LMS Settings',
+              'icon': Icons.settings_outlined,
+            },
+          );
+        }
+
+        if (permissions.contains('VIEW_NOTIFICATIONS') || permissions.isEmpty) {
+          items.add(
+            {
+              'index': 1,
+              'title': 'Notifications',
+              'icon': Icons.notifications_outlined,
+            },
+          );
+        }
+
+        if (items.isEmpty) {
+          return [
+            {'index': 0, 'title': 'Borrow & Return', 'icon': Icons.swap_horiz},
+            {
+              'index': 1,
+              'title': 'Notifications',
+              'icon': Icons.notifications_outlined,
+            },
+          ];
+        }
+
+        return items;
+      }
       case UserRole.reader:
         return [
           {'index': 0, 'title': 'Reader Home', 'icon': Icons.home_outlined},
@@ -149,17 +373,28 @@ class _MainShellState extends State<MainShell> {
         switch (_selectedNavIndex) {
           case 1:
             return const LibrarianNotificationsScreen();
+          case 2:
+            return const AdminInventoryScreen();
+          case 3:
+            return const StaffManagementScreen();
+          case 4:
+            return const AdminSettingsScreen();
           default:
             return const LibrarianDeskScreen();
         }
       case UserRole.reader:
         switch (_selectedNavIndex) {
           case 1:
-            return const ReaderMyBooksScreen();
+            return ReaderMyBooksScreen(
+              studentId: _currentAccount!.id.toString(),
+            );
           case 2:
-            return const ReaderReservationsScreen();
+            return ReaderReservationsScreen(
+              studentId: _currentAccount!.id.toString(),
+            );
           default:
             return ReaderHomeScreen(
+              studentId: _currentAccount!.id,
               onNavigateToMyBooks: () => setState(() => _selectedNavIndex = 1),
             );
         }

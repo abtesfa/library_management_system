@@ -17,7 +17,7 @@ class AdminInventoryScreen extends StatefulWidget {
 
   @override
   State<AdminInventoryScreen> createState() => _AdminInventoryScreenState();
-}
+} 
 
 class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
   final CreateBook _createBookUseCase = injector.createBook;

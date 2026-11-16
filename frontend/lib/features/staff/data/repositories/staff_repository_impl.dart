@@ -11,8 +11,12 @@ class StaffRepositoryImpl implements StaffRepository {
   Future<List<StaffMember>> getAllStaff() => remoteDataSource.getAllStaff();
 
   @override
-  Future<StaffMember> addStaff(StaffMember staff) =>
-      remoteDataSource.addStaff(staff);
+  Future<StaffMember> addStaff(
+    StaffMember staff, {
+    required String password,
+  }) {
+    return remoteDataSource.addStaff(staff, password: password);
+  }
 
   @override
   Future<StaffMember> updateStaff(String id, StaffMember staff) =>
