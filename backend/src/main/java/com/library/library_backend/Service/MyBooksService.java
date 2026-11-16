@@ -39,23 +39,24 @@ public class MyBooksService {
 
     public List<MyBookResponse> getMyBooks(Integer userId) {
 
-        List<Object[]> rows =
-                myBooksRepository.findCurrentBorrowings(userId);
+    List<Object[]> rows =
+            myBooksRepository.findCurrentBorrowings(userId);
 
-        return rows.stream()
-                .map(row -> new MyBookResponse(
-                        toInteger(row[0]),
-                        toStringValue(row[1]),
-                        toStringValue(row[2]),
-                        toLocalDate(row[3]),
-                        toLocalDate(row[4]),
-                        toLocalDate(row[5]),
-                        toStringValue(row[6]),
-                        toInteger(row[7]),
-                        toStringValue(row[8])
-                ))
-                .toList();
-    }
+    return rows.stream()
+            .map(row -> new MyBookResponse(
+                    toInteger(row[0]),
+                    toStringValue(row[1]),
+                    toStringValue(row[2]),
+                    toLocalDate(row[3]),
+                    toLocalDate(row[4]),
+                    toLocalDate(row[5]),
+                    toStringValue(row[6]),
+                    toInteger(row[7]),
+                    toStringValue(row[8]),
+                    toStringValue(row[9])
+            ))
+            .toList();
+}
 
     /**
      * Extends a student's loan by one borrowing period.

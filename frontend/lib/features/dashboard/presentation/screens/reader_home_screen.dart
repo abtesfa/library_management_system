@@ -5,7 +5,6 @@ import '../../../books/domain/entities/book.dart';
 import '../../../borrowing/domain/entities/borrow_record.dart';
 import '../../domain/entities/student_dashboard.dart';
 import '../../../library/presentation/providers/library_service.dart';
-import '../../../../core/config/app_images.dart';
 import '../../../../core/di/injector.dart';
 import '../../../books/domain/usecases/get_available_books.dart';
 import '../../../borrowing/domain/usecases/get_my_books.dart';
@@ -960,27 +959,15 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
   // BOOK COVER SELECTION
   // ---------------------------------------------------------
 
-  String _coverForBook(Book book) {
-    final title = book.title.toLowerCase();
+  String? _coverForBook(Book book) {
+  final coverUrl = book.coverImage?.trim();
 
-    if (title.contains('clean code')) {
-      return AppImages.cleanCode;
-    } else if (title.contains('atomic habits')) {
-      return AppImages.atomicHabits;
-    } else if (title.contains('martian')) {
-      return AppImages.theMartian;
-    } else if (title.contains('design patterns')) {
-      return AppImages.designPatterns;
-    } else if (title.contains('think like a monk')) {
-      return AppImages.thinkLikeAMonk;
-    } else if (title.contains('dune')) {
-      return AppImages.dune;
-    } else if (title.contains('sapiens')) {
-      return AppImages.sapiens;
-    }
-
-    return '';
+  if (coverUrl == null || coverUrl.isEmpty) {
+    return null;
   }
+
+  return coverUrl;
+}
 
   // ---------------------------------------------------------
   // RECOMMENDED BOOK CARD (with hover animation)
@@ -1015,15 +1002,15 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
             height: 115,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(9),
-              child: coverUrl.isNotEmpty
-                  ? Image.network(
-                      coverUrl,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return _bookPlaceholder();
-                      },
-                    )
-                  : _bookPlaceholder(),
+              child: coverUrl != null
+    ? Image.network(
+        coverUrl,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          return _bookPlaceholder();
+        },
+      )
+    : _bookPlaceholder(),
             ),
           ),
           const SizedBox(width: 13),

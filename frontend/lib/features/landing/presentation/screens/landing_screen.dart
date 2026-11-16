@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../books/domain/entities/book.dart';
 import '../../../auth/presentation/widgets/sign_in_dialog.dart';
-import '../../../../core/config/app_images.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../library/presentation/providers/library_service.dart';
 
@@ -1137,25 +1136,11 @@ class _LandingScreenState extends State<LandingScreen>
   // ==========================================
 
   Widget _buildBookCard(BuildContext context, Book book) {
-    final isAvailable = book.availableCopies > 0;
-    final title = book.title.toLowerCase();
+  final isAvailable = book.availableCopies > 0;
 
-    final String? coverUrl = title.contains('clean code')
-        ? AppImages.cleanCode
-        : title.contains('atomic habits')
-            ? AppImages.atomicHabits
-            : title.contains('martian')
-                ? AppImages.theMartian
-                : title.contains('design patterns')
-                    ? AppImages.designPatterns
-                    : title.contains('think like a monk')
-                        ? AppImages.thinkLikeAMonk
-                        : title.contains('dune')
-                            ? AppImages.dune
-                            : title.contains('sapiens')
-                                ? AppImages.sapiens
-                                : null;
-
+  final String? coverUrl = book.coverImage?.trim().isNotEmpty == true
+      ? book.coverImage!.trim()
+      : null;
     // Hover state for each individual book card.
     bool isHovered = false;
 

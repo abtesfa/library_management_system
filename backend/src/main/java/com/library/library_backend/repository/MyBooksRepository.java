@@ -12,22 +12,23 @@ import java.util.List;
 public interface MyBooksRepository extends JpaRepository<Borrowing, Integer> {
 
     @Query(value = """
-        SELECT
-            br.Borrowing_ID AS borrowingId,
-            b.Title AS bookTitle,
-            b.ISBN AS isbn,
-            br.Borrow_Date AS borrowDate,
-            br.Due_Date AS dueDate,
-            br.Return_Date AS returnDate,
-            br.status AS status,
-            br.Renewal_Count AS renewalCount,
-            bc.Location AS location
-        FROM borrowing br
-        JOIN book_copy bc ON br.Copy_ID = bc.Copy_ID
-        JOIN book b ON bc.Book_ID = b.Book_ID
-        WHERE br.User_ID = :userId
-          AND UPPER(br.status) IN ('BORROWED', 'OVERDUE')
-        ORDER BY br.Borrow_Date DESC
-        """, nativeQuery = true)
+    SELECT
+        br.Borrowing_ID AS borrowingId,
+        b.Title AS bookTitle,
+        b.ISBN AS isbn,
+        br.Borrow_Date AS borrowDate,
+        br.Due_Date AS dueDate,
+        br.Return_Date AS returnDate,
+        br.status AS status,
+        br.Renewal_Count AS renewalCount,
+        bc.Location AS location,
+        b.CoverImage AS coverImage
+    FROM borrowing br
+    JOIN book_copy bc ON br.Copy_ID = bc.Copy_ID
+    JOIN book b ON bc.Book_ID = b.Book_ID
+    WHERE br.User_ID = :userId
+      AND UPPER(br.status) IN ('BORROWED', 'OVERDUE')
+    ORDER BY br.Borrow_Date DESC
+    """, nativeQuery = true)
     List<Object[]> findCurrentBorrowings(@Param("userId") Integer userId);
 }

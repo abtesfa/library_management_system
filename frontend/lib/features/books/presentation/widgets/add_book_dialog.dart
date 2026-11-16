@@ -44,6 +44,7 @@ class _AddBookDialogState extends State<AddBookDialog> {
   final _descriptionController = TextEditingController();
   final _copiesController = TextEditingController(text: '1');
   final _locationController = TextEditingController();
+  final _coverImageController = TextEditingController();
 
   int? _categoryId;
   BookMetadata? _metadata;
@@ -65,6 +66,7 @@ class _AddBookDialogState extends State<AddBookDialog> {
     _descriptionController.dispose();
     _copiesController.dispose();
     _locationController.dispose();
+    _coverImageController.dispose();
     super.dispose();
   }
 
@@ -134,6 +136,7 @@ class _AddBookDialogState extends State<AddBookDialog> {
     _setWhenPresent(_authorController, metadata.author);
     _setWhenPresent(_publisherController, metadata.publisher);
     _setWhenPresent(_editionController, metadata.edition);
+    _setWhenPresent(_coverImageController, metadata.coverImage);
     if (metadata.publicationYear != null) {
       _yearController.text = metadata.publicationYear.toString();
     }
@@ -197,7 +200,7 @@ class _AddBookDialogState extends State<AddBookDialog> {
         'edition': _optional(_editionController.text),
         'publicationYear': int.tryParse(_yearController.text.trim()),
         'description': _optional(_descriptionController.text),
-        'coverImage': _metadata?.coverImage,
+        'coverImage': _optional(_coverImageController.text),
       });
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
@@ -682,6 +685,10 @@ class _AddBookDialogState extends State<AddBookDialog> {
             _descriptionController,
             'Description',
             maxLines: 3,
+          ),
+          _field(
+            _coverImageController,
+            'Cover Image URL (optional)',
           ),
           _dialogLabel('Category', required: true),
           DropdownButtonFormField<int>(

@@ -90,7 +90,26 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
       _searchQuery = _searchController.text.trim();
     });
   }
-
+  
+  Widget _buildBookCoverPlaceholder() {
+  return Container(
+    width: 60,
+    height: 80,
+    decoration: const BoxDecoration(
+      gradient: LinearGradient(
+        colors: [
+          Color(0xFF514746),
+          Color(0xFFF25635),
+        ],
+      ),
+    ),
+    child: const Icon(
+      Icons.book,
+      color: Colors.white70,
+      size: 28,
+    ),
+  );
+}
   // Clear the search field.
   void _clearSearch() {
     _searchController.clear();
@@ -142,11 +161,7 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
   }
 
   // Get a book cover from Open Library.
-  String _getCoverUrl(String title) {
-    final encodedTitle = Uri.encodeComponent(title);
-    return 'https://covers.openlibrary.org/b/title/$encodedTitle-M.jpg';
-  }
-
+  
   // Loading, error, empty and successful states.
   Widget _buildBorrowedBooksSection() {
     if (_isLoading) {
@@ -628,34 +643,22 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
           child: Row(
             children: [
               // Book cover.
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  _getCoverUrl(book.bookTitle),
-                  width: 60,
-                  height: 80,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      width: 60,
-                      height: 80,
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Color(0xFF514746),
-                            Color(0xFFF25635),
-                          ],
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.book,
-                        color: Colors.white70,
-                        size: 28,
-                      ),
-                    );
-                  },
-                ),
-              ),
+              // Book cover from the database.
+ClipRRect(
+  borderRadius: BorderRadius.circular(8),
+  child: book.coverImage != null &&
+          book.coverImage!.trim().isNotEmpty
+      ? Image.network(
+          book.coverImage!.trim(),
+          width: 60,
+          height: 80,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildBookCoverPlaceholder();
+          },
+        )
+      : _buildBookCoverPlaceholder(),
+),
 
               const SizedBox(width: 16),
 
