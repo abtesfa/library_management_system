@@ -45,22 +45,12 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
     'Archivist',
   ];
 
-  final Map<String, String> _permissionLabels = {
-    'ADD_BOOK': 'Add Books',
-    'EDIT_BOOK': 'Edit Book Information',
-    'DELETE_BOOK': 'Delete Books',
-    'MANAGE_COPIES': 'Manage Physical Copies',
-    'BORROW_BOOK': 'Borrow / Issue Books',
-    'RETURN_BOOK': 'Return Books',
-    'RENEW_BOOK': 'Renew Borrowed Books',
-    'VIEW_MEMBERS': 'View Members',
-    'MANAGE_MEMBERS': 'Add and Edit Members',
-    'COLLECT_FINE': 'Collect Fines',
-    'WAIVE_FINE': 'Waive Fines',
-    'VIEW_REPORTS': 'View Reports',
-    'GENERATE_REPORTS': 'Generate Reports',
-    'CONFIGURE_SETTINGS': 'Configure LMS Settings',
-    'MANAGE_STAFF': 'Manage Staff Members',
+  final Map<String, Set<String>> _permissionGroups = {
+    'Add / Edit Books': {'ADD_BOOK', 'EDIT_BOOK'},
+    'Add / Edit Staff Members': {'MANAGE_STAFF'},
+    'Borrow / Return Books': {'BORROW_BOOK', 'RETURN_BOOK'},
+    'Configure LMS Settings': {'CONFIGURE_SETTINGS'},
+    'View Notifications': {'VIEW_NOTIFICATIONS'},
   };
 
   @override
@@ -90,10 +80,8 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
   String? _validateEmail(String? value) {
     final email = value?.trim() ?? '';
 
-    // Email and phone are both optional individually.
-    // At least one of them must be entered.
     if (email.isEmpty) {
-      return null;
+      return 'Email is required for staff sign-in.';
     }
 
     final emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
@@ -323,6 +311,10 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
     final phoneController = TextEditingController(
       text: existing?.phoneNumber ?? '',
     );
+    final passwordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    bool obscurePassword = true;
+    bool obscureConfirmPassword = true;
 
     String selectedRole = existing == null
         ? 'LIBRARIAN'
@@ -338,8 +330,12 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
       selectedPosition = null;
     }
 
-    final selectedPermissions =
-        Set<String>.from(existing?.permissions ?? <String>{});
+    final selectedPermissions = Set<String>.from(
+      (existing?.permissions ?? <String>{}).where(
+        (permission) =>
+            _permissionGroups.values.any((group) => group.contains(permission)),
+      ),
+    );
 
     String selectedStatus = _normalizeStatus(existing?.status ?? 'ACTIVE');
 
@@ -413,8 +409,8 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
 
                         const SizedBox(height: 16),
 
-                        // EMAIL - OPTIONAL INDIVIDUALLY
-                        _dialogLabel('Email Address'),
+                        // EMAIL - REQUIRED FOR SIGN-IN
+                        _dialogLabel('Email Address', isRequired: true),
 
                         TextFormField(
                           controller: emailController,
@@ -460,6 +456,82 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                         ),
 
                         const SizedBox(height: 16),
+
+                        if (existing == null) ...[
+                          _dialogLabel('Password', isRequired: true),
+                          TextFormField(
+                            controller: passwordController,
+                            enabled: !isSaving,
+                            obscureText: obscurePassword,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Password is required.';
+                              }
+                              if (value.length < 8) {
+                                return 'Password must be at least 8 characters.';
+                              }
+                              return null;
+                            },
+                            decoration: _inputDecoration(
+                              'Set a password (8+ characters)',
+                              Icons.lock_outline,
+                            ).copyWith(
+                              suffixIcon: IconButton(
+                                tooltip: obscurePassword
+                                    ? 'Show password'
+                                    : 'Hide password',
+                                onPressed: () {
+                                  setDialogState(() {
+                                    obscurePassword = !obscurePassword;
+                                  });
+                                },
+                                icon: Icon(
+                                  obscurePassword
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          _dialogLabel('Confirm Password', isRequired: true),
+                          TextFormField(
+                            controller: confirmPasswordController,
+                            enabled: !isSaving,
+                            obscureText: obscureConfirmPassword,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please confirm the password.';
+                              }
+                              if (value != passwordController.text) {
+                                return 'Passwords do not match.';
+                              }
+                              return null;
+                            },
+                            decoration: _inputDecoration(
+                              'Re-enter the password',
+                              Icons.lock_outline,
+                            ).copyWith(
+                              suffixIcon: IconButton(
+                                tooltip: obscureConfirmPassword
+                                    ? 'Show password'
+                                    : 'Hide password',
+                                onPressed: () {
+                                  setDialogState(() {
+                                    obscureConfirmPassword =
+                                        !obscureConfirmPassword;
+                                  });
+                                },
+                                icon: Icon(
+                                  obscureConfirmPassword
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
 
                         // SYSTEM ROLE - REQUIRED
                         _dialogLabel(
@@ -564,7 +636,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                               ),
                             ),
                             child: Column(
-                              children: _permissionLabels.entries.map((entry) {
+                              children: _permissionGroups.entries.map((entry) {
                                 return CheckboxListTile(
                                   contentPadding: EdgeInsets.zero,
                                   dense: true,
@@ -572,24 +644,24 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                                   controlAffinity:
                                       ListTileControlAffinity.leading,
                                   title: Text(
-                                    entry.value,
+                                    entry.key,
                                     style: const TextStyle(
                                       fontSize: 13,
                                       color: dark,
                                     ),
                                   ),
-                                  value:
-                                      selectedPermissions.contains(entry.key),
+                                  value: entry.value
+                                      .every(selectedPermissions.contains),
                                   onChanged: isSaving
                                       ? null
                                       : (checked) {
                                           setDialogState(() {
                                             if (checked == true) {
                                               selectedPermissions
-                                                  .add(entry.key);
+                                                  .addAll(entry.value);
                                             } else {
                                               selectedPermissions
-                                                  .remove(entry.key);
+                                                  .removeAll(entry.value);
                                             }
                                           });
                                         },
@@ -702,7 +774,10 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
 
                           try {
                             if (existing == null) {
-                              await _addStaffUseCase(newStaff);
+                              await _addStaffUseCase(
+                                newStaff,
+                                password: passwordController.text,
+                              );
                             } else {
                               await _updateStaffUseCase(
                                 existing.id,
@@ -769,6 +844,8 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
       nameController.dispose();
       emailController.dispose();
       phoneController.dispose();
+      passwordController.dispose();
+      confirmPasswordController.dispose();
     });
   }
 

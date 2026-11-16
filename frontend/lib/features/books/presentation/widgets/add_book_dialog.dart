@@ -106,7 +106,8 @@ class _AddBookDialogState extends State<AddBookDialog> {
         _isbnController.text = isbn;
         _metadata = result;
         if (result == null) {
-          _lookupMessage = 'No book details found for this ISBN.';
+          _lookupMessage = 'No book details were found in Open Library. '
+              'You can still add the book manually.';
         } else {
           _fillFromMetadata(result);
           _lookupMessage = 'Book details found.';
@@ -116,7 +117,8 @@ class _AddBookDialogState extends State<AddBookDialog> {
       if (!mounted) return;
       setState(() {
         _metadata = null;
-        _lookupMessage = 'Lookup failed: $error';
+        _lookupMessage = 'Open Library lookup failed: $error. '
+            'You can still add the book manually.';
       });
     } finally {
       if (mounted) {
@@ -538,7 +540,7 @@ class _AddBookDialogState extends State<AddBookDialog> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Text(
-                    'Google Books',
+                    'Open Library',
                     style: TextStyle(fontSize: 11, color: Color(0xFF067647)),
                   ),
                 ),

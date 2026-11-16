@@ -6,5 +6,10 @@ class AddStaff {
 
   const AddStaff(this.repository);
 
-  Future<StaffMember> call(StaffMember staff) => repository.addStaff(staff);
+  Future<StaffMember> call(
+    StaffMember staff, {
+    required String password,
+  }) {
+    return repository.addStaff(staff, password: password);
+  }
 }

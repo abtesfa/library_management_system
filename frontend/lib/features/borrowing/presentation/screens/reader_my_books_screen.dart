@@ -5,7 +5,12 @@ import '../../domain/usecases/get_my_books.dart';
 import '../../domain/usecases/renew_book.dart';
 
 class ReaderMyBooksScreen extends StatefulWidget {
-  const ReaderMyBooksScreen({super.key});
+  final String studentId;
+
+  const ReaderMyBooksScreen({
+    super.key,
+    required this.studentId,
+  });
 
   @override
   State<ReaderMyBooksScreen> createState() => _ReaderMyBooksScreenState();
@@ -16,9 +21,6 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
 
   final GetMyBooks _getMyBooksUseCase = injector.getMyBooks;
   final RenewBook _renewBookUseCase = injector.renewBook;
-
-  // Temporary student ID. Later, use the logged-in student's ID.
-  final String _studentId = '1';
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -50,7 +52,7 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
     });
 
     try {
-      final books = await _getMyBooksUseCase(_studentId);
+      final books = await _getMyBooksUseCase(widget.studentId);
 
       if (!mounted) return;
 
@@ -106,7 +108,7 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
     setState(() => _renewingId = record.id);
 
     try {
-      final newDueDate = await _renewBookUseCase(_studentId, record.id);
+      final newDueDate = await _renewBookUseCase(widget.studentId, record.id);
 
       if (!mounted) return;
 

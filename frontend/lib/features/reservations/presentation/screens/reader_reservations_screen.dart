@@ -8,7 +8,12 @@ import '../../domain/usecases/get_reservations.dart';
 import '../../domain/usecases/cancel_reservation.dart';
 
 class ReaderReservationsScreen extends StatefulWidget {
-  const ReaderReservationsScreen({super.key});
+  final String studentId;
+
+  const ReaderReservationsScreen({
+    super.key,
+    required this.studentId,
+  });
 
   @override
   State<ReaderReservationsScreen> createState() =>
@@ -20,10 +25,6 @@ class _ReaderReservationsScreenState extends State<ReaderReservationsScreen> {
 
   final CancelReservation _cancelReservationUseCase =
       injector.cancelReservation;
-
-  // Temporary student ID.
-  // Later, use the logged-in student's ID.
-  final String _studentId = '1';
 
   List<ReservationRecord> _reservations = [];
 
@@ -114,7 +115,7 @@ class _ReaderReservationsScreenState extends State<ReaderReservationsScreen> {
     });
 
     try {
-      final reservations = await _getReservationsUseCase(_studentId);
+      final reservations = await _getReservationsUseCase(widget.studentId);
 
       if (!mounted) return;
 
@@ -171,7 +172,7 @@ class _ReaderReservationsScreenState extends State<ReaderReservationsScreen> {
 
     try {
       await _cancelReservationUseCase(
-        _studentId,
+        widget.studentId,
         r.id,
       );
 

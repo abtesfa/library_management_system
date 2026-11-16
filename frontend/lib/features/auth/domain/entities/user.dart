@@ -1,21 +1,52 @@
 enum UserRole { admin, librarian, reader }
 
 class UserAccount {
-  final String id;
+  final int id;
   final String name;
   final String title;
   final String email;
-  final String password;
   final UserRole role;
+  final String? avatarPath;
+  final Set<String> permissions;
 
   const UserAccount({
     required this.id,
     required this.name,
     required this.title,
     required this.email,
-    required this.password,
     required this.role,
+    this.avatarPath,
+    this.permissions = const {},
   });
+
+  UserAccount copyWith({
+    int? id,
+    String? name,
+    String? title,
+    String? email,
+    UserRole? role,
+    String? avatarPath,
+    Set<String>? permissions,
+  }) {
+    return UserAccount(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      title: title ?? this.title,
+      email: email ?? this.email,
+      role: role ?? this.role,
+      avatarPath: avatarPath ?? this.avatarPath,
+      permissions: permissions ?? this.permissions,
+    );
+  }
+
+  bool get canAddBooks => permissions.contains('ADD_BOOK');
+  bool get canEditBooks => permissions.contains('EDIT_BOOK');
+  bool get canDeleteBooks => permissions.contains('DELETE_BOOK');
+  bool get canBorrowBooks => permissions.contains('BORROW_BOOK');
+  bool get canReturnBooks => permissions.contains('RETURN_BOOK');
+  bool get canConfigureSettings => permissions.contains('CONFIGURE_SETTINGS');
+  bool get canManageStaff => permissions.contains('MANAGE_STAFF');
+  bool get canViewNotifications => permissions.contains('VIEW_NOTIFICATIONS');
 
   String get roleDisplayName {
     switch (role) {
@@ -29,42 +60,16 @@ class UserAccount {
   }
 }
 
-class HardcodedCredentials {
-  static const UserAccount admin = UserAccount(
-    id: 'u-admin',
-    name: 'System Admin',
-    title: 'System Administrator',
-    email: 'admin@library.com',
-    password: 'admin123',
-    role: UserRole.admin,
-  );
-
-  static const UserAccount librarian = UserAccount(
-    id: 'u-lib-1',
-    name: 'Ms. Sara Ahmed',
-    title: 'Chief Circulation Librarian',
-    email: 'librarian@library.com',
-    password: 'librarian123',
-    role: UserRole.librarian,
-  );
-
-  static const UserAccount reader = UserAccount(
-    id: 'u-read-1',
-    name: 'Abiye Tesfaye',
-    title: 'Engineering Student',
-    email: 'reader@library.com',
-    password: 'reader123',
-    role: UserRole.reader,
-  );
-
-  static UserAccount getForRole(UserRole role) {
-    switch (role) {
+extension UserRoleApiRole on UserRole {
+  String get apiRole {
+    switch (this) {
       case UserRole.admin:
-        return admin;
+        return 'ADMIN';
       case UserRole.librarian:
-        return librarian;
+        return 'LIBRARIAN';
       case UserRole.reader:
-        return reader;
+        return 'STUDENT';
     }
   }
 }
+

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../../features/auth/domain/entities/user.dart';
@@ -5,23 +7,36 @@ import '../../../features/auth/domain/entities/user.dart';
 class TopHeaderBar extends StatelessWidget {
   final UserRole currentRole;
   final int selectedNavIndex;
+  final UserAccount? currentAccount;
   final ValueChanged<int> onSelectNav;
   final VoidCallback onReturnToLanding;
-  final ValueChanged<UserRole> onSwitchRole;
+  final VoidCallback onChangePassword;
+  final VoidCallback onChangeProfilePhoto;
   final List<Map<String, dynamic>> navItems;
 
   const TopHeaderBar({
     super.key,
     required this.currentRole,
     required this.selectedNavIndex,
+    required this.currentAccount,
     required this.onSelectNav,
     required this.onReturnToLanding,
-    required this.onSwitchRole,
+    required this.onChangePassword,
+    required this.onChangeProfilePhoto,
     required this.navItems,
   });
 
   @override
   Widget build(BuildContext context) {
+    final initials = currentAccount != null
+        ? currentAccount!.name
+            .trim()
+            .split(RegExp(r'\s+'))
+            .take(2)
+            .map((part) => part[0].toUpperCase())
+            .join()
+        : 'L';
+
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -29,7 +44,6 @@ class TopHeaderBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Brand Logo & System Title
           InkWell(
             onTap: onReturnToLanding,
             child: Row(
@@ -79,8 +93,6 @@ class TopHeaderBar extends StatelessWidget {
               ],
             ),
           ),
-
-          // Center: Section Navigation Tabs (Only top header with each section of its own)
           Expanded(
             child: Center(
               child: SingleChildScrollView(
@@ -144,37 +156,116 @@ class TopHeaderBar extends StatelessWidget {
               ),
             ),
           ),
-
-          // Right Controls: Sign Out only
-          Row(
-            children: [
-              TextButton.icon(
-                onPressed: onReturnToLanding,
-                icon: const Icon(
-                  Icons.logout,
-                  size: 16,
-                  color: Colors.white,
+          PopupMenuButton<String>(
+            offset: const Offset(0, 52),
+            tooltip: 'Profile menu',
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            onSelected: (value) {
+              switch (value) {
+                case 'change_password':
+                  onChangePassword();
+                  break;
+                case 'change_photo':
+                  onChangeProfilePhoto();
+                  break;
+                case 'logout':
+                  onReturnToLanding();
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'change_password',
+                child: Row(
+                  children: [
+                    Icon(Icons.lock_outline, size: 18),
+                    SizedBox(width: 10),
+                    Text('Change Password'),
+                  ],
                 ),
-                label: const Text(
-                  'Sign Out',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
+              ),
+              const PopupMenuItem(
+                value: 'change_photo',
+                child: Row(
+                  children: [
+                    Icon(Icons.photo_camera_outlined, size: 18),
+                    SizedBox(width: 10),
+                    Text('Change Photo'),
+                  ],
                 ),
-                style: TextButton.styleFrom(
-                  backgroundColor: Colors.white.withValues(alpha: 0.12),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+              ),
+              const PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, size: 18),
+                    SizedBox(width: 10),
+                    Text('Logout'),
+                  ],
                 ),
               ),
             ],
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 17,
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppColors.primary,
+                    backgroundImage: currentAccount?.avatarPath != null
+                        ? FileImage(File(currentAccount!.avatarPath!))
+                        : null,
+                    child: currentAccount?.avatarPath == null
+                        ? Text(
+                            initials,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 8),
+                  if (currentAccount != null) ...[
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          currentAccount!.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          currentAccount!.roleDisplayName,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 9,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.keyboard_arrow_down,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),

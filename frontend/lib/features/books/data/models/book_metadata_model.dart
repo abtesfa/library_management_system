@@ -12,34 +12,28 @@ class BookMetadataModel extends BookMetadata {
     super.coverImage,
   });
 
-  factory BookMetadataModel.fromGoogleBooksJson(
+  factory BookMetadataModel.fromOpenLibrarySearchJson(
     Map<String, dynamic> json,
     String isbn,
   ) {
-    final volumeInfo = json['volumeInfo'];
-    if (volumeInfo is! Map<String, dynamic>) {
-      throw const FormatException('Book lookup returned invalid details.');
-    }
-
-    final authors = volumeInfo['authors'];
-    final publishedDate = volumeInfo['publishedDate']?.toString();
-    final yearMatch = publishedDate == null
-        ? null
-        : RegExp(r'\d{4}').firstMatch(publishedDate);
-    final imageLinks = volumeInfo['imageLinks'];
-    final rawImage = imageLinks is Map<String, dynamic>
-        ? (imageLinks['thumbnail'] ?? imageLinks['smallThumbnail'])
-        : null;
+    final authors = json['author_name'];
+    final publishers = json['publisher'];
+    final coverId = json['cover_i'];
+    final title = json['title']?.toString() ?? '';
+    final subtitle = json['subtitle']?.toString();
 
     return BookMetadataModel(
       isbn: isbn,
-      title: volumeInfo['title']?.toString() ?? '',
-      author: authors is List && authors.isNotEmpty ? authors.join(', ') : '',
-      publisher: volumeInfo['publisher']?.toString(),
+      title: subtitle == null || subtitle.isEmpty ? title : '$title: $subtitle',
+      author: authors is List ? authors.join(', ') : '',
+      publisher: publishers is List && publishers.isNotEmpty
+          ? publishers.first.toString()
+          : null,
       publicationYear:
-          yearMatch == null ? null : int.tryParse(yearMatch.group(0)!),
-      description: volumeInfo['description']?.toString(),
-      coverImage: rawImage?.toString().replaceFirst('http://', 'https://'),
+          int.tryParse(json['first_publish_year']?.toString() ?? ''),
+      coverImage: coverId == null
+          ? null
+          : 'https://covers.openlibrary.org/b/id/$coverId-L.jpg',
     );
   }
 }
