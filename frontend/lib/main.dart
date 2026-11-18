@@ -53,7 +53,7 @@ class _MainShellState extends State<MainShell> {
   /// Nav index each portal opens on.
   static const int _adminStartIndex = 3; // Book Inventory
   static const int _defaultStartIndex = 0; // Desk / Reader Home
-
+  
   bool _isLandingMode = true;
   UserRole _currentRole = UserRole.admin;
   UserAccount? _currentAccount;
@@ -235,6 +235,8 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    final libraryName =
+    context.watch<LibraryService>().settings.libraryName;
     if (_isLandingMode) {
       return LandingScreen(onEnterPortal: _enterPortal);
     }
@@ -243,6 +245,7 @@ class _MainShellState extends State<MainShell> {
       body: Column(
         children: [
           TopHeaderBar(
+            libraryName: libraryName,
             currentRole: _currentRole,
             selectedNavIndex: _selectedNavIndex,
             currentAccount: _currentAccount,

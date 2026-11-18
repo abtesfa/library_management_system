@@ -90,26 +90,27 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
       _searchQuery = _searchController.text.trim();
     });
   }
-  
+
   Widget _buildBookCoverPlaceholder() {
-  return Container(
-    width: 60,
-    height: 80,
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(
-        colors: [
-          Color(0xFF514746),
-          Color(0xFFF25635),
-        ],
+    return Container(
+      width: 60,
+      height: 80,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF514746),
+            Color(0xFFF25635),
+          ],
+        ),
       ),
-    ),
-    child: const Icon(
-      Icons.book,
-      color: Colors.white70,
-      size: 28,
-    ),
-  );
-}
+      child: const Icon(
+        Icons.book,
+        color: Colors.white70,
+        size: 28,
+      ),
+    );
+  }
+
   // Clear the search field.
   void _clearSearch() {
     _searchController.clear();
@@ -161,7 +162,7 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
   }
 
   // Get a book cover from Open Library.
-  
+
   // Loading, error, empty and successful states.
   Widget _buildBorrowedBooksSection() {
     if (_isLoading) {
@@ -466,9 +467,9 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
                         const SizedBox(height: 22),
                         _bookCareTip(
                           icon: Icons.autorenew_rounded,
-                          title: 'Renew Before Due Dates',
+                          title: 'Renew on Due Date',
                           description:
-                              'Each loan can be renewed once, and only before it is overdue.',
+                              'You can renew a borrowed book only on its due date, subject to the library renewal limit.',
                           color: const Color(0xFFF25635),
                           background: const Color(0xFFFBE2D9),
                         ),
@@ -593,18 +594,37 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
   // Individual borrowed book card (with hover animation).
   Widget _buildBorrowedCard(BorrowRecord book) {
     final bool isOverdue = book.daysLeft < 0;
+
+    final bool isDueToday = book.daysLeft == 0;
     final bool isUrgent = book.daysLeft >= 0 && book.daysLeft <= 3;
 
-    // One renewal per loan, and never after the due date has passed.
-    final bool alreadyRenewed = book.renewalCount >= 1;
-    final bool isRenewing = _renewingId == book.id;
-    final bool canRenew = !isOverdue && !alreadyRenewed && _renewingId == null;
+    final int renewalLimit = book.renewalLimit;
+    final int renewalsUsed = book.renewalCount;
 
-    final String renewHint = alreadyRenewed
-        ? 'This loan was already renewed. Only one renewal is allowed.'
-        : isOverdue
-            ? 'Overdue loans cannot be renewed. Please return the book.'
-            : 'Extend this loan';
+    final int renewalsRemaining =
+        (renewalLimit - renewalsUsed).clamp(0, renewalLimit);
+
+    final bool renewalLimitReached = renewalsUsed >= renewalLimit;
+
+    final bool isRenewing = _renewingId == book.id;
+
+    final bool canRenew = isDueToday &&
+        !renewalLimitReached &&
+        !isRenewing &&
+        _renewingId == null &&
+        book.status.toUpperCase() == 'ACTIVE';
+
+    final String renewHint;
+
+    if (renewalLimitReached) {
+      renewHint = 'You have used all $renewalLimit allowed renewals.';
+    } else if (isOverdue) {
+      renewHint = 'This book is overdue and cannot be renewed.';
+    } else if (!isDueToday) {
+      renewHint = 'You can renew this book only on its due date.';
+    } else {
+      renewHint = 'You can renew this book today.';
+    }
 
     final Color statusColor = isOverdue || isUrgent
         ? const Color(0xFFDC2626)
@@ -644,21 +664,21 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
             children: [
               // Book cover.
               // Book cover from the database.
-ClipRRect(
-  borderRadius: BorderRadius.circular(8),
-  child: book.coverImage != null &&
-          book.coverImage!.trim().isNotEmpty
-      ? Image.network(
-          book.coverImage!.trim(),
-          width: 60,
-          height: 80,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return _buildBookCoverPlaceholder();
-          },
-        )
-      : _buildBookCoverPlaceholder(),
-),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: book.coverImage != null &&
+                        book.coverImage!.trim().isNotEmpty
+                    ? Image.network(
+                        book.coverImage!.trim(),
+                        width: 60,
+                        height: 80,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return _buildBookCoverPlaceholder();
+                        },
+                      )
+                    : _buildBookCoverPlaceholder(),
+              ),
 
               const SizedBox(width: 16),
 
@@ -713,36 +733,67 @@ ClipRRect(
               const SizedBox(width: 12),
 
               // Renewal button.
-              Tooltip(
-                message: renewHint,
-                child: ElevatedButton.icon(
-                  onPressed: canRenew ? () => _renewBook(book) : null,
-                  icon: const Icon(
-                    Icons.refresh,
-                    size: 14,
-                  ),
-                  label: Text(
-                    isRenewing
-                        ? 'Renewing...'
-                        : alreadyRenewed
-                            ? 'Renewed'
-                            : 'Renew Loan',
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF25635),
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: const Color(0xFFD9D9D9),
-                    disabledForegroundColor: const Color(0xFFAAA898),
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 14,
+              // Renewal button and renewal allowance.
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Tooltip(
+                    message: renewHint,
+                    child: ElevatedButton.icon(
+                      onPressed: canRenew ? () => _renewBook(book) : null,
+                      icon: const Icon(
+                        Icons.refresh,
+                        size: 14,
+                      ),
+                      label: Text(
+                        isRenewing
+                            ? 'Renewing...'
+                            : renewalLimitReached
+                                ? 'Limit Reached'
+                                : 'Renew Loan',
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF25635),
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: const Color(0xFFD9D9D9),
+                        disabledForegroundColor: const Color(0xFFAAA898),
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 14,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // Renewal count based on administrator settings.
+                  Text(
+                    'Renewals used: $renewalsUsed / $renewalLimit',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF666666),
                     ),
                   ),
-                ),
+
+                  Text(
+                    '$renewalsRemaining remaining',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: renewalsRemaining > 0
+                          ? const Color(0xFF059669)
+                          : const Color(0xFFDC2626),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

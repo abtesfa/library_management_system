@@ -13,6 +13,7 @@ class TopHeaderBar extends StatelessWidget {
   final VoidCallback onChangePassword;
   final VoidCallback onChangeProfilePhoto;
   final List<Map<String, dynamic>> navItems;
+  final String libraryName;
 
   const TopHeaderBar({
     super.key,
@@ -24,6 +25,7 @@ class TopHeaderBar extends StatelessWidget {
     required this.onChangePassword,
     required this.onChangeProfilePhoto,
     required this.navItems,
+    required this.libraryName,
   });
 
   @override
@@ -62,13 +64,17 @@ class TopHeaderBar extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
-                      'Library Management System',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold),
-                    ),
+                    Text(
+  libraryName.isNotEmpty
+      ? libraryName
+      : 'Library Management System',
+  overflow: TextOverflow.ellipsis,
+  style: const TextStyle(
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: FontWeight.bold,
+  ),
+),
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 1),

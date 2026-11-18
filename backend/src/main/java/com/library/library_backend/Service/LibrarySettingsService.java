@@ -43,12 +43,12 @@ public LibrarySettings getSettings() {
             );
         }
 
-        if (updatedSettings.getMaxBooksPerDay() == null ||
-                updatedSettings.getMaxBooksPerDay() < 1) {
-            throw new IllegalArgumentException(
-                "Maximum books per day must be at least 1."
-            );
-        }
+       if (updatedSettings.getMaxBooksPerStudent() == null ||
+        updatedSettings.getMaxBooksPerStudent() < 1) {
+    throw new IllegalArgumentException(
+        "Maximum books per student must be at least 1."
+    );
+}
 
         if (updatedSettings.getMaxBorrowingDays() == null ||
                 updatedSettings.getMaxBorrowingDays() < 1) {
@@ -84,8 +84,8 @@ public LibrarySettings getSettings() {
             updatedSettings.getLibraryName().trim()
         );
 
-        existingSettings.setMaxBooksPerDay(
-            updatedSettings.getMaxBooksPerDay()
+        existingSettings.setMaxBooksPerStudent(
+            updatedSettings.getMaxBooksPerStudent()
         );
 
         existingSettings.setMaxBorrowingDays(

@@ -3,7 +3,7 @@ class SystemSettings {
   final String openingTime;
   final String closingTime;
   final int maxBorrowDays;
-  final int maxBooksPerUser;
+  final int maxBooksPerStudent;
   final double finePerDay;
   final int reservationHoldMinutes;
   final String contactEmail;
@@ -14,7 +14,7 @@ class SystemSettings {
     this.openingTime = '08:00 AM',
     this.closingTime = '08:00 PM',
     this.maxBorrowDays = 14,
-    this.maxBooksPerUser = 5,
+    this.maxBooksPerStudent = 5,
     this.finePerDay = 0.50,
     this.reservationHoldMinutes = 1440,
     this.contactEmail = 'info@librarysystem.com',
@@ -32,7 +32,7 @@ class SystemSettings {
     String? openingTime,
     String? closingTime,
     int? maxBorrowDays,
-    int? maxBooksPerUser,
+    int? maxBooksPerStudent,
     double? finePerDay,
     int? reservationHoldMinutes,
     String? contactEmail,
@@ -43,7 +43,7 @@ class SystemSettings {
       openingTime: openingTime ?? this.openingTime,
       closingTime: closingTime ?? this.closingTime,
       maxBorrowDays: maxBorrowDays ?? this.maxBorrowDays,
-      maxBooksPerUser: maxBooksPerUser ?? this.maxBooksPerUser,
+      maxBooksPerStudent: maxBooksPerStudent ?? this.maxBooksPerStudent,
       finePerDay: finePerDay ?? this.finePerDay,
       reservationHoldMinutes:
           reservationHoldMinutes ?? this.reservationHoldMinutes,

@@ -46,6 +46,36 @@ public interface NotificationRepository
     // Find notifications related to a particular reservation
     List<Notification> findByReservationId(Integer reservationId);
 
+    // Find notifications associated with a borrowing
+List<Notification> findByBorrowingId(Integer borrowingId);
+
+// Prevent duplicate notifications for the same borrowing and type
+boolean existsByBorrowingIdAndNotificationType(
+        Integer borrowingId,
+        NotificationType notificationType
+);
+
+// Delete all notifications associated with a borrowing
+@Modifying
+@Query("""
+    DELETE FROM Notification n
+    WHERE n.borrowingId = :borrowingId
+    """)
+int deleteByBorrowingId(
+        @Param("borrowingId") Integer borrowingId
+);
+
+// Delete one notification category for a borrowing
+@Modifying
+@Query("""
+    DELETE FROM Notification n
+    WHERE n.borrowingId = :borrowingId
+    AND n.notificationType = :notificationType
+    """)
+int deleteByBorrowingIdAndNotificationType(
+        @Param("borrowingId") Integer borrowingId,
+        @Param("notificationType") NotificationType notificationType
+);
     @Modifying
     @Query("DELETE FROM Notification notification "
             + "WHERE notification.reservationId IN :reservationIds")

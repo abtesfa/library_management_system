@@ -16,8 +16,8 @@ public class LibrarySettings {
     @Column(name = "library_name", nullable = false, length = 150)
     private String libraryName;
 
-    @Column(name = "max_books_per_day", nullable = false)
-    private Integer maxBooksPerDay;
+    @Column(name = "max_books_per_student", nullable = false)
+private Integer maxBooksPerStudent;
 
     @Column(name = "max_borrowing_days", nullable = false)
     private Integer maxBorrowingDays;
@@ -54,12 +54,12 @@ public class LibrarySettings {
         this.libraryName = libraryName;
     }
 
-    public Integer getMaxBooksPerDay() {
-        return maxBooksPerDay;
+    public Integer getMaxBooksPerStudent() {
+        return maxBooksPerStudent;
     }
 
-    public void setMaxBooksPerDay(Integer maxBooksPerDay) {
-        this.maxBooksPerDay = maxBooksPerDay;
+    public void setMaxBooksPerStudent(Integer maxBooksPerStudent) {
+        this.maxBooksPerStudent = maxBooksPerStudent;
     }
 
     public Integer getMaxBorrowingDays() {

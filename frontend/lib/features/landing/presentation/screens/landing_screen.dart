@@ -148,9 +148,12 @@ class _LandingScreenState extends State<LandingScreen>
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text(
-                    'Library Management System',
-                    style: TextStyle(
+                  Text(
+                    libraryService.settings.libraryName.isNotEmpty
+                        ? libraryService.settings.libraryName
+                        : 'Library Management System',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -1136,11 +1139,11 @@ class _LandingScreenState extends State<LandingScreen>
   // ==========================================
 
   Widget _buildBookCard(BuildContext context, Book book) {
-  final isAvailable = book.availableCopies > 0;
+    final isAvailable = book.availableCopies > 0;
 
-  final String? coverUrl = book.coverImage?.trim().isNotEmpty == true
-      ? book.coverImage!.trim()
-      : null;
+    final String? coverUrl = book.coverImage?.trim().isNotEmpty == true
+        ? book.coverImage!.trim()
+        : null;
     // Hover state for each individual book card.
     bool isHovered = false;
 

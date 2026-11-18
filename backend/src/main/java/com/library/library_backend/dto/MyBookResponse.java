@@ -12,5 +12,5 @@ public record MyBookResponse(
         String status,
         Integer renewalCount,
         String location,
-        String coverImage
+        Integer renewalLimit
 ) {}

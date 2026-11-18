@@ -11,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import com.library.library_backend.entity.NotificationType;
+import com.library.library_backend.repository.LibrarySettingsRepository;
 
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -21,23 +23,35 @@ import java.util.List;
 public class MyBooksService {
 
     /** A loan can be renewed once, even if the settings allow more. */
-    private static final int MAX_RENEWALS = 1;
+    
 
     private final MyBooksRepository myBooksRepository;
     private final BorrowingRepository borrowingRepository;
-    private final LibrarySettingsService settingsService;
-
+    private final LibrarySettingsRepository settingsRepository;
+    private final NotificationService notificationService;
    public MyBooksService(
         MyBooksRepository myBooksRepository,
         BorrowingRepository borrowingRepository,
-        LibrarySettingsService settingsService) {
+        LibrarySettingsRepository settingsRepository,
+    NotificationService notificationService) {
 
     this.myBooksRepository = myBooksRepository;
     this.borrowingRepository = borrowingRepository;
-    this.settingsService = settingsService;
+    this.settingsRepository = settingsRepository;
+    this.notificationService = notificationService;
 }
 
     public List<MyBookResponse> getMyBooks(Integer userId) {
+
+    // Get the renewal limit configured by the administrator.
+    LibrarySettings settings = settingsRepository.findById(1)
+            .orElseThrow(() -> new IllegalStateException(
+                    "Library settings record was not found."
+            ));
+
+    int renewalLimit = settings.getRenewalLimit() == null
+            ? 0
+            : settings.getRenewalLimit();
 
     List<Object[]> rows =
             myBooksRepository.findCurrentBorrowings(userId);
@@ -53,17 +67,15 @@ public class MyBooksService {
                     toStringValue(row[6]),
                     toInteger(row[7]),
                     toStringValue(row[8]),
-                    toStringValue(row[9])
+                    renewalLimit
             ))
             .toList();
 }
 
     /**
-     * Extends a student's loan by one borrowing period.
-     *
-     * Rejected when the loan is not the student's, is not active, is already
-     * overdue, or has already been renewed.
-     */
+ * Renews a student's active loan only on its exact due date.
+ * The number of renewals is controlled by library settings.
+ */
     @Transactional
     public RenewBookResponse renewBook(Integer userId, Integer borrowingId) {
 
@@ -87,43 +99,76 @@ public class MyBooksService {
             );
         }
 
-        // The due day itself still counts as on time.
-        if (LocalDate.now().isAfter(borrowing.getDueDate())) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "This loan is overdue and cannot be renewed. "
-                            + "Please return the book."
-            );
-        }
+        // A book can only be renewed on its exact due date.
+LocalDate today = LocalDate.now(
+        java.time.ZoneId.of("Africa/Addis_Ababa")
+);
 
-        LibrarySettings settings = settingsService.getSettings();
-        int maxRenewals = Math.min(MAX_RENEWALS, settings.getRenewalLimit());
+LocalDate dueDate = borrowing.getDueDate();
 
-        if (maxRenewals == 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Renewals are not allowed."
-            );
-        }
+if (today.isBefore(dueDate)) {
+    throw new ResponseStatusException(
+            HttpStatus.CONFLICT,
+            "You can only renew this book on its due date: "
+                    + dueDate
+    );
+}
 
-        int renewals = borrowing.getRenewalCount() == null
-                ? 0
-                : borrowing.getRenewalCount();
+if (today.isAfter(dueDate)) {
+    throw new ResponseStatusException(
+            HttpStatus.CONFLICT,
+            "This book is overdue and cannot be renewed. "
+                    + "Please return it."
+    );
+}
 
-        if (renewals >= maxRenewals) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "This loan has already been renewed. "
-                            + "Only one renewal is allowed."
-            );
-        }
+// Retrieve the renewal limit configured by the administrator.
+LibrarySettings settings = settingsRepository.findById(1)
+        .orElseThrow(() -> new IllegalStateException(
+                "Library settings record was not found."
+        ));
 
+int maxRenewals = settings.getRenewalLimit() == null
+        ? 0
+        : settings.getRenewalLimit();
+
+if (maxRenewals == 0) {
+    throw new ResponseStatusException(
+            HttpStatus.CONFLICT,
+            "The library currently does not allow book renewals."
+    );
+}
+
+// Count how many times this borrowing has already been renewed.
+int renewals = borrowing.getRenewalCount() == null
+        ? 0
+        : borrowing.getRenewalCount();
+
+if (renewals >= maxRenewals) {
+    throw new ResponseStatusException(
+            HttpStatus.CONFLICT,
+            "You have reached the maximum renewal limit of "
+                    + maxRenewals + " for this book."
+    );
+}
         borrowing.setDueDate(
                 borrowing.getDueDate().plusDays(settings.getMaxBorrowingDays())
         );
         borrowing.setRenewalCount(renewals + 1);
 
         Borrowing saved = borrowingRepository.save(borrowing);
+        // Remove notifications based on the previous due date.
+// The scheduler will create a new one if the extended due date
+// still falls within the notification window.
+notificationService.deleteByBorrowingIdAndType(
+        borrowingId,
+        NotificationType.DUE_SOON
+);
+
+notificationService.deleteByBorrowingIdAndType(
+        borrowingId,
+        NotificationType.OVERDUE
+);
 
         return new RenewBookResponse(
                 saved.getBorrowingId(),

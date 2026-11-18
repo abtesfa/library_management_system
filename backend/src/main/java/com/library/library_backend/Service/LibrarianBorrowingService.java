@@ -30,6 +30,7 @@ public class LibrarianBorrowingService {
     private final LibrarySettingsService settingsService;
     private final ReservationRepository reservationRepository;
     private final ReservationService reservationService;
+    private final NotificationService notificationService;
 
     public LibrarianBorrowingService(
         BorrowingRepository borrowingRepository,
@@ -38,7 +39,8 @@ public class LibrarianBorrowingService {
         StudentRepository studentRepository,
         LibrarySettingsService settingsService,
         ReservationRepository reservationRepository,
-        ReservationService reservationService
+        ReservationService reservationService,
+        NotificationService notificationService
 ) {
     this.borrowingRepository = borrowingRepository;
     this.bookCopyRepository = bookCopyRepository;
@@ -47,6 +49,7 @@ public class LibrarianBorrowingService {
     this.settingsService = settingsService;
     this.reservationRepository = reservationRepository;
     this.reservationService = reservationService;
+    this.notificationService = notificationService;
 }
 
     @Transactional
@@ -140,15 +143,24 @@ LibrarySettings settings = settingsService.getSettings();
         }
 
         // 7. Check the daily borrowing limit.
-        long borrowedToday = borrowingRepository
-                .countBooksBorrowedOnDate(userId, borrowDate);
+        // 7. Check the maximum number of books
+// the student is currently allowed to borrow.
+long currentlyBorrowed =
+        borrowingRepository.countCurrentlyBorrowed(userId);
 
-        if (borrowedToday >= settings.getMaxBooksPerDay()) {
-            throw new IllegalArgumentException(
-                    "Student has reached the daily borrowing limit of "
-                            + settings.getMaxBooksPerDay() + " books."
-            );
-        }
+int maximumBooks =
+        settings.getMaxBooksPerStudent();
+
+if (currentlyBorrowed >= maximumBooks) {
+    throw new IllegalArgumentException(
+            "This student has already borrowed "
+                    + currentlyBorrowed
+                    + " books. The maximum allowed is "
+                    + maximumBooks
+                    + ". The student must return a book "
+                    + "before borrowing another."
+    );
+}
 
         // 8. Calculate the due date.
         LocalDate dueDate = borrowDate.plusDays(

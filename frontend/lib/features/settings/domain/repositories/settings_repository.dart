@@ -11,7 +11,7 @@ abstract class SettingsRepository {
 
   Future<Map<String, dynamic>> updateSettings({
     required String libraryName,
-    required int maxBooksPerDay,
+    required int maxBooksPerStudent,
     required int maxBorrowingDays,
     required int renewalLimit,
     required double finePerDay,

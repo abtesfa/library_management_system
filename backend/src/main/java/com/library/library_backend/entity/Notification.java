@@ -42,6 +42,9 @@ public class Notification {
     @Column(name = "reservation_id")
     private Integer reservationId;
 
+    @Column(name = "borrowing_id")
+private Integer borrowingId;
+
     public Notification() {
     }
 
@@ -120,4 +123,12 @@ public class Notification {
     public void setReservationId(Integer reservationId) {
         this.reservationId = reservationId;
     }
+
+    public Integer getBorrowingId() {
+    return borrowingId;
+}
+
+public void setBorrowingId(Integer borrowingId) {
+    this.borrowingId = borrowingId;
+}
 }

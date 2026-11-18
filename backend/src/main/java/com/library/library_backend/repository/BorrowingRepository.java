@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.Optional;
+import java.util.List;
 
 public interface BorrowingRepository
         extends JpaRepository<Borrowing, Integer> {
@@ -73,5 +74,9 @@ long countBooksBorrowedOnDate(
 Optional<Integer> findActiveBorrowingId(
         @Param("studentId") String studentId,
         @Param("query") String query
+    
 );
+// Retrieve all borrowing records with a particular status
+List<Borrowing> findByStatusIgnoreCase(String status);
+
 }

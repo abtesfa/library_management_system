@@ -28,7 +28,7 @@ class SettingsRemoteDataSource {
   // PUT: Update settings in Spring Boot
   Future<Map<String, dynamic>> updateSettings({
     required String libraryName,
-    required int maxBooksPerDay,
+    required int maxBooksPerStudent,
     required int maxBorrowingDays,
     required int renewalLimit,
     required double finePerDay,
@@ -41,7 +41,7 @@ class SettingsRemoteDataSource {
       },
       body: jsonEncode({
         'libraryName': libraryName,
-        'maxBooksPerDay': maxBooksPerDay,
+        'maxBooksPerStudent': maxBooksPerStudent,
         'maxBorrowingDays': maxBorrowingDays,
         'renewalLimit': renewalLimit,
         'finePerDay': finePerDay,

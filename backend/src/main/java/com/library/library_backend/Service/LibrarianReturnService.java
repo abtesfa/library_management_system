@@ -25,17 +25,19 @@ public class LibrarianReturnService {
     private final BookCopyRepository bookCopyRepository;
     private final BookRepository bookRepository;
     private final LibrarySettingsRepository settingsRepository;
-
+    private final NotificationService notificationService;
     public LibrarianReturnService(
             BorrowingRepository borrowingRepository,
             BookCopyRepository bookCopyRepository,
             BookRepository bookRepository,
-            LibrarySettingsRepository settingsRepository
+            LibrarySettingsRepository settingsRepository,
+            NotificationService notificationService
     ) {
         this.borrowingRepository = borrowingRepository;
         this.bookCopyRepository = bookCopyRepository;
         this.bookRepository = bookRepository;
         this.settingsRepository = settingsRepository;
+        this.notificationService = notificationService;
     }
     @Transactional(readOnly = true)
 public ActiveBorrowingResponse findActiveBorrowing(
@@ -158,6 +160,10 @@ public ActiveBorrowingResponse findActiveBorrowing(
         borrowing.setBookCondition(condition);
 
         borrowingRepository.save(borrowing);
+        // Remove Due Soon and Overdue notifications for this borrowing
+notificationService.deleteByBorrowingId(
+        borrowing.getBorrowingId()
+);
 
         // A lost copy must not become available again.
         if (condition.equals("LOST")) {

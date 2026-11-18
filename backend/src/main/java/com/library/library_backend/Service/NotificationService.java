@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import java.time.LocalDate;
 
 import com.library.library_backend.entity.Notification;
 import com.library.library_backend.entity.NotificationType;
@@ -78,6 +79,79 @@ public class NotificationService {
         return notificationRepository.save(notification);
     }
 
+    // Create a Due Soon or Overdue notification for a borrowing
+    @Transactional
+    public Notification createBorrowingNotification(
+            Integer borrowingId,
+            String studentName,
+            String studentId,
+            String bookTitle,
+            LocalDate dueDate,
+            NotificationType type) {
+
+        if (type != NotificationType.DUE_SOON
+                && type != NotificationType.OVERDUE) {
+            throw new IllegalArgumentException(
+                    "Invalid borrowing notification type.");
+        }
+
+        // Do not create duplicates
+        if (notificationRepository
+                .existsByBorrowingIdAndNotificationType(
+                        borrowingId, type)) {
+            return null;
+        }
+
+        Notification notification = new Notification();
+
+        notification.setBorrowingId(borrowingId);
+        notification.setRecipientType("LIBRARIAN");
+        notification.setNotificationType(type);
+        notification.setIsRead(false);
+
+        if (type == NotificationType.DUE_SOON) {
+            notification.setTitle("Book Due Soon");
+
+            notification.setMessage(
+                    studentName + " (" + studentId + ") has borrowed \""
+                            + bookTitle + "\", which is due on " + dueDate + ".");
+
+            notification.setDetails(
+                    "Borrowing ID: " + borrowingId
+                            + ". Student ID: " + studentId
+                            + ". Due date: " + dueDate);
+        } else {
+            notification.setTitle("Overdue Book");
+
+            notification.setMessage(
+                    studentName + " (" + studentId + ") has not returned \""
+                            + bookTitle + "\". It was due on " + dueDate + ".");
+
+            notification.setDetails(
+                    "Borrowing ID: " + borrowingId
+                            + ". Student ID: " + studentId
+                            + ". Due date: " + dueDate);
+        }
+
+        return notificationRepository.save(notification);
+    }
+
+    // Delete all notifications associated with a borrowing
+    @Transactional
+    public void deleteByBorrowingId(Integer borrowingId) {
+        notificationRepository.deleteByBorrowingId(borrowingId);
+    }
+
+    // Delete one notification category associated with a borrowing
+    @Transactional
+    public void deleteByBorrowingIdAndType(
+            Integer borrowingId,
+            NotificationType type) {
+
+        notificationRepository.deleteByBorrowingIdAndNotificationType(
+                borrowingId, type);
+    }
+
     // Automatically create a librarian notification for a reservation
     public Notification createReservationNotification(
             Integer reservationId,
@@ -89,13 +163,11 @@ public class NotificationService {
         notification.setTitle("New Book Reservation");
 
         notification.setMessage(
-                studentName + " has reserved \"" + bookTitle + "\"."
-        );
+                studentName + " has reserved \"" + bookTitle + "\".");
 
         notification.setDetails(
                 "A student has submitted a new book reservation. "
-                + "Reservation ID: " + reservationId
-        );
+                        + "Reservation ID: " + reservationId);
 
         notification.setNotificationType(NotificationType.RESERVATION);
         notification.setRecipientType("LIBRARIAN");
@@ -111,8 +183,7 @@ public class NotificationService {
     public void deleteByReservationId(Integer reservationId) {
 
         notificationRepository.deleteAll(
-                notificationRepository.findByReservationId(reservationId)
-        );
+                notificationRepository.findByReservationId(reservationId));
     }
 
     // Mark a notification as read

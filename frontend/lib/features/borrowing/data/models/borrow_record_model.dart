@@ -17,6 +17,7 @@ class BorrowRecordModel extends BorrowRecord {
     required super.daysLeft,
     required super.renewalCount,
     super.coverImage,
+    required super.renewalLimit,
   });
 
   factory BorrowRecordModel.fromJson(
@@ -58,6 +59,8 @@ class BorrowRecordModel extends BorrowRecord {
       daysLeft: daysRemaining,
       renewalCount: (json['renewalCount'] as num?)?.toInt() ?? 0,
       coverImage: json['coverImage']?.toString(),
+      renewalLimit:
+    (json['renewalLimit'] as num?)?.toInt() ?? 1,
     );
   }
 }

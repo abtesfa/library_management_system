@@ -7,7 +7,7 @@ class SystemSettingsModel extends SystemSettings {
     required super.openingTime,
     required super.closingTime,
     required super.maxBorrowDays,
-    required super.maxBooksPerUser,
+    required super.maxBooksPerStudent,
     required super.finePerDay,
     required super.reservationHoldMinutes,
     required super.contactEmail,
@@ -21,7 +21,7 @@ class SystemSettingsModel extends SystemSettings {
       openingTime: json['openingTime'] ?? '08:00 AM',
       closingTime: json['closingTime'] ?? '08:00 PM',
       maxBorrowDays: (json['maxBorrowingDays'] as num?)?.toInt() ?? 14,
-      maxBooksPerUser: (json['maxBooksPerUser'] as num?)?.toInt() ?? 5,
+      maxBooksPerStudent: (json['maxBooksPerStudent'] as num?)?.toInt() ?? 5,
       finePerDay: (json['finePerDay'] as num?)?.toDouble() ?? 0.50,
       reservationHoldMinutes:
           (json['reservationHoldMinutes'] as num?)?.toInt() ?? 1440,

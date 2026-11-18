@@ -18,7 +18,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   final UpdateSettings _updateSettingsUseCase = injector.updateSettings;
 
   late TextEditingController _nameController;
-  late TextEditingController _dailyBooksController;
+  late TextEditingController _maxBooksPerStudentController;
   late TextEditingController _borrowDaysController;
   late TextEditingController _renewalLimitController;
   late TextEditingController _fineController;
@@ -41,14 +41,14 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     super.initState();
 
     _nameController = TextEditingController();
-    _dailyBooksController = TextEditingController();
+    _maxBooksPerStudentController = TextEditingController();
     _borrowDaysController = TextEditingController();
     _renewalLimitController = TextEditingController();
     _fineController = TextEditingController();
     _reservationHoldController = TextEditingController();
 
     _nameController.addListener(_refreshSummary);
-    _dailyBooksController.addListener(_refreshSummary);
+    _maxBooksPerStudentController.addListener(_refreshSummary);
     _borrowDaysController.addListener(_refreshSummary);
     _renewalLimitController.addListener(_refreshSummary);
     _fineController.addListener(_refreshSummary);
@@ -86,7 +86,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
 
       _nameController.text = data['libraryName']?.toString() ?? '';
 
-      _dailyBooksController.text = data['maxBooksPerDay']?.toString() ?? '3';
+      _maxBooksPerStudentController.text =
+          data['maxBooksPerStudent']?.toString() ?? '3';
 
       _borrowDaysController.text = data['maxBorrowingDays']?.toString() ?? '14';
 
@@ -136,7 +137,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
 
     final libraryName = _nameController.text.trim();
 
-    final dailyBooks = int.tryParse(_dailyBooksController.text.trim());
+    final dailyBooks = int.tryParse(_maxBooksPerStudentController.text.trim());
 
     final borrowDays = int.tryParse(_borrowDaysController.text.trim());
 
@@ -176,12 +177,14 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     try {
       await _updateSettingsUseCase(
         libraryName: libraryName,
-        maxBooksPerDay: dailyBooks,
+        maxBooksPerStudent: dailyBooks,
         maxBorrowingDays: borrowDays,
         renewalLimit: renewalLimit,
         finePerDay: fine,
         reservationHoldMinutes: reservationHoldMinutes,
       );
+      // Refresh application-wide settings, including the top header.
+      await context.read<LibraryService>().loadSettingsFromApi();
 
       if (!mounted) return;
 
@@ -246,14 +249,14 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   @override
   void dispose() {
     _nameController.removeListener(_refreshSummary);
-    _dailyBooksController.removeListener(_refreshSummary);
+    _maxBooksPerStudentController.removeListener(_refreshSummary);
     _borrowDaysController.removeListener(_refreshSummary);
     _renewalLimitController.removeListener(_refreshSummary);
     _fineController.removeListener(_refreshSummary);
     _reservationHoldController.removeListener(_refreshSummary);
 
     _nameController.dispose();
-    _dailyBooksController.dispose();
+    _maxBooksPerStudentController.dispose();
     _borrowDaysController.dispose();
     _renewalLimitController.dispose();
     _fineController.dispose();
@@ -320,8 +323,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                               return Column(
                                 children: [
                                   _buildNumberField(
-                                    controller: _dailyBooksController,
-                                    label: 'Maximum Books Per Day',
+                                    controller: _maxBooksPerStudentController,
+                                    label: 'Maximum Books Per Student',
                                     suffix: 'Books',
                                     minimum: 1,
                                   ),
@@ -358,8 +361,9 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                                   children: [
                                     Expanded(
                                       child: _buildNumberField(
-                                        controller: _dailyBooksController,
-                                        label: 'Maximum Books Per Day',
+                                        controller:
+                                            _maxBooksPerStudentController,
+                                        label: 'Maximum Books Per Student',
                                         suffix: 'Books',
                                         minimum: 1,
                                       ),
@@ -862,7 +866,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
 
           _summaryTile(
             'Daily Borrowing Limit',
-            '${_dailyBooksController.text} Books',
+            '${_maxBooksPerStudentController.text} Books',
           ),
 
           _summaryTile(
