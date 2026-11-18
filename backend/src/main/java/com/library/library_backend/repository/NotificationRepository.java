@@ -46,6 +46,8 @@ public interface NotificationRepository
     // Find notifications related to a particular reservation
     List<Notification> findByReservationId(Integer reservationId);
 
+    List<Notification> findByBorrowingIdIsNotNull();
+
     @Modifying
     @Query("DELETE FROM Notification notification "
             + "WHERE notification.reservationId IN :reservationIds")

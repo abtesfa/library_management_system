@@ -1,8 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../constants/app_colors.dart';
 import '../../../features/auth/domain/entities/user.dart';
+import '../../../features/library/presentation/providers/library_service.dart';
 
 class TopHeaderBar extends StatelessWidget {
   final UserRole currentRole;
@@ -62,12 +62,20 @@ class TopHeaderBar extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
-                      'Library Management System',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 220),
+                      child: Consumer<LibraryService>(
+                        builder: (context, service, child) => Text(
+                          service.settings.libraryName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -81,7 +89,7 @@ class TopHeaderBar extends StatelessWidget {
                             ? 'Admin Portal'
                             : currentRole == UserRole.librarian
                                 ? 'Librarian Desk'
-                                : 'Reader Portal',
+                                : 'Student Portal',
                         style: const TextStyle(
                             color: Colors.white,
                             fontSize: 9,
@@ -220,10 +228,10 @@ class TopHeaderBar extends StatelessWidget {
                     radius: 17,
                     backgroundColor: Colors.white,
                     foregroundColor: AppColors.primary,
-                    backgroundImage: currentAccount?.avatarPath != null
-                        ? FileImage(File(currentAccount!.avatarPath!))
+                    backgroundImage: currentAccount?.avatarBytes != null
+                        ? MemoryImage(currentAccount!.avatarBytes!)
                         : null,
-                    child: currentAccount?.avatarPath == null
+                    child: currentAccount?.avatarBytes == null
                         ? Text(
                             initials,
                             style: const TextStyle(

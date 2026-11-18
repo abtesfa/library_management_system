@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_data_source.dart';
@@ -31,6 +33,19 @@ class AuthRepositoryImpl implements AuthRepository {
       identifier: identifier,
       currentPassword: currentPassword,
       newPassword: newPassword,
+      role: role,
+    );
+  }
+
+  @override
+  Future<void> updateProfilePhoto({
+    required String accountId,
+    required Uint8List photoBytes,
+    required UserRole role,
+  }) {
+    return remoteDataSource.updateProfilePhoto(
+      accountId: accountId,
+      photoBytes: photoBytes,
       role: role,
     );
   }

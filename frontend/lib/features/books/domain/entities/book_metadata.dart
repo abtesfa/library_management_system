@@ -7,6 +7,7 @@ class BookMetadata {
   final int? publicationYear;
   final String? description;
   final String? coverImage;
+  final List<String> subjects;
 
   const BookMetadata({
     required this.isbn,
@@ -17,5 +18,6 @@ class BookMetadata {
     this.publicationYear,
     this.description,
     this.coverImage,
+    this.subjects = const [],
   });
 }

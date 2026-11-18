@@ -1,6 +1,6 @@
 # Library Management System — Flutter Frontend
 
-A multi-role library management app (Admin, Librarian, Reader) built with
+A multi-role library management app (Admin, Librarian, Student) built with
 Flutter. It talks to the Spring Boot backend in `../backend`.
 
 ## Project structure
@@ -24,15 +24,19 @@ lib/
     ├── landing/                  # Public landing page
     ├── admin/                    # Inventory, staff, and LMS settings
     ├── librarian/                # Borrow/return desk and notifications
-    └── reader/                   # Home, my books, and reservations
+    └── student/                  # Home, my books, and reservations
 ```
 
 ## Run
 
 1. Start the backend (see `../backend`) on port 8080.
-2. Set the server address in `lib/config/api_config.dart`:
-   - Chrome or desktop: `http://localhost:8080/api`
-   - Android emulator: `http://10.0.2.2:8080/api`
+2. The app uses `http://localhost:8080/api` on web and desktop, and
+   `http://10.0.2.2:8080/api` on the Android emulator. For a physical device or
+   a backend on another machine, pass its reachable address:
+
+```bash
+flutter run --dart-define=API_BASE_URL=http://<server-ip>:8080/api
+```
 3. Run the app:
 
 ```bash
@@ -48,4 +52,4 @@ The sign-in dialog uses fixed demo accounts (defined in `lib/models/user.dart`).
 |-----------|-----------------------|----------------|
 | Admin     | `admin@library.com`   | `admin123`     |
 | Librarian | `librarian@library.com` | `librarian123` |
-| Reader    | `reader@library.com`  | `reader123`    |
+| Student   | `ST-001` / `student@library.com` | `student123` |

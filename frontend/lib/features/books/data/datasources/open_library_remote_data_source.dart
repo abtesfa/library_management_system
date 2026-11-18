@@ -9,7 +9,7 @@ import '../models/book_metadata_model.dart';
 class OpenLibraryRemoteDataSource {
   static const Duration _requestTimeout = Duration(seconds: 15);
   static const String _searchFields =
-      'title,subtitle,author_name,publisher,first_publish_year,cover_i';
+      'title,subtitle,author_name,publisher,first_publish_year,cover_i,subject';
 
   final http.Client _client;
   final Map<String, BookMetadata?> _cache = {};

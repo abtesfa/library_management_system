@@ -13,6 +13,7 @@ import com.library.library_backend.Service.AuthService;
 import com.library.library_backend.dto.LoginRequest;
 import com.library.library_backend.dto.LoginResponse;
 import com.library.library_backend.dto.PasswordChangeRequest;
+import com.library.library_backend.dto.ProfilePhotoUpdateRequest;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -43,5 +44,18 @@ public class AuthController {
         return ResponseEntity.ok(Map.of(
                 "message",
                 "Password changed successfully"));
+    }
+
+    @PostMapping("/profile-photo")
+    public ResponseEntity<Map<String, String>> updateProfilePhoto(
+            @RequestBody ProfilePhotoUpdateRequest request) {
+        authService.updateProfilePhoto(
+                request.getAccountId(),
+                request.getRole(),
+                request.getProfilePhoto());
+
+        return ResponseEntity.ok(Map.of(
+                "message",
+                "Profile photo updated successfully"));
     }
 }

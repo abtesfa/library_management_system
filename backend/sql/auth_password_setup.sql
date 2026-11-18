@@ -16,3 +16,12 @@ ALTER TABLE student
 -- VALUES
 --     ('Library Administrator', 'admin@library.com', '<generated-hash>',
 --      'ADMIN', NULL, 'ACTIVE', 0);
+
+-- Demo student account. The application upgrades this legacy plaintext password
+-- to a PBKDF2 hash after the first successful Student ID login.
+UPDATE student
+SET Password = 'student123',
+    Email = 'student@library.com',
+    Status = 'ACTIVE',
+    must_change_password = FALSE
+WHERE Student_ID = 'ST-001';

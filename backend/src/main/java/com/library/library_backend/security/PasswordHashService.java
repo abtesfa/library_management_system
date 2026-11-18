@@ -21,7 +21,7 @@ public class PasswordHashService {
     private static final int KEY_BITS = 256;
     private static final int MAX_ACCEPTED_ITERATIONS = 1_000_000;
     private static final Set<String> LEGACY_DEMO_PASSWORDS =
-            Set.of("admin123", "librarian123", "reader123");
+            Set.of("admin123", "librarian123", "student123");
 
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -49,7 +49,7 @@ public class PasswordHashService {
             return true;
         }
 
-        if (!encodedPassword.startsWith(PREFIX + "$")) {
+        if (!isEncoded(encodedPassword)) {
             return false;
         }
 
@@ -75,6 +75,10 @@ public class PasswordHashService {
         return MessageDigest.isEqual(
                 expectedKey,
                 deriveKey(password, salt, iterations));
+    }
+
+    public boolean isEncoded(String value) {
+        return value != null && value.startsWith(PREFIX + "$");
     }
 
     private byte[] deriveKey(String password, byte[] salt, int iterations) {

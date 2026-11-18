@@ -17,7 +17,7 @@ class AdminInventoryScreen extends StatefulWidget {
 
   @override
   State<AdminInventoryScreen> createState() => _AdminInventoryScreenState();
-} 
+}
 
 class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
   final CreateBook _createBookUseCase = injector.createBook;
@@ -655,6 +655,14 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
                       columns: const [
                         DataColumn(
                           label: Text(
+                            'Cover',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        DataColumn(
+                          label: Text(
                             'Title',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
@@ -734,6 +742,7 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
 
                         return DataRow(
                           cells: [
+                            DataCell(_buildCoverThumbnail(book.coverImage)),
                             DataCell(
                               Text(
                                 book.title,
@@ -816,6 +825,44 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCoverThumbnail(String? coverImage) {
+    const width = 40.0;
+    const height = 56.0;
+    final imageUrl = coverImage?.trim();
+
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return _coverPlaceholder(width, height);
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: Image.network(
+        imageUrl,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _coverPlaceholder(width, height),
+      ),
+    );
+  }
+
+  Widget _coverPlaceholder(double width, double height) {
+    return Container(
+      width: width,
+      height: height,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: const Icon(
+        Icons.menu_book_outlined,
+        color: textMuted,
+        size: 20,
       ),
     );
   }

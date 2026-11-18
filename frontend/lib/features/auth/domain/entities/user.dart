@@ -1,4 +1,6 @@
-enum UserRole { admin, librarian, reader }
+import 'dart:typed_data';
+
+enum UserRole { admin, librarian, student }
 
 class UserAccount {
   final int id;
@@ -6,7 +8,7 @@ class UserAccount {
   final String title;
   final String email;
   final UserRole role;
-  final String? avatarPath;
+  final Uint8List? avatarBytes;
   final Set<String> permissions;
 
   const UserAccount({
@@ -15,7 +17,7 @@ class UserAccount {
     required this.title,
     required this.email,
     required this.role,
-    this.avatarPath,
+    this.avatarBytes,
     this.permissions = const {},
   });
 
@@ -25,7 +27,7 @@ class UserAccount {
     String? title,
     String? email,
     UserRole? role,
-    String? avatarPath,
+    Uint8List? avatarBytes,
     Set<String>? permissions,
   }) {
     return UserAccount(
@@ -34,7 +36,7 @@ class UserAccount {
       title: title ?? this.title,
       email: email ?? this.email,
       role: role ?? this.role,
-      avatarPath: avatarPath ?? this.avatarPath,
+      avatarBytes: avatarBytes ?? this.avatarBytes,
       permissions: permissions ?? this.permissions,
     );
   }
@@ -54,8 +56,8 @@ class UserAccount {
         return 'Administrator';
       case UserRole.librarian:
         return 'Librarian';
-      case UserRole.reader:
-        return 'Reader / Student';
+      case UserRole.student:
+        return 'Student';
     }
   }
 }
@@ -67,9 +69,8 @@ extension UserRoleApiRole on UserRole {
         return 'ADMIN';
       case UserRole.librarian:
         return 'LIBRARIAN';
-      case UserRole.reader:
+      case UserRole.student:
         return 'STUDENT';
     }
   }
 }
-

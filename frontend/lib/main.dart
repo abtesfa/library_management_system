@@ -11,9 +11,9 @@ import 'features/staff/presentation/screens/staff_management_screen.dart';
 import 'features/landing/presentation/screens/landing_screen.dart';
 import 'features/borrowing/presentation/screens/librarian_desk_screen.dart';
 import 'features/notifications/presentation/screens/librarian_notifications_screen.dart';
-import 'features/dashboard/presentation/screens/reader_home_screen.dart';
-import 'features/borrowing/presentation/screens/reader_my_books_screen.dart';
-import 'features/reservations/presentation/screens/reader_reservations_screen.dart';
+import 'features/dashboard/presentation/screens/student_home_screen.dart';
+import 'features/borrowing/presentation/screens/student_my_books_screen.dart';
+import 'features/reservations/presentation/screens/student_reservations_screen.dart';
 import 'features/library/presentation/providers/library_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/header/top_header_bar.dart';
@@ -33,7 +33,7 @@ class LibraryManagementApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Library Management System',
+      title: context.watch<LibraryService>().settings.libraryName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: const MainShell(),
@@ -52,7 +52,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   /// Nav index each portal opens on.
   static const int _adminStartIndex = 3; // Book Inventory
-  static const int _defaultStartIndex = 0; // Desk / Reader Home
+  static const int _defaultStartIndex = 0; // Desk / Student Home
 
   bool _isLandingMode = true;
   UserRole _currentRole = UserRole.admin;
@@ -199,23 +199,44 @@ class _MainShellState extends State<MainShell> {
   }
 
   Future<void> _changeProfilePhoto() async {
-    if (_currentAccount == null) return;
+    final account = _currentAccount;
+    if (account == null) return;
 
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
-    );
-
-    if (pickedFile == null) return;
-
-    setState(() {
-      _currentAccount = _currentAccount!.copyWith(
-        avatarPath: pickedFile.path,
+    try {
+      final pickedFile = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 80,
       );
-    });
+      if (pickedFile == null || !mounted) return;
 
-    _showMessage('Profile photo updated.');
+      final photoBytes = await pickedFile.readAsBytes();
+      if (photoBytes.length > 5 * 1024 * 1024) {
+        _showMessage(
+          'The selected photo is larger than 5 MB. Choose a smaller image.',
+          isError: true,
+        );
+        return;
+      }
+
+      await injector.updateProfilePhoto(
+        accountId: account.id.toString(),
+        photoBytes: photoBytes,
+        role: account.role,
+      );
+
+      if (!mounted || _currentAccount?.id != account.id) return;
+
+      setState(() {
+        _currentAccount = account.copyWith(avatarBytes: photoBytes);
+      });
+
+      _showMessage('Profile photo saved successfully.');
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(error.toString(), isError: true);
+    }
   }
 
   void _showMessage(String message, {bool isError = false}) {
@@ -281,72 +302,82 @@ class _MainShellState extends State<MainShell> {
             'icon': Icons.settings_outlined
           },
         ];
-      case UserRole.librarian: {
-        final permissions = _currentAccount?.permissions ?? const <String>{};
-        final items = <Map<String, dynamic>>[];
+      case UserRole.librarian:
+        {
+          final permissions = _currentAccount?.permissions ?? const <String>{};
+          final items = <Map<String, dynamic>>[];
 
-        if (permissions.contains('BORROW_BOOK') ||
-            permissions.contains('RETURN_BOOK') ||
-            permissions.isEmpty) {
-          items.add(
-            {'index': 0, 'title': 'Borrow & Return', 'icon': Icons.swap_horiz},
-          );
+          if (permissions.contains('BORROW_BOOK') ||
+              permissions.contains('RETURN_BOOK') ||
+              permissions.isEmpty) {
+            items.add(
+              {
+                'index': 0,
+                'title': 'Borrow & Return',
+                'icon': Icons.swap_horiz
+              },
+            );
+          }
+
+          if (permissions.contains('ADD_BOOK') ||
+              permissions.contains('EDIT_BOOK') ||
+              permissions.contains('DELETE_BOOK')) {
+            items.add(
+              {'index': 2, 'title': 'Book Inventory', 'icon': Icons.menu_book},
+            );
+          }
+
+          if (permissions.contains('MANAGE_STAFF')) {
+            items.add(
+              {
+                'index': 3,
+                'title': 'Staff Management',
+                'icon': Icons.people_alt_outlined,
+              },
+            );
+          }
+
+          if (permissions.contains('CONFIGURE_SETTINGS')) {
+            items.add(
+              {
+                'index': 4,
+                'title': 'LMS Settings',
+                'icon': Icons.settings_outlined,
+              },
+            );
+          }
+
+          if (permissions.contains('VIEW_NOTIFICATIONS') ||
+              permissions.isEmpty) {
+            items.add(
+              {
+                'index': 1,
+                'title': 'Notifications',
+                'icon': Icons.notifications_outlined,
+              },
+            );
+          }
+
+          if (items.isEmpty) {
+            return [
+              {
+                'index': 0,
+                'title': 'Borrow & Return',
+                'icon': Icons.swap_horiz
+              },
+              {
+                'index': 1,
+                'title': 'Notifications',
+                'icon': Icons.notifications_outlined,
+              },
+            ];
+          }
+
+          return items;
         }
-
-        if (permissions.contains('ADD_BOOK') ||
-            permissions.contains('EDIT_BOOK') ||
-            permissions.contains('DELETE_BOOK')) {
-          items.add(
-            {'index': 2, 'title': 'Book Inventory', 'icon': Icons.menu_book},
-          );
-        }
-
-        if (permissions.contains('MANAGE_STAFF')) {
-          items.add(
-            {
-              'index': 3,
-              'title': 'Staff Management',
-              'icon': Icons.people_alt_outlined,
-            },
-          );
-        }
-
-        if (permissions.contains('CONFIGURE_SETTINGS')) {
-          items.add(
-            {
-              'index': 4,
-              'title': 'LMS Settings',
-              'icon': Icons.settings_outlined,
-            },
-          );
-        }
-
-        if (permissions.contains('VIEW_NOTIFICATIONS') || permissions.isEmpty) {
-          items.add(
-            {
-              'index': 1,
-              'title': 'Notifications',
-              'icon': Icons.notifications_outlined,
-            },
-          );
-        }
-
-        if (items.isEmpty) {
-          return [
-            {'index': 0, 'title': 'Borrow & Return', 'icon': Icons.swap_horiz},
-            {
-              'index': 1,
-              'title': 'Notifications',
-              'icon': Icons.notifications_outlined,
-            },
-          ];
-        }
-
-        return items;
-      }
-      case UserRole.reader:
+      case UserRole.student:
         return [
-          {'index': 0, 'title': 'Reader Home', 'icon': Icons.home_outlined},
+          {'index': 0, 'title': 'Student Home', 'icon': Icons.home_outlined},
           {'index': 1, 'title': 'My Books', 'icon': Icons.bookmark_outline},
           {
             'index': 2,
@@ -382,18 +413,18 @@ class _MainShellState extends State<MainShell> {
           default:
             return const LibrarianDeskScreen();
         }
-      case UserRole.reader:
+      case UserRole.student:
         switch (_selectedNavIndex) {
           case 1:
-            return ReaderMyBooksScreen(
+            return StudentMyBooksScreen(
               studentId: _currentAccount!.id.toString(),
             );
           case 2:
-            return ReaderReservationsScreen(
+            return StudentReservationsScreen(
               studentId: _currentAccount!.id.toString(),
             );
           default:
-            return ReaderHomeScreen(
+            return StudentHomeScreen(
               studentId: _currentAccount!.id,
               onNavigateToMyBooks: () => setState(() => _selectedNavIndex = 1),
             );

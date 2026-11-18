@@ -9,5 +9,6 @@ public record LoginResponse(
         String role,
         String title,
         boolean requiresPasswordChange,
-        Set<String> permissions) {
+        Set<String> permissions,
+        byte[] profilePhoto) {
 }

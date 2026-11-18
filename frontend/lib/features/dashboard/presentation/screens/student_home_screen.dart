@@ -12,21 +12,21 @@ import '../../../borrowing/domain/usecases/get_my_books.dart';
 import '../../domain/usecases/get_student_dashboard.dart';
 import '../../../reservations/domain/usecases/create_reservation.dart';
 
-class ReaderHomeScreen extends StatefulWidget {
+class StudentHomeScreen extends StatefulWidget {
   final VoidCallback onNavigateToMyBooks;
   final int studentId;
 
-  const ReaderHomeScreen({
+  const StudentHomeScreen({
     super.key,
     required this.onNavigateToMyBooks,
     required this.studentId,
   });
 
   @override
-  State<ReaderHomeScreen> createState() => _ReaderHomeScreenState();
+  State<StudentHomeScreen> createState() => _StudentHomeScreenState();
 }
 
-class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
+class _StudentHomeScreenState extends State<StudentHomeScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   final GetStudentDashboard _getStudentDashboardUseCase =
@@ -43,6 +43,8 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
   late Future<StudentDashboard> _dashboardFuture;
   late Future<List<Book>> _booksFuture;
   late Future<List<BorrowRecord>> _borrowingsFuture;
+  LibraryService? _libraryService;
+  int _seenBorrowingsRevision = 0;
 
   String _searchQuery = '';
 
@@ -66,7 +68,32 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final service = context.read<LibraryService>();
+    if (identical(service, _libraryService)) return;
+
+    _libraryService?.removeListener(_handleBorrowingsChanged);
+    _libraryService = service;
+    _seenBorrowingsRevision = service.borrowingsRevision;
+    service.addListener(_handleBorrowingsChanged);
+  }
+
+  void _handleBorrowingsChanged() {
+    final service = _libraryService;
+    if (!mounted ||
+        service == null ||
+        service.borrowingsRevision == _seenBorrowingsRevision) {
+      return;
+    }
+
+    _seenBorrowingsRevision = service.borrowingsRevision;
+    _refreshStudentData();
+  }
+
+  @override
   void dispose() {
+    _libraryService?.removeListener(_handleBorrowingsChanged);
     _searchController.dispose();
     super.dispose();
   }
@@ -190,8 +217,10 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
     });
   }
 
-  void _refreshDueDateNotifications() {
+  void _refreshStudentData() {
     setState(() {
+      _dashboardFuture = _getStudentDashboardUseCase(widget.studentId);
+      _booksFuture = _getAvailableBooksUseCase();
       _borrowingsFuture = _getMyBooksUseCase(widget.studentId.toString());
     });
   }
@@ -521,8 +550,8 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
               ),
             ),
             IconButton(
-              onPressed: _refreshDueDateNotifications,
-              tooltip: 'Refresh due-date reminders',
+              onPressed: _refreshStudentData,
+              tooltip: 'Refresh student dashboard',
               icon: const Icon(Icons.refresh, color: primaryBlue),
             ),
           ],
@@ -544,7 +573,7 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
               return _dueDateReminderMessage(
                 'Unable to load due-date reminders.',
                 trailing: TextButton(
-                  onPressed: _refreshDueDateNotifications,
+                  onPressed: _refreshStudentData,
                   child: const Text('Try again'),
                 ),
               );
@@ -961,6 +990,11 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
   // ---------------------------------------------------------
 
   String _coverForBook(Book book) {
+    final storedCoverUrl = book.coverImage?.trim();
+    if (storedCoverUrl != null && storedCoverUrl.isNotEmpty) {
+      return storedCoverUrl;
+    }
+
     final title = book.title.toLowerCase();
 
     if (title.contains('clean code')) {

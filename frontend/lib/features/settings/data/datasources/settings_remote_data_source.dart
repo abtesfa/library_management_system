@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import '../../../../core/config/api_config.dart';
 
 class SettingsRemoteDataSource {
-  static const String baseUrl = '${ApiConfig.baseUrl}/settings';
+  static final String baseUrl = '${ApiConfig.baseUrl}/settings';
 
   // GET: Load settings from Spring Boot
   Future<Map<String, dynamic>> getSettings() async {

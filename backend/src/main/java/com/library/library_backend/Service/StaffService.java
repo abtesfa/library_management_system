@@ -29,7 +29,7 @@ public class StaffService {
             "ADD_BOOK", "Add books to the inventory",
             "EDIT_BOOK", "Edit book information",
             "DELETE_BOOK", "Delete books from the inventory",
-            "BORROW_BOOK", "Issue books to readers",
+            "BORROW_BOOK", "Issue books to students",
             "RETURN_BOOK", "Process returned books",
             "CONFIGURE_SETTINGS", "Configure library settings",
             "MANAGE_STAFF", "Manage staff accounts",

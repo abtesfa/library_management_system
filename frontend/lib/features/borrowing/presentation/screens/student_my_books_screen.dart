@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../domain/entities/borrow_record.dart';
 import '../../../../core/di/injector.dart';
+import '../../../library/presentation/providers/library_service.dart';
 import '../../domain/usecases/get_my_books.dart';
 import '../../domain/usecases/renew_book.dart';
 
-class ReaderMyBooksScreen extends StatefulWidget {
+class StudentMyBooksScreen extends StatefulWidget {
   final String studentId;
 
-  const ReaderMyBooksScreen({
+  const StudentMyBooksScreen({
     super.key,
     required this.studentId,
   });
 
   @override
-  State<ReaderMyBooksScreen> createState() => _ReaderMyBooksScreenState();
+  State<StudentMyBooksScreen> createState() => _StudentMyBooksScreenState();
 }
 
-class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
+class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
   List<BorrowRecord> _borrowed = [];
 
   final GetMyBooks _getMyBooksUseCase = injector.getMyBooks;
@@ -28,6 +30,8 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
 
   bool _isLoading = true;
   String? _errorMessage;
+  LibraryService? _libraryService;
+  int _seenBorrowingsRevision = 0;
 
   /// ID of the loan being renewed right now, if any.
   String? _renewingId;
@@ -39,7 +43,32 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final service = context.read<LibraryService>();
+    if (identical(service, _libraryService)) return;
+
+    _libraryService?.removeListener(_handleBorrowingsChanged);
+    _libraryService = service;
+    _seenBorrowingsRevision = service.borrowingsRevision;
+    service.addListener(_handleBorrowingsChanged);
+  }
+
+  void _handleBorrowingsChanged() {
+    final service = _libraryService;
+    if (!mounted ||
+        service == null ||
+        service.borrowingsRevision == _seenBorrowingsRevision) {
+      return;
+    }
+
+    _seenBorrowingsRevision = service.borrowingsRevision;
+    _loadBorrowedBooks();
+  }
+
+  @override
   void dispose() {
+    _libraryService?.removeListener(_handleBorrowingsChanged);
     _searchController.dispose();
     super.dispose();
   }

@@ -42,6 +42,10 @@ public class Staff {
     @Column(name = "must_change_password", nullable = false)
     private boolean mustChangePassword = false;
 
+    @Lob
+    @Column(name = "profile_photo", columnDefinition = "LONGBLOB")
+    private byte[] profilePhoto;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -137,6 +141,14 @@ public class Staff {
 
     public void setMustChangePassword(boolean mustChangePassword) {
         this.mustChangePassword = mustChangePassword;
+    }
+
+    public byte[] getProfilePhoto() {
+        return profilePhoto;
+    }
+
+    public void setProfilePhoto(byte[] profilePhoto) {
+        this.profilePhoto = profilePhoto;
     }
 
     public LocalDateTime getCreatedAt() {

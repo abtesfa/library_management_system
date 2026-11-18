@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../books/domain/entities/book.dart';
 import '../../../auth/presentation/widgets/sign_in_dialog.dart';
-import '../../../../core/config/app_images.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../library/presentation/providers/library_service.dart';
 
@@ -149,12 +148,20 @@ class _LandingScreenState extends State<LandingScreen>
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text(
-                    'Library Management System',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth:
+                          MediaQuery.sizeOf(context).width < 600 ? 140 : 280,
+                    ),
+                    child: Text(
+                      libraryService.settings.libraryName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -515,26 +522,30 @@ class _LandingScreenState extends State<LandingScreen>
                           ),
                           alignment: Alignment.bottomLeft,
                           padding: const EdgeInsets.all(24),
-                          child: const Column(
+                          child: Column(
                             mainAxisAlignment: MainAxisAlignment.end,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.auto_stories,
                                 size: 38,
                                 color: Colors.white,
                               ),
-                              SizedBox(height: 12),
+                              const SizedBox(height: 12),
                               Text(
-                                '1,200+ Books',
-                                style: TextStyle(
+                                libraryService.isLoadingBooks
+                                    ? 'Loading books...'
+                                    : libraryService.booksError == null
+                                        ? '${distinctBooks.length} Books'
+                                        : 'Books unavailable',
+                                style: const TextStyle(
                                   fontSize: 28,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
                               ),
-                              SizedBox(height: 6),
-                              Text(
+                              const SizedBox(height: 6),
+                              const Text(
                                 'Discover a world of knowledge',
                                 style: TextStyle(
                                   fontSize: 14,
@@ -634,7 +645,7 @@ class _LandingScreenState extends State<LandingScreen>
                         TextButton.icon(
                           onPressed: () => _openSignIn(
                             context,
-                            UserRole.reader,
+                            UserRole.student,
                           ),
                           icon: const Text(
                             'View All Books',
@@ -767,9 +778,9 @@ class _LandingScreenState extends State<LandingScreen>
                       children: [
                         _buildStep(
                           '1',
-                          'Create an Account',
-                          'Sign up as a member and get access to '
-                              'library services.',
+                          'Sign In to Your Account',
+                          'Enter your assigned Student ID and password to '
+      'securely access library services.',
                         ),
                         const SizedBox(width: 16),
                         _buildStep(
@@ -810,6 +821,8 @@ class _LandingScreenState extends State<LandingScreen>
   // ==========================================
 
   Widget _buildLandingFooter(BuildContext context) {
+    final libraryName = context.watch<LibraryService>().settings.libraryName;
+
     return Container(
       width: double.infinity,
       color: AppColors.primary,
@@ -819,7 +832,7 @@ class _LandingScreenState extends State<LandingScreen>
         children: [
           LayoutBuilder(
             builder: (context, constraints) {
-              final brand = _footerBrand();
+              final brand = _footerBrand(libraryName);
               final links = _footerLinks(context);
               final contact = _footerContact();
 
@@ -854,19 +867,19 @@ class _LandingScreenState extends State<LandingScreen>
             color: Colors.white.withValues(alpha: 0.18),
           ),
           const SizedBox(height: 16),
-          const Wrap(
+          Wrap(
             alignment: WrapAlignment.spaceBetween,
             runSpacing: 8,
             children: [
               Text(
-                '© 2026 Library Management System. All rights reserved.',
-                style: TextStyle(
+                '© 2026 $libraryName. All rights reserved.',
+                style: const TextStyle(
                   color: Color(0xFFF6B7A5),
                   fontSize: 12,
                 ),
               ),
-              Text(
-                'Better Readers · Stronger Communities · Brighter Futures',
+              const Text(
+                'Better Students · Stronger Communities · Brighter Futures',
                 style: TextStyle(
                   color: Color(0xFFF6B7A5),
                   fontSize: 12,
@@ -881,7 +894,7 @@ class _LandingScreenState extends State<LandingScreen>
 
   // FOOTER BRAND
 
-  Widget _footerBrand() {
+  Widget _footerBrand(String libraryName) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -900,10 +913,12 @@ class _LandingScreenState extends State<LandingScreen>
               ),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Text(
-                'Library Management System',
-                style: TextStyle(
+                libraryName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
@@ -1031,7 +1046,7 @@ class _LandingScreenState extends State<LandingScreen>
             SizedBox(width: 10),
             Expanded(
               child: Text(
-                'centralacademy@example.com',
+                'centralacademy@library.com',
                 style: TextStyle(
                   color: Color(0xFFF6B7A5),
                   fontSize: 13,
@@ -1138,23 +1153,14 @@ class _LandingScreenState extends State<LandingScreen>
 
   Widget _buildBookCard(BuildContext context, Book book) {
     final isAvailable = book.availableCopies > 0;
-    final title = book.title.toLowerCase();
 
-    final String? coverUrl = title.contains('clean code')
-        ? AppImages.cleanCode
-        : title.contains('atomic habits')
-            ? AppImages.atomicHabits
-            : title.contains('martian')
-                ? AppImages.theMartian
-                : title.contains('design patterns')
-                    ? AppImages.designPatterns
-                    : title.contains('think like a monk')
-                        ? AppImages.thinkLikeAMonk
-                        : title.contains('dune')
-                            ? AppImages.dune
-                            : title.contains('sapiens')
-                                ? AppImages.sapiens
-                                : null;
+    // Generate the Open Library cover URL from the book ISBN.
+    // Remove hyphens and whitespace before building the URL.
+    final isbn = book.isbn.replaceAll(RegExp(r'[-\s]'), '').trim();
+
+    final String? coverUrl = isbn.isNotEmpty
+        ? 'https://covers.openlibrary.org/b/isbn/$isbn-M.jpg?default=false'
+        : null;
 
     // Hover state for each individual book card.
     bool isHovered = false;
@@ -1176,19 +1182,14 @@ class _LandingScreenState extends State<LandingScreen>
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOut,
-
-            // Move the card upward and enlarge it on hover.
             transform: Matrix4.translationValues(
               0,
               isHovered ? -7 : 0,
               0,
             )..scale(isHovered ? 1.025 : 1.0),
-
             transformAlignment: Alignment.center,
-
             width: 190,
             padding: const EdgeInsets.all(12),
-
             decoration: BoxDecoration(
               color: const Color(0xFFFBF1E4),
               borderRadius: BorderRadius.circular(14),
@@ -1207,12 +1208,10 @@ class _LandingScreenState extends State<LandingScreen>
                 ),
               ],
             ),
-
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // BOOK COVER
-
+                // BOOK COVER FROM OPEN LIBRARY
                 SizedBox(
                   width: double.infinity,
                   height: 140,
@@ -1229,11 +1228,8 @@ class _LandingScreenState extends State<LandingScreen>
                         : _buildCoverPlaceholder(book.title),
                   ),
                 ),
-
                 const SizedBox(height: 8),
-
                 // BOOK TITLE
-
                 Text(
                   book.title,
                   maxLines: 1,
@@ -1244,9 +1240,7 @@ class _LandingScreenState extends State<LandingScreen>
                     color: Color(0xFF171717),
                   ),
                 ),
-
                 // BOOK AUTHOR
-
                 Text(
                   book.author,
                   maxLines: 1,
@@ -1256,11 +1250,8 @@ class _LandingScreenState extends State<LandingScreen>
                     color: Color(0xFF666666),
                   ),
                 ),
-
                 const Spacer(),
-
                 // AVAILABILITY AND RESERVE BUTTON
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -1294,7 +1285,7 @@ class _LandingScreenState extends State<LandingScreen>
                     InkWell(
                       onTap: () => _openSignIn(
                         context,
-                        UserRole.reader,
+                        UserRole.student,
                       ),
                       child: const Text(
                         'Reserve',

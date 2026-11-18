@@ -1,5 +1,7 @@
 package com.library.library_backend.Service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -14,7 +16,11 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.library.library_backend.dto.BookRequest;
+import com.library.library_backend.dto.BookResponse;
+import com.library.library_backend.entity.Author;
 import com.library.library_backend.entity.BookCopy;
+import com.library.library_backend.entity.Category;
 import com.library.library_backend.entity.Reservation;
 import com.library.library_backend.entity.book;
 import com.library.library_backend.repository.AuthorRepository;
@@ -61,6 +67,46 @@ class BookServiceTest {
                 borrowingRepository,
                 notificationRepository,
                 reservationRepository);
+    }
+
+    @Test
+    void createBookPersistsAndReturnsCoverImage() {
+        String coverUrl = "https://covers.openlibrary.org/b/id/12345-L.jpg";
+        Author author = new Author();
+        author.setAuthorName("Robert C. Martin");
+        Category category = new Category();
+        category.setCategoryId(3);
+        category.setCategoryName("Software");
+
+        BookRequest request = new BookRequest();
+        request.setTitle("Clean Code");
+        request.setAuthorName("Robert C. Martin");
+        request.setCategoryId(3);
+        request.setNumberOfCopies(1);
+        request.setIsbn("9780132350884");
+        request.setCoverImage(coverUrl);
+
+        when(authorRepository.findByAuthorNameIgnoreCase("Robert C. Martin"))
+                .thenReturn(Optional.of(author));
+        when(categoryRepository.findById(3)).thenReturn(Optional.of(category));
+        when(bookRepository.findByIsbn("9780132350884"))
+                .thenReturn(Optional.empty());
+        when(bookRepository.save(any(book.class))).thenAnswer(invocation -> {
+            book savedBook = invocation.getArgument(0);
+            savedBook.setBookId(7);
+            return savedBook;
+        });
+        when(bookCopyRepository.countByBookId(7)).thenReturn(1L);
+        when(bookCopyRepository.countByBookIdAndStatus(7, "Available"))
+                .thenReturn(1L);
+        when(reservationRepository.countActiveByBookId(7)).thenReturn(0L);
+        when(bookCopyRepository.findFirstByBookIdAndStatus(7, "Available"))
+                .thenReturn(Optional.of(new BookCopy()));
+
+        BookResponse response = bookService.createBook(request);
+
+        verify(bookRepository).save(any(book.class));
+        assertEquals(coverUrl, response.getCoverImage());
     }
 
     @Test

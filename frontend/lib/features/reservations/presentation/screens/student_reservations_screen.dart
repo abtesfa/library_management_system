@@ -7,20 +7,20 @@ import '../../../../core/di/injector.dart';
 import '../../domain/usecases/get_reservations.dart';
 import '../../domain/usecases/cancel_reservation.dart';
 
-class ReaderReservationsScreen extends StatefulWidget {
+class StudentReservationsScreen extends StatefulWidget {
   final String studentId;
 
-  const ReaderReservationsScreen({
+  const StudentReservationsScreen({
     super.key,
     required this.studentId,
   });
 
   @override
-  State<ReaderReservationsScreen> createState() =>
-      _ReaderReservationsScreenState();
+  State<StudentReservationsScreen> createState() =>
+      _StudentReservationsScreenState();
 }
 
-class _ReaderReservationsScreenState extends State<ReaderReservationsScreen> {
+class _StudentReservationsScreenState extends State<StudentReservationsScreen> {
   final GetReservations _getReservationsUseCase = injector.getReservations;
 
   final CancelReservation _cancelReservationUseCase =

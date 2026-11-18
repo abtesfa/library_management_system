@@ -1,5 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+import '../../../../core/config/api_config.dart';
 import '../../../../core/di/injector.dart';
+import '../../../library/presentation/providers/library_service.dart';
 import '../../domain/usecases/get_settings.dart';
 import '../../domain/usecases/update_settings.dart';
 
@@ -20,7 +26,23 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   late TextEditingController _renewalLimitController;
   late TextEditingController _fineController;
   late TextEditingController _reservationHoldController;
+  late TextEditingController _announcementTitleController;
+  late TextEditingController _announcementMessageController;
   String _reservationHoldUnit = 'hours';
+  String _announcementAudience = 'All Librarians';
+  String _announcementPriority = 'Urgent';
+  DateTime? _announcementValidUntil;
+
+  static const List<String> _librarianPositions = [
+    'Librarian',
+    'All Librarians',
+    'Chief Circulation Librarian',
+    'Cataloging Specialist',
+    'Reference Librarian',
+    'Acquisitions Librarian',
+    'Digital Resources Librarian',
+    'Archivist',
+  ];
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
@@ -43,6 +65,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     _renewalLimitController = TextEditingController();
     _fineController = TextEditingController();
     _reservationHoldController = TextEditingController();
+    _announcementTitleController = TextEditingController();
+    _announcementMessageController = TextEditingController();
 
     _nameController.addListener(_refreshSummary);
     _dailyBooksController.addListener(_refreshSummary);
@@ -85,7 +109,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
 
       _dailyBooksController.text = data['maxBooksPerDay']?.toString() ?? '3';
 
-      _borrowDaysController.text = data['maxBorrowingDays']?.toString() ?? '14';
+      _borrowDaysController.text = data['maxBorrowingDays']?.toString() ?? '';
 
       _renewalLimitController.text = data['renewalLimit']?.toString() ?? '2';
 
@@ -166,6 +190,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       return;
     }
 
+    final libraryService = Provider.of<LibraryService>(context, listen: false);
+
     setState(() {
       _isSaving = true;
     });
@@ -180,14 +206,21 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
         reservationHoldMinutes: reservationHoldMinutes,
       );
 
+      await libraryService.loadSettingsFromApi();
+
       if (!mounted) return;
 
       setState(() {
         _isSaving = false;
       });
 
+      final settingsError = libraryService.settingsError;
       _showMessage(
-        'LMS settings saved successfully!',
+        settingsError == null
+            ? 'LMS settings saved successfully!'
+            : 'Settings saved, but borrowing settings could not be refreshed: '
+                '$settingsError',
+        isError: settingsError != null,
       );
     } catch (e) {
       if (!mounted) return;
@@ -251,6 +284,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     _renewalLimitController.dispose();
     _fineController.dispose();
     _reservationHoldController.dispose();
+    _announcementTitleController.dispose();
+    _announcementMessageController.dispose();
 
     super.dispose();
   }
@@ -439,6 +474,307 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   // HEADER
   // =========================================================
 
+  Future<void> _showAnnouncementDialog() async {
+    _announcementTitleController.clear();
+    _announcementMessageController.clear();
+    setState(() {
+      _announcementAudience = 'All Librarians';
+      _announcementPriority = 'Urgent';
+      _announcementValidUntil = null;
+    });
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        String selectedAudience = _announcementAudience;
+        String selectedPriority = _announcementPriority;
+        DateTime? selectedValidUntil = _announcementValidUntil;
+
+        Color priorityColor(String priority) {
+          return switch (priority) {
+            'Normal' => const Color(0xFF9CA3AF),
+            'Important' => const Color(0xFF3B82F6),
+            _ => const Color(0xFFEF4444),
+          };
+        }
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 24,
+              ),
+              titlePadding: EdgeInsets.zero,
+              contentPadding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Container(
+                width: 620,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF514746),
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(16),
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.menu_book, color: Colors.white, size: 36),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Make Announcement',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Share important information with librarians',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              content: SizedBox(
+                width: 520,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Share important information with librarians.',
+                        style: TextStyle(color: textMuted),
+                      ),
+                      const SizedBox(height: 18),
+                      TextField(
+                        controller: _announcementTitleController,
+                        decoration: const InputDecoration(
+                          labelText: 'Title',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: _announcementMessageController,
+                        minLines: 3,
+                        maxLines: 5,
+                        decoration: const InputDecoration(
+                          labelText: 'Message',
+                          alignLabelWithHint: true,
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final priorityField =
+                              DropdownButtonFormField<String>(
+                            initialValue: selectedPriority,
+                            decoration: const InputDecoration(
+                              labelText: 'Priority',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: ['Normal', 'Important', 'Urgent']
+                                .map(
+                                  (priority) => DropdownMenuItem(
+                                    value: priority,
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 12,
+                                          height: 12,
+                                          decoration: BoxDecoration(
+                                            color: priorityColor(priority),
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Text(priority),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              if (value != null) {
+                                setDialogState(() {
+                                  selectedPriority = value;
+                                  _announcementPriority = value;
+                                });
+                              }
+                            },
+                          );
+
+                          final validUntilField = InkWell(
+                            onTap: () async {
+                              final date = await showDatePicker(
+                                context: dialogContext,
+                                initialDate: selectedValidUntil ??
+                                    DateTime.now().add(
+                                      const Duration(days: 1),
+                                    ),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now().add(
+                                  const Duration(days: 365 * 5),
+                                ),
+                              );
+                              if (date != null) {
+                                setDialogState(() {
+                                  selectedValidUntil = date;
+                                  _announcementValidUntil = date;
+                                });
+                              }
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(
+                                labelText: 'Valid Until (Optional)',
+                                border: OutlineInputBorder(),
+                                suffixIcon: Icon(Icons.calendar_today),
+                              ),
+                              child: Text(
+                                selectedValidUntil == null
+                                    ? 'Select date...'
+                                    : '${selectedValidUntil!.year}-${selectedValidUntil!.month.toString().padLeft(2, '0')}-${selectedValidUntil!.day.toString().padLeft(2, '0')}',
+                                style: TextStyle(
+                                  color: selectedValidUntil == null
+                                      ? textMuted
+                                      : textDark,
+                                ),
+                              ),
+                            ),
+                          );
+
+                          if (constraints.maxWidth < 460) {
+                            return Column(
+                              children: [
+                                priorityField,
+                                const SizedBox(height: 14),
+                                validUntilField,
+                              ],
+                            );
+                          }
+
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(child: priorityField),
+                              const SizedBox(width: 14),
+                              Expanded(child: validUntilField),
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedAudience,
+                        decoration: const InputDecoration(
+                          labelText: 'Target Audience',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _librarianPositions
+                            .map(
+                              (position) => DropdownMenuItem(
+                                value: position,
+                                child: Text(position),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() {
+                              selectedAudience = value;
+                              _announcementAudience = value;
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final title = _announcementTitleController.text.trim();
+                    final message =
+                        _announcementMessageController.text.trim();
+
+                    if (title.isEmpty || message.isEmpty) {
+                      _showMessage(
+                        'Enter both a title and message.',
+                        isError: true,
+                      );
+                      return;
+                    }
+
+                    try {
+                      final response = await http.post(
+                        Uri.parse('${ApiConfig.baseUrl}/notifications'),
+                        headers: const {'Content-Type': 'application/json'},
+                        body: jsonEncode({
+                          'title': title,
+                          'message': message,
+                          'details':
+                              'Target Audience: $selectedAudience',
+                          'notificationType': 'ANNOUNCEMENT',
+                          'recipientType': 'LIBRARIAN',
+                          'isRead': false,
+                        }),
+                      );
+
+                      if (response.statusCode != 200 &&
+                          response.statusCode != 201) {
+                        throw Exception(
+                          'Failed to send announcement: ${response.body}',
+                        );
+                      }
+
+                      if (!dialogContext.mounted) return;
+                      Navigator.of(dialogContext).pop();
+                      _showMessage('Announcement sent successfully.');
+                    } catch (e) {
+                      _showMessage(
+                        'Unable to send announcement: $e',
+                        isError: true,
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryBlue,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Send Announcement'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildHeader() {
     return Row(
       children: [
@@ -476,6 +812,19 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                 ),
               ),
             ],
+          ),
+        ),
+        ElevatedButton.icon(
+          onPressed: _showAnnouncementDialog,
+          icon: const Icon(Icons.campaign_outlined, size: 18),
+          label: const Text('Make Announcement'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: primaryBlue,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
           ),
         ),
       ],

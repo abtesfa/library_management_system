@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface BorrowingRepository
@@ -21,7 +22,7 @@ public interface BorrowingRepository
         SELECT COUNT(*)
         FROM borrowing
         WHERE User_ID = :userId
-        AND Status = 'BORROWED'
+        AND UPPER(Status) IN ('BORROWED', 'OVERDUE')
         """, nativeQuery = true)
     long countCurrentlyBorrowed(@Param("userId") Integer userId);
 
@@ -74,4 +75,20 @@ Optional<Integer> findActiveBorrowingId(
         @Param("studentId") String studentId,
         @Param("query") String query
 );
+
+@Query(value = """
+    SELECT
+        br.Borrowing_ID,
+        br.Due_Date,
+        s.Full_Name,
+        s.Student_ID,
+        b.Title
+    FROM borrowing br
+    JOIN student s ON s.User_ID = br.User_ID
+    JOIN book_copy bc ON bc.Copy_ID = br.Copy_ID
+    JOIN book b ON b.Book_ID = bc.Book_ID
+    WHERE UPPER(br.Status) IN ('BORROWED', 'OVERDUE')
+      AND br.Return_Date IS NULL
+    """, nativeQuery = true)
+List<Object[]> findActiveBorrowingsForNotifications();
 }

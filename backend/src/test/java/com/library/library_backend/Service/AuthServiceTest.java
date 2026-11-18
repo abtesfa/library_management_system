@@ -2,10 +2,19 @@ package com.library.library_backend.Service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.Base64;
 import java.util.Optional;
+
+import javax.imageio.ImageIO;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -52,6 +61,7 @@ class AuthServiceTest {
         student.setEmail("student@example.com");
         student.setDepartment("Science");
         student.setStatus("ACTIVE");
+        student.setProfilePhoto(new byte[] {1, 2, 3});
         student.setPassword(passwordHashService.hash("student-pass"));
 
         when(studentRepository.findByStudentId("ST-42"))
@@ -63,7 +73,34 @@ class AuthServiceTest {
         assertEquals("42", response.accountId());
         assertEquals("STUDENT", response.role());
         assertEquals("Test Student", response.fullName());
+        assertArrayEquals(new byte[] {1, 2, 3}, response.profilePhoto());
         verify(studentRepository).findByStudentId("ST-42");
+    }
+
+    @Test
+    void upgradesLegacyPlainTextStudentPasswordAfterSuccessfulLogin() {
+        Student student = new Student();
+        student.setUserId(43);
+        student.setStudentId("ST-43");
+        student.setFullName("Legacy Student");
+        student.setEmail("legacy@example.com");
+        student.setStatus("ACTIVE");
+        student.setPassword("legacy-student-password");
+
+        when(studentRepository.findByStudentId("ST-43"))
+                .thenReturn(Optional.of(student));
+
+        LoginResponse response = authService.login(
+                loginRequest(
+                        "ST-43",
+                        "legacy-student-password",
+                        "STUDENT"));
+
+        assertEquals("43", response.accountId());
+        assertTrue(passwordHashService.matches(
+                "legacy-student-password",
+                student.getPassword()));
+        verify(studentRepository).save(student);
     }
 
     @Test
@@ -147,12 +184,12 @@ class AuthServiceTest {
         Student student = new Student();
         student.setUserId(77);
         student.setStudentId("ST-77");
-        student.setFullName("Temp Reader");
-        student.setEmail("reader77@example.com");
+        student.setFullName("Temp Student");
+        student.setEmail("student77@example.com");
         student.setDepartment("Computer Science");
         student.setStatus("ACTIVE");
         student.setMustChangePassword(true);
-        student.setPassword(passwordHashService.hash("temp-reader-123"));
+        student.setPassword(passwordHashService.hash("temp-student-123"));
 
         when(studentRepository.findByStudentId("ST-77"))
                 .thenReturn(Optional.of(student));
@@ -160,12 +197,78 @@ class AuthServiceTest {
         LoginResponse response = authService.login(
                 loginRequest(
                         "ST-77",
-                        "temp-reader-123",
+                        "temp-student-123",
                         "STUDENT"));
 
         assertEquals("77", response.accountId());
         assertEquals("STUDENT", response.role());
         assertEquals(true, response.requiresPasswordChange());
+    }
+
+    @Test
+    void savesProfilePhotoWithoutRequestingStudentPassword() throws IOException {
+        Student student = new Student();
+        student.setUserId(42);
+        student.setStatus("ACTIVE");
+        student.setPassword(passwordHashService.hash("student-pass"));
+        when(studentRepository.findById(42)).thenReturn(Optional.of(student));
+        byte[] imageBytes = createProfilePhoto();
+
+        authService.updateProfilePhoto(
+                "42",
+                "STUDENT",
+                Base64.getEncoder().encodeToString(imageBytes));
+
+        assertArrayEquals(imageBytes, student.getProfilePhoto());
+        verify(studentRepository).save(student);
+    }
+
+    @Test
+    void doesNotSaveProfilePhotoForInactiveStudent() throws IOException {
+        Student student = new Student();
+        student.setUserId(42);
+        student.setStatus("INACTIVE");
+        student.setPassword(passwordHashService.hash("student-pass"));
+        when(studentRepository.findById(42)).thenReturn(Optional.of(student));
+
+        assertThrows(
+                ResponseStatusException.class,
+                () -> authService.updateProfilePhoto(
+                        "42",
+                        "STUDENT",
+                        Base64.getEncoder().encodeToString(
+                                createProfilePhoto())));
+
+        verify(studentRepository, never()).save(student);
+    }
+
+    @Test
+    void savesProfilePhotoWithoutRequestingStaffPassword() throws IOException {
+        Staff staff = new Staff();
+        staff.setStaffId(9);
+        staff.setRole("LIBRARIAN");
+        staff.setStatus("ACTIVE");
+        staff.setPasswordHash(passwordHashService.hash("staff-pass"));
+        when(staffRepository.findById(9)).thenReturn(Optional.of(staff));
+        byte[] imageBytes = createProfilePhoto();
+
+        authService.updateProfilePhoto(
+                "9",
+                "LIBRARIAN",
+                Base64.getEncoder().encodeToString(imageBytes));
+
+        assertArrayEquals(imageBytes, staff.getProfilePhoto());
+        verify(staffRepository).save(staff);
+    }
+
+    private byte[] createProfilePhoto() throws IOException {
+        BufferedImage image = new BufferedImage(
+                1,
+                1,
+                BufferedImage.TYPE_INT_RGB);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", output);
+        return output.toByteArray();
     }
 
     private LoginRequest loginRequest(

@@ -93,7 +93,7 @@ class _SignInDialogState extends State<SignInDialog> {
     final roleLabel = switch (_selectedRole) {
       UserRole.admin => 'Administrator',
       UserRole.librarian => 'Librarian',
-      UserRole.reader => 'Reader / Student',
+      UserRole.student => 'Student',
     };
 
     return Dialog(
@@ -201,9 +201,9 @@ class _SignInDialogState extends State<SignInDialog> {
                         ),
                         const SizedBox(width: 8),
                         _buildRoleTab(
-                          role: UserRole.reader,
-                          label: 'Reader',
-                          subtitle: 'Student User',
+                          role: UserRole.student,
+                          label: 'Student',
+                          subtitle: 'Student Account',
                           icon: Icons.person,
                           activeColor: const Color(0xFFF25635),
                         ),
@@ -228,7 +228,7 @@ class _SignInDialogState extends State<SignInDialog> {
                       controller: _identifierController,
                       enabled: !_isSigningIn,
                       decoration: InputDecoration(
-                        labelText: _selectedRole == UserRole.reader
+                        labelText: _selectedRole == UserRole.student
                             ? 'Student ID or Email'
                             : 'Work Email',
                         prefixIcon: const Icon(

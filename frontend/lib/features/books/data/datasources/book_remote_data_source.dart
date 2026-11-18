@@ -7,7 +7,7 @@ import '../../../../core/error/api_exception.dart';
 import '../models/book_model.dart';
 
 class BookRemoteDataSource {
-  static const String baseUrl = '${ApiConfig.baseUrl}/books';
+  static final String baseUrl = '${ApiConfig.baseUrl}/books';
   static const Duration _requestTimeout = Duration(seconds: 15);
 
   /// Loads every book from the backend.

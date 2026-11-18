@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../domain/entities/user.dart';
 
 class AuthenticatedUserModel extends UserAccount {
@@ -8,6 +10,7 @@ class AuthenticatedUserModel extends UserAccount {
     required super.email,
     required super.role,
     super.permissions,
+    super.avatarBytes,
   });
 
   factory AuthenticatedUserModel.fromJson(Map<String, dynamic> json) {
@@ -22,7 +25,7 @@ class AuthenticatedUserModel extends UserAccount {
     final role = switch (apiRole) {
       'ADMIN' => UserRole.admin,
       'LIBRARIAN' => UserRole.librarian,
-      'STUDENT' || 'READER' => UserRole.reader,
+      'STUDENT' => UserRole.student,
       _ => throw const FormatException('Unknown account role from server.'),
     };
 
@@ -38,6 +41,9 @@ class AuthenticatedUserModel extends UserAccount {
       email: json['email']?.toString() ?? '',
       role: role,
       permissions: permissions,
+      avatarBytes: json['profilePhoto'] == null
+          ? null
+          : base64Decode(json['profilePhoto'] as String),
     );
   }
 }

@@ -7,7 +7,7 @@ import '../../domain/entities/staff_member.dart';
 import '../models/staff_model.dart';
 
 class StaffRemoteDataSource {
-  static const String baseUrl = '${ApiConfig.baseUrl}/staff';
+  static final String baseUrl = '${ApiConfig.baseUrl}/staff';
 
   // GET: Fetch all staff members
   Future<List<StaffModel>> getAllStaff() async {

@@ -10,6 +10,7 @@ class BookMetadataModel extends BookMetadata {
     super.publicationYear,
     super.description,
     super.coverImage,
+    super.subjects,
   });
 
   factory BookMetadataModel.fromOpenLibrarySearchJson(
@@ -19,6 +20,7 @@ class BookMetadataModel extends BookMetadata {
     final authors = json['author_name'];
     final publishers = json['publisher'];
     final coverId = json['cover_i'];
+    final subjects = json['subject'];
     final title = json['title']?.toString() ?? '';
     final subtitle = json['subtitle']?.toString();
 
@@ -34,6 +36,12 @@ class BookMetadataModel extends BookMetadata {
       coverImage: coverId == null
           ? null
           : 'https://covers.openlibrary.org/b/id/$coverId-L.jpg',
+      subjects: subjects is List
+          ? subjects
+              .map((subject) => subject.toString().trim())
+              .where((subject) => subject.isNotEmpty)
+              .toList()
+          : const [],
     );
   }
 }

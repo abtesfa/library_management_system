@@ -148,9 +148,26 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
   // -------------------- CONFIRM BORROWING --------------------
 
   Future<void> _confirmBorrow(LibraryService service) async {
-    if (service.isProcessingBorrow) return;
+    if (service.isProcessingBorrow || service.isLoadingSettings) return;
 
     if (!_validateBorrowFields()) return;
+
+    await service.loadSettingsFromApi();
+
+    if (!mounted) return;
+
+    if (service.settingsError != null) {
+      _showMessage(
+        'Unable to load current borrowing settings: '
+        '${service.settingsError}',
+      );
+      return;
+    }
+
+    if (service.settings.maxBorrowDays < 1) {
+      _showMessage('Maximum borrowing days are not configured.');
+      return;
+    }
 
     final studentId = _borrowStudentController.text.trim();
     final query = _borrowBookController.text.trim();
@@ -478,6 +495,14 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
     int maxDays,
   ) {
     final book = _selectedBook;
+    final borrowingPolicyUnavailable = service.isLoadingSettings ||
+        service.settingsError != null ||
+        maxDays < 1;
+    final borrowingDaysLabel = service.isLoadingSettings
+        ? 'Loading...'
+        : borrowingPolicyUnavailable
+            ? 'Unavailable'
+            : '$maxDays days';
 
     return _card(
       child: Column(
@@ -598,11 +623,13 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
             children: [
               _infoRow(
                 'Maximum Loan Duration',
-                '$maxDays days',
+                borrowingDaysLabel,
               ),
               _infoRow(
                 'Calculated due date',
-                _formatDate(dueDate),
+                borrowingPolicyUnavailable
+                    ? 'Unavailable'
+                    : _formatDate(dueDate),
               ),
             ],
           ),
@@ -613,7 +640,7 @@ class _LibrarianDeskScreenState extends State<LibrarianDeskScreen> {
                 : 'Confirm Borrowing',
             icon: Icons.book,
             color: primaryBlue,
-            onPressed: service.isProcessingBorrow
+            onPressed: service.isProcessingBorrow || service.isLoadingSettings
                 ? null
                 : () => _confirmBorrow(service),
           ),

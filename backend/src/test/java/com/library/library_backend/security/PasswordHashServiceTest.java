@@ -36,7 +36,7 @@ class PasswordHashServiceTest {
     void acceptsLegacyPlainTextPasswordsForDemoAccounts() {
         assertTrue(passwordHashService.matches("admin123", "admin123"));
         assertTrue(passwordHashService.matches("librarian123", "librarian123"));
-        assertTrue(passwordHashService.matches("reader123", "reader123"));
-        assertFalse(passwordHashService.matches("wrong-pass", "reader123"));
+        assertTrue(passwordHashService.matches("student123", "student123"));
+        assertFalse(passwordHashService.matches("wrong-pass", "student123"));
     }
 }

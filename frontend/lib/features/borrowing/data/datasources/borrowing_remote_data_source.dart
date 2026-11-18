@@ -9,7 +9,7 @@ import '../models/borrow_record_model.dart';
 /// Talks to the librarian borrow/return endpoints and to the student's
 /// "my books" endpoints.
 class BorrowingRemoteDataSource {
-  static const String baseUrl = ApiConfig.baseUrl;
+  static final String baseUrl = ApiConfig.baseUrl;
   static const Duration _requestTimeout = Duration(seconds: 15);
 
   // ---------------------------------------------------------------------------

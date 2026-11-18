@@ -1,4 +1,4 @@
-/// Cover image URLs for the sample books shown on the landing and reader pages.
+/// Cover image URLs for the sample books shown on the landing and student pages.
 class AppImages {
   const AppImages._();
 

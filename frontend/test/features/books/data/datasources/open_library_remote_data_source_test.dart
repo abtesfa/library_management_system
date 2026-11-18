@@ -9,10 +9,12 @@ void main() {
       expect(request.url.host, 'openlibrary.org');
       expect(request.url.path, '/search.json');
       expect(request.url.queryParameters['isbn'], '9780132350884');
+      expect(request.url.queryParameters['fields'], contains('subject'));
       return http.Response(
         '{"docs":[{"title":"Clean Code","subtitle":"A Handbook",'
         '"author_name":["Robert C. Martin"],"publisher":["Prentice Hall"],'
-        '"first_publish_year":2008,"cover_i":12345}]}',
+        '"first_publish_year":2008,"cover_i":12345,'
+        '"subject":["Software engineering","Programming"]}]}',
         200,
       );
     });
@@ -24,6 +26,7 @@ void main() {
     expect(result?.author, 'Robert C. Martin');
     expect(result?.publisher, 'Prentice Hall');
     expect(result?.publicationYear, 2008);
+    expect(result?.subjects, ['Software engineering', 'Programming']);
     expect(
       result?.coverImage,
       'https://covers.openlibrary.org/b/id/12345-L.jpg',

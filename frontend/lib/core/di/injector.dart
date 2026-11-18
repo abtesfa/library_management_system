@@ -3,6 +3,7 @@ import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/domain/usecases/change_password.dart';
 import '../../features/auth/domain/usecases/login.dart';
+import '../../features/auth/domain/usecases/update_profile_photo.dart';
 import '../../features/books/data/datasources/book_remote_data_source.dart';
 import '../../features/books/data/datasources/open_library_remote_data_source.dart';
 import '../../features/books/data/repositories/book_repository_impl.dart';
@@ -115,6 +116,8 @@ class Injector {
   final FindBook findBook = const FindBook();
   late final Login login = Login(_authRepository);
   late final ChangePassword changePassword = ChangePassword(_authRepository);
+  late final UpdateProfilePhoto updateProfilePhoto =
+      UpdateProfilePhoto(_authRepository);
 
   // ---------------------------------------------------------------------------
   // Use cases: borrowing

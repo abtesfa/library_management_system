@@ -6,13 +6,14 @@ import '../../../../core/config/api_config.dart';
 import '../models/library_notification_model.dart';
 
 class NotificationRemoteDataSource {
-  static const String baseUrl = '${ApiConfig.baseUrl}/notifications';
+  static final String baseUrl = '${ApiConfig.baseUrl}/notifications';
 
   // Load notifications addressed to librarians.
   Future<List<LibraryNotificationModel>> getNotifications({
     bool unread = false,
   }) async {
-    final endpoint = unread ? '$baseUrl/librarian/unread' : '$baseUrl/librarian';
+    final endpoint =
+        unread ? '$baseUrl/librarian/unread' : '$baseUrl/librarian';
 
     final response = await http.get(Uri.parse(endpoint));
 

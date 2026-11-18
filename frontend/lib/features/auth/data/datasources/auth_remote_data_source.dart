@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -8,7 +9,7 @@ import '../../domain/entities/user.dart';
 import '../models/authenticated_user_model.dart';
 
 class AuthRemoteDataSource {
-  static const String baseUrl = '${ApiConfig.baseUrl}/auth';
+  static final String baseUrl = '${ApiConfig.baseUrl}/auth';
   static const Duration _requestTimeout = Duration(seconds: 45);
 
   Future<AuthenticatedUserModel> login({
@@ -80,6 +81,43 @@ class AuthRemoteDataSource {
     if (response.statusCode == 200) return;
 
     String message = 'Password change failed (${response.statusCode}).';
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        message = decoded['message']?.toString() ??
+            decoded['error']?.toString() ??
+            message;
+      }
+    } on FormatException {
+      if (response.body.isNotEmpty) message = response.body;
+    }
+
+    throw ApiException(message);
+  }
+
+  Future<void> updateProfilePhoto({
+    required String accountId,
+    required Uint8List photoBytes,
+    required UserRole role,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/profile-photo'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: jsonEncode({
+            'accountId': accountId,
+            'profilePhoto': base64Encode(photoBytes),
+            'role': role.apiRole,
+          }),
+        )
+        .timeout(_requestTimeout);
+
+    if (response.statusCode == 200) return;
+
+    String message = 'Profile photo update failed (${response.statusCode}).';
     try {
       final decoded = jsonDecode(response.body);
       if (decoded is Map<String, dynamic>) {
