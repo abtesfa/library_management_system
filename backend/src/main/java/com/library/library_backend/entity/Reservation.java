@@ -34,6 +34,12 @@ public class Reservation {
     @Column(name = "Hold_Until")
     private LocalDateTime holdUntil;
 
+    @Column(name = "Allocated_Copy_ID")
+    private Integer allocatedCopyId;
+
+    @Column(name = "Estimated_Available_At")
+    private LocalDateTime estimatedAvailableAt;
+
     @Transient
     private Integer pickupHoldMinutes;
 
@@ -102,6 +108,23 @@ public class Reservation {
 
     public void setHoldUntil(LocalDateTime holdUntil) {
         this.holdUntil = holdUntil;
+    }
+
+    public Integer getAllocatedCopyId() {
+        return allocatedCopyId;
+    }
+
+    public void setAllocatedCopyId(Integer allocatedCopyId) {
+        this.allocatedCopyId = allocatedCopyId;
+    }
+
+    public LocalDateTime getEstimatedAvailableAt() {
+        return estimatedAvailableAt;
+    }
+
+    public void setEstimatedAvailableAt(
+            LocalDateTime estimatedAvailableAt) {
+        this.estimatedAvailableAt = estimatedAvailableAt;
     }
 
     public Integer getPickupHoldMinutes() {

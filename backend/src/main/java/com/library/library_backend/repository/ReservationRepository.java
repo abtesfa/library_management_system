@@ -1,3 +1,4 @@
+
 package com.library.library_backend.repository;
 
 import com.library.library_backend.entity.Reservation;
@@ -12,18 +13,18 @@ import java.util.Optional;
 public interface ReservationRepository
         extends JpaRepository<Reservation, Integer> {
 
-    // Get all reservations belonging to one student.
     @Query(value = """
         SELECT
-            r.Reservation_ID AS reservationId,
-            r.Book_ID AS bookId,
-            b.Title AS bookTitle,
-            a.Author_Name AS author,
-            r.Reservation_Date AS reservedDate,
-            r.Hold_Until AS holdUntil,
-            r.Pickup_Location AS pickupLocation,
-            r.Status AS status,
-            r.Queue_Position AS queuePosition
+            r.Reservation_ID,
+            r.Book_ID,
+            b.Title,
+            a.Author_Name,
+            r.Reservation_Date,
+            r.Hold_Until,
+            r.Pickup_Location,
+            r.Status,
+            r.Queue_Position,
+            r.Estimated_Available_At
         FROM reservations r
         JOIN book b ON r.Book_ID = b.Book_ID
         LEFT JOIN author a ON b.Author_ID = a.Author_ID
@@ -34,65 +35,83 @@ public interface ReservationRepository
             @Param("userId") Integer userId
     );
 
-    List<Reservation> findAllByBookId(Integer bookId);
+    @Query("""
+        SELECT r FROM Reservation r
+        WHERE r.bookId = :bookId
+        AND r.status IN ('WAITING', 'READY_FOR_PICKUP')
+        ORDER BY r.reservationDate ASC, r.reservationId ASC
+        """)
+    List<Reservation> findActiveQueue(
+            @Param("bookId") Integer bookId
+    );
 
-    // Check whether the student already has an active reservation.
-    @Query(value = """
-        SELECT COUNT(*)
-        FROM reservations
-        WHERE User_ID = :userId
-        AND Book_ID = :bookId
-        AND Status IN ('WAITING', 'READY_FOR_PICKUP')
-        """, nativeQuery = true)
+    @Query("""
+        SELECT r FROM Reservation r
+        WHERE r.bookId = :bookId
+        AND r.status = 'WAITING'
+        ORDER BY r.reservationDate ASC, r.reservationId ASC
+        """)
+    List<Reservation> findWaitingQueue(
+            @Param("bookId") Integer bookId
+    );
+List<Reservation> findAllByBookId(Integer bookId);
+    @Query("""
+        SELECT COUNT(r) FROM Reservation r
+        WHERE r.userId = :userId
+        AND r.status IN ('WAITING', 'READY_FOR_PICKUP')
+        """)
+    long countActiveByUserId(
+            @Param("userId") Integer userId
+    );
+
+    @Query("""
+        SELECT COUNT(r) FROM Reservation r
+        WHERE r.userId = :userId
+        AND r.bookId = :bookId
+        AND r.status IN ('WAITING', 'READY_FOR_PICKUP')
+        """)
     long countActiveReservation(
             @Param("userId") Integer userId,
             @Param("bookId") Integer bookId
     );
 
-    // Count every active reservation for a book (all students).
-    @Query(value = """
-        SELECT COUNT(*)
-        FROM reservations
-        WHERE Book_ID = :bookId
-        AND Status IN ('WAITING', 'READY_FOR_PICKUP')
-        """, nativeQuery = true)
+    @Query("""
+        SELECT COUNT(r) FROM Reservation r
+        WHERE r.bookId = :bookId
+        AND r.status IN ('WAITING', 'READY_FOR_PICKUP')
+        """)
     long countActiveByBookId(
             @Param("bookId") Integer bookId
     );
 
-    // Active reservations whose configured pickup deadline has passed.
     @Query("""
         SELECT r FROM Reservation r
-        WHERE r.status IN ('WAITING', 'READY_FOR_PICKUP')
+        WHERE r.status = 'READY_FOR_PICKUP'
+        AND r.holdUntil IS NOT NULL
         AND r.holdUntil <= :cutoff
         """)
-    List<Reservation> findExpiredActiveReservations(
+    List<Reservation> findExpiredReadyReservations(
             @Param("cutoff") LocalDateTime cutoff
     );
 
-    // Find a student's active reservation for a book, if any.
-    @Query(value = """
-        SELECT *
-        FROM reservations
-        WHERE User_ID = :userId
-        AND Book_ID = :bookId
-        AND Status IN ('WAITING', 'READY_FOR_PICKUP')
-        ORDER BY Reservation_ID
-        LIMIT 1
-        """, nativeQuery = true)
+    @Query("""
+        SELECT r FROM Reservation r
+        WHERE r.userId = :userId
+        AND r.bookId = :bookId
+        AND r.status IN ('WAITING', 'READY_FOR_PICKUP')
+        ORDER BY r.reservationDate ASC, r.reservationId ASC
+        """)
     Optional<Reservation> findActiveReservation(
             @Param("userId") Integer userId,
             @Param("bookId") Integer bookId
     );
 
-    // Calculate the next waiting queue position for a book.
-    @Query(value = """
-        SELECT COALESCE(MAX(Queue_Position), 0) + 1
-        FROM reservations
-        WHERE Book_ID = :bookId
-        AND Status = 'WAITING'
-        """, nativeQuery = true)
-    int getNextQueuePosition(
-            @Param("bookId") Integer bookId
+    @Query("""
+        SELECT r FROM Reservation r
+        WHERE r.allocatedCopyId = :copyId
+        AND r.status = 'READY_FOR_PICKUP'
+        """)
+    Optional<Reservation> findReadyReservationByCopyId(
+            @Param("copyId") Integer copyId
     );
 }

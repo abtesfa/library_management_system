@@ -22,6 +22,11 @@ import com.library.library_backend.dto.BookUpdateRequest;
 import com.library.library_backend.entity.Category;
 import com.library.library_backend.repository.CategoryRepository;
 
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.web.bind.annotation.RequestParam;
 import jakarta.validation.Valid;
 
 @RestController
@@ -55,6 +60,25 @@ public class BookController {
     public BookResponse getBookById(@PathVariable Integer bookId) {
         return bookService.getBookResponseById(bookId);
     }
+
+    @GetMapping("/catalogue")
+public Page<BookResponse> getCatalogue(
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "12") int size,
+        @RequestParam(required = false) String search) {
+
+    if (page < 0) {
+        throw new IllegalArgumentException(
+                "Page number cannot be negative."
+        );
+    }
+
+    int safeSize = Math.min(Math.max(size, 1), 50);
+
+    Pageable pageable = PageRequest.of(page, safeSize);
+
+    return bookService.getCataloguePage(search, pageable);
+}
 
     @PostMapping
     public ResponseEntity<BookResponse> createBook(

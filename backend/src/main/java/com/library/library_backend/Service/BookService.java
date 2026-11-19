@@ -24,6 +24,8 @@ import com.library.library_backend.repository.CategoryRepository;
 import com.library.library_backend.repository.BorrowingRepository;
 import com.library.library_backend.repository.NotificationRepository;
 import com.library.library_backend.repository.ReservationRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 @Service
 @Transactional
@@ -58,7 +60,7 @@ public class BookService {
     // ==========================================
     // GET ALL BOOKS
     // ==========================================
-
+    
     public List<BookResponse> getAllBookResponses() {
 
         return bookRepository.findAll()
@@ -67,6 +69,20 @@ public class BookService {
                 .toList();
     }
 
+
+    public Page<BookResponse> getCataloguePage(
+        String keyword,
+        Pageable pageable) {
+
+    String normalizedKeyword =
+            keyword == null || keyword.isBlank()
+                    ? null
+                    : keyword.trim();
+
+    return bookRepository
+            .searchCatalogue(normalizedKeyword, pageable)
+            .map(this::convertToResponse);
+}
     // ==========================================
     // GET BOOK BY BOOK_ID
     // ==========================================

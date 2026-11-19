@@ -226,7 +226,6 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
       _searchQuery = '';
     });
   }
-
   // ---------------------------------------------------------
   // MAIN BUILD
   // ---------------------------------------------------------
@@ -243,22 +242,6 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Welcome Heading
-              FutureBuilder<StudentDashboard>(
-                future: _dashboardFuture,
-                builder: (context, snapshot) {
-                  final name =
-                      snapshot.hasData ? snapshot.data!.fullName : 'Student';
-
-                  return Text(
-                    'Welcome back, $name!',
-                    style: const TextStyle(
-                      fontSize: 27,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF514746),
-                    ),
-                  );
-                },
-              ),
 
               const SizedBox(height: 5),
 
@@ -960,14 +943,14 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
   // ---------------------------------------------------------
 
   String? _coverForBook(Book book) {
-  final coverUrl = book.coverImage?.trim();
+    final coverUrl = book.coverImage?.trim();
 
-  if (coverUrl == null || coverUrl.isEmpty) {
-    return null;
+    if (coverUrl == null || coverUrl.isEmpty) {
+      return null;
+    }
+
+    return coverUrl;
   }
-
-  return coverUrl;
-}
 
   // ---------------------------------------------------------
   // RECOMMENDED BOOK CARD (with hover animation)
@@ -1003,14 +986,14 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(9),
               child: coverUrl != null
-    ? Image.network(
-        coverUrl,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) {
-          return _bookPlaceholder();
-        },
-      )
-    : _bookPlaceholder(),
+                  ? Image.network(
+                      coverUrl,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return _bookPlaceholder();
+                      },
+                    )
+                  : _bookPlaceholder(),
             ),
           ),
           const SizedBox(width: 13),
@@ -1051,10 +1034,16 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  '${book.availableCopies} copies available',
-                  style: const TextStyle(
+                  book.availableCopies > 0
+                      ? '${book.availableCopies} copies available'
+                      : book.status.toLowerCase() == 'no copies'
+                          ? 'No copies in library'
+                          : 'Currently unavailable',
+                  style: TextStyle(
                     fontSize: 10,
-                    color: Color(0xFF059669),
+                    color: book.availableCopies > 0
+                        ? const Color(0xFF059669)
+                        : Colors.red,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

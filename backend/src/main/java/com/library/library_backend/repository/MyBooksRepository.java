@@ -22,7 +22,8 @@ public interface MyBooksRepository extends JpaRepository<Borrowing, Integer> {
         br.status AS status,
         br.Renewal_Count AS renewalCount,
         bc.Location AS location,
-        b.CoverImage AS coverImage
+        b.cover_image AS coverImage,
+        bc.Book_ID AS bookId
     FROM borrowing br
     JOIN book_copy bc ON br.Copy_ID = bc.Copy_ID
     JOIN book b ON bc.Book_ID = b.Book_ID

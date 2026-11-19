@@ -61,7 +61,7 @@ public class book {
     @Column(name = "Publication_Year")
     private Integer publicationYear;
 
-    @Column(name = "CoverImage", length = 2048)
+    @Column(name = "cover_image", length = 2048)
     private String coverImage;
 
     public book() {

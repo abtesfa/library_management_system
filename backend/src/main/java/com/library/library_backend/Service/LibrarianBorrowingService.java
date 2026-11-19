@@ -1,3 +1,4 @@
+
 package com.library.library_backend.Service;
 
 import com.library.library_backend.dto.BorrowBookRequest;
@@ -12,7 +13,6 @@ import com.library.library_backend.repository.BookCopyRepository;
 import com.library.library_backend.repository.BookRepository;
 import com.library.library_backend.repository.StudentRepository;
 import com.library.library_backend.repository.ReservationRepository;
-
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,35 +30,31 @@ public class LibrarianBorrowingService {
     private final LibrarySettingsService settingsService;
     private final ReservationRepository reservationRepository;
     private final ReservationService reservationService;
-    private final NotificationService notificationService;
 
     public LibrarianBorrowingService(
-        BorrowingRepository borrowingRepository,
-        BookCopyRepository bookCopyRepository,
-        BookRepository bookRepository,
-        StudentRepository studentRepository,
-        LibrarySettingsService settingsService,
-        ReservationRepository reservationRepository,
-        ReservationService reservationService,
-        NotificationService notificationService
-) {
-    this.borrowingRepository = borrowingRepository;
-    this.bookCopyRepository = bookCopyRepository;
-    this.bookRepository = bookRepository;
-    this.studentRepository = studentRepository;
-    this.settingsService = settingsService;
-    this.reservationRepository = reservationRepository;
-    this.reservationService = reservationService;
-    this.notificationService = notificationService;
-}
+            BorrowingRepository borrowingRepository,
+            BookCopyRepository bookCopyRepository,
+            BookRepository bookRepository,
+            StudentRepository studentRepository,
+            LibrarySettingsService settingsService,
+            ReservationRepository reservationRepository,
+            ReservationService reservationService,
+            NotificationService notificationService) {
+
+        this.borrowingRepository = borrowingRepository;
+        this.bookCopyRepository = bookCopyRepository;
+        this.bookRepository = bookRepository;
+        this.studentRepository = studentRepository;
+        this.settingsService = settingsService;
+        this.reservationRepository = reservationRepository;
+        this.reservationService = reservationService;
+    }
 
     @Transactional
     public BorrowBookResponse borrowBook(BorrowBookRequest request) {
 
-        // 0. Release copies held by expired reservations.
         reservationService.expireOverdueReservations();
 
-        // 1. Validate the request.
         if (request.getStudentId() == null
                 || request.getStudentId().isBlank()) {
             throw new IllegalArgumentException("Student ID is required.");
@@ -67,21 +63,14 @@ public class LibrarianBorrowingService {
         if (request.getBookQuery() == null
                 || request.getBookQuery().isBlank()) {
             throw new IllegalArgumentException(
-                    "Book title or ISBN is required."
-            );
+                    "Book title or ISBN is required.");
         }
 
-        // 2. Find the student by Student ID.
-        // Account status is not checked here.
         Integer userId = studentRepository
                 .findUserIdByStudentId(request.getStudentId().trim())
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Student ID does not exist."
-                        )
-                );
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Student ID does not exist."));
 
-        // 3. Find the book by ISBN first, then by title.
         String query = request.getBookQuery().trim();
 
         Optional<book> bookResult = bookRepository.findByIsbn(query);
@@ -93,116 +82,121 @@ public class LibrarianBorrowingService {
                     .findFirst();
         }
 
-        book selectedBook = bookResult.orElseThrow(() ->
-                new IllegalArgumentException("Book not found.")
-        );
+        book selectedBook = bookResult.orElseThrow(
+                () -> new IllegalArgumentException("Book not found."));
 
-        // 4. Find an available copy.
-        BookCopy availableCopy = bookCopyRepository
-                .findFirstByBookIdAndStatus(
-                        selectedBook.getBookId(),
-                        "Available"
-                )
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "No available copies of this book."
-                        )
-                );
+        Integer bookId = selectedBook.getBookId();
 
-        // 4b. A student without their own reservation may only take
-        // a copy that is not held for someone else.
-        Optional<Reservation> ownReservation = reservationRepository
-                .findActiveReservation(userId, selectedBook.getBookId());
+        // Allocate any available copies to students already in the queue.
+        reservationService.processQueueForBook(bookId);
 
-        if (ownReservation.isEmpty()) {
-            long free = bookCopyRepository.countByBookIdAndStatus(
-                    selectedBook.getBookId(), "Available")
-                    - reservationRepository.countActiveByBookId(
-                            selectedBook.getBookId());
+        Optional<Reservation> ownReservation =
+                reservationRepository.findActiveReservation(userId, bookId);
 
-            if (free <= 0) {
+        BookCopy selectedCopy;
+
+        if (ownReservation.isPresent()) {
+
+            Reservation reservation = ownReservation.get();
+
+            if (!"READY_FOR_PICKUP".equalsIgnoreCase(
+                    reservation.getStatus())) {
                 throw new IllegalArgumentException(
-                        "All available copies are reserved for other students."
-                );
+                        "Your reservation is still in the queue. "
+                        + "You cannot borrow this book until it is ready.");
             }
+
+            if (reservation.getAllocatedCopyId() == null) {
+                throw new IllegalStateException(
+                        "Your ready reservation has no allocated copy.");
+            }
+
+            selectedCopy = bookCopyRepository
+                    .findById(reservation.getAllocatedCopyId())
+                    .orElseThrow(() -> new IllegalStateException(
+                            "The copy assigned to this reservation was not found."));
+
+            if (!"Reserved".equalsIgnoreCase(selectedCopy.getStatus())) {
+                throw new IllegalStateException(
+                        "The assigned copy is no longer reserved.");
+            }
+
+        } else {
+
+            if (reservationRepository.countActiveByBookId(bookId) > 0) {
+                throw new IllegalArgumentException(
+                        "This book has active reservations. "
+                        + "The reservation queue must be served first.");
+            }
+
+            selectedCopy = bookCopyRepository
+                    .findFirstByBookIdAndStatus(bookId, "Available")
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "No available copies of this book."));
         }
 
-        // 5. Read library settings.
-        // 5. Read the latest library settings.
-LibrarySettings settings = settingsService.getSettings();
+        LibrarySettings settings = settingsService.getSettings();
 
-        // 6. Determine the borrowing date.
         LocalDate borrowDate = request.getBorrowDate() != null
                 ? request.getBorrowDate()
                 : LocalDate.now();
 
         if (borrowDate.isAfter(LocalDate.now())) {
             throw new IllegalArgumentException(
-                    "Borrowing date cannot be in the future."
-            );
+                    "Borrowing date cannot be in the future.");
         }
 
-        // 7. Check the daily borrowing limit.
-        // 7. Check the maximum number of books
-// the student is currently allowed to borrow.
-long currentlyBorrowed =
-        borrowingRepository.countCurrentlyBorrowed(userId);
+        long currentlyBorrowed =
+                borrowingRepository.countCurrentlyBorrowed(userId);
 
-int maximumBooks =
-        settings.getMaxBooksPerStudent();
+        int maximumBooks = settings.getMaxBooksPerStudent();
 
-if (currentlyBorrowed >= maximumBooks) {
-    throw new IllegalArgumentException(
-            "This student has already borrowed "
+        if (currentlyBorrowed >= maximumBooks) {
+            throw new IllegalArgumentException(
+                    "This student has already borrowed "
                     + currentlyBorrowed
                     + " books. The maximum allowed is "
-                    + maximumBooks
-                    + ". The student must return a book "
-                    + "before borrowing another."
-    );
-}
+                    + maximumBooks + ".");
+        }
 
-        // 8. Calculate the due date.
         LocalDate dueDate = borrowDate.plusDays(
-                settings.getMaxBorrowingDays()
-        );
+                settings.getMaxBorrowingDays());
 
-        // 9. Create the borrowing record.
         Borrowing borrowing = new Borrowing();
-
         borrowing.setUserId(userId);
-        borrowing.setCopyId(availableCopy.getCopyId());
+        borrowing.setCopyId(selectedCopy.getCopyId());
         borrowing.setBorrowDate(borrowDate);
         borrowing.setDueDate(dueDate);
         borrowing.setReturnDate(null);
         borrowing.setStatus("BORROWED");
         borrowing.setRenewalCount(0);
 
-        Borrowing savedBorrowing =
-                borrowingRepository.save(borrowing);
+        Borrowing savedBorrowing = borrowingRepository.save(borrowing);
 
-        // 9b. The student's reservation has now been fulfilled.
         if (ownReservation.isPresent()) {
             Reservation reservation = ownReservation.get();
+
             reservation.setStatus("FULFILLED");
+            reservation.setHoldUntil(null);
+            reservation.setPickupLocation(null);
+            reservation.setAllocatedCopyId(null);
+
             reservationRepository.save(reservation);
         }
 
-        // 10. Update the book copy status.
-        availableCopy.setStatus("Borrowed");
-        bookCopyRepository.save(availableCopy);
+        selectedCopy.setStatus("Borrowed");
+        bookCopyRepository.save(selectedCopy);
 
-        // 11. Return the result.
         return new BorrowBookResponse(
                 savedBorrowing.getBorrowingId(),
                 request.getStudentId(),
                 selectedBook.getTitle(),
                 selectedBook.getIsbn(),
-                availableCopy.getCopyId(),
+                selectedCopy.getCopyId(),
                 borrowDate,
                 dueDate,
                 savedBorrowing.getStatus(),
-                availableCopy.getLocation()
+                selectedCopy.getLocation()
         );
     }
 }

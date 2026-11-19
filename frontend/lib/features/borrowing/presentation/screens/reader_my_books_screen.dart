@@ -609,12 +609,13 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
     final bool isRenewing = _renewingId == book.id;
 
     final bool canRenew = isDueToday &&
-        !renewalLimitReached &&
-        !isRenewing &&
-        _renewingId == null &&
-        book.status.toUpperCase() == 'ACTIVE';
+    !renewalLimitReached &&
+    !book.hasActiveReservation &&
+    !isRenewing &&
+    _renewingId == null &&
+    book.status.toUpperCase() == 'ACTIVE';
 
-    final String renewHint;
+    String renewHint;
 
     if (renewalLimitReached) {
       renewHint = 'You have used all $renewalLimit allowed renewals.';
@@ -635,7 +636,17 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
         : const Color(0xFFFBE2D9);
 
     final String dueStatus;
-
+    if (book.hasActiveReservation) {
+  renewHint = 'This book has an active reservation and cannot be renewed.';
+} else if (renewalLimitReached) {
+  renewHint = 'You have used all $renewalLimit allowed renewals.';
+} else if (isOverdue) {
+  renewHint = 'This book is overdue and cannot be renewed.';
+} else if (!isDueToday) {
+  renewHint = 'You can renew this book only on its due date.';
+} else {
+  renewHint = 'You can renew this book today.';
+}
     if (isOverdue) {
       dueStatus =
           'Overdue by ${book.daysLeft.abs()} day${book.daysLeft.abs() == 1 ? '' : 's'}';
@@ -747,12 +758,14 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
                         size: 14,
                       ),
                       label: Text(
-                        isRenewing
-                            ? 'Renewing...'
-                            : renewalLimitReached
-                                ? 'Limit Reached'
-                                : 'Renew Loan',
-                      ),
+  isRenewing
+      ? 'Renewing...'
+      : book.hasActiveReservation
+          ? 'Reserved'
+          : renewalLimitReached
+              ? 'Limit Reached'
+              : 'Renew Loan',
+),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFF25635),
                         foregroundColor: Colors.white,

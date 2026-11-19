@@ -78,5 +78,15 @@ Optional<Integer> findActiveBorrowingId(
 );
 // Retrieve all borrowing records with a particular status
 List<Borrowing> findByStatusIgnoreCase(String status);
-
+@Query(value = """
+    SELECT br.Due_Date
+    FROM borrowing br
+    JOIN book_copy bc ON bc.Copy_ID = br.Copy_ID
+    WHERE bc.Book_ID = :bookId
+    AND br.Status IN ('BORROWED', 'OVERDUE')
+    ORDER BY br.Due_Date ASC
+    """, nativeQuery = true)
+List<java.sql.Date> findExpectedReturnDatesByBookId(
+        @Param("bookId") Integer bookId
+);
 }

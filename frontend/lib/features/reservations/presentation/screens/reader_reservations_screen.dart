@@ -31,7 +31,20 @@ class _ReaderReservationsScreenState extends State<ReaderReservationsScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   String? _cancellingReservationId;
+String _formatEstimatedAvailability(String? value) {
+  if (value == null) {
+    return 'Not yet estimated';
+  }
 
+  final date = DateTime.tryParse(value)?.toLocal();
+
+  if (date == null) {
+    return value;
+  }
+
+  return '${date.year}-${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}';
+}
   @override
   void initState() {
     super.initState();
@@ -50,8 +63,9 @@ class _ReaderReservationsScreenState extends State<ReaderReservationsScreen> {
       case 'READY_FOR_PICKUP':
         return 'Ready for Pickup';
 
-      case 'COMPLETED':
-        return 'Completed';
+      case 'FULFILLED':
+case 'COMPLETED':
+  return 'Collected';
 
       case 'CANCELLED':
         return 'Cancelled';
@@ -75,24 +89,30 @@ class _ReaderReservationsScreenState extends State<ReaderReservationsScreen> {
   }
 
   String _pickupTimeRemainingText(ReservationRecord reservation) {
-    final reservedAt = DateTime.tryParse(reservation.reservedDate);
-    final holdUntil = reservation.holdUntil == null
-        ? null
-        : DateTime.tryParse(reservation.holdUntil!);
-    if (reservedAt == null || holdUntil == null) {
-      return 'Pick up by: ${_formatPickupDeadline(reservation.holdUntil)}';
-    }
+  final holdUntil = reservation.holdUntil == null
+      ? null
+      : DateTime.tryParse(reservation.holdUntil!)?.toLocal();
 
-    final minutes = holdUntil.difference(reservedAt).inMinutes;
-    final duration = minutes % 1440 == 0
-        ? '${minutes ~/ 1440} ${minutes ~/ 1440 == 1 ? 'day' : 'days'}'
-        : minutes % 60 == 0
-            ? '${minutes ~/ 60} ${minutes ~/ 60 == 1 ? 'hour' : 'hours'}'
-            : '$minutes ${minutes == 1 ? 'minute' : 'minutes'}';
-    return 'You have $duration to pick it up (by '
-        '${_formatPickupDeadline(reservation.holdUntil)})';
+  if (holdUntil == null) {
+    return 'Waiting for a copy to become available';
   }
 
+  final remaining = holdUntil.difference(DateTime.now());
+
+  if (remaining.isNegative || remaining.inSeconds == 0) {
+    return 'Pickup deadline has passed';
+  }
+
+  if (remaining.inDays > 0) {
+    return 'Time remaining: ${remaining.inDays} day(s)';
+  }
+
+  if (remaining.inHours > 0) {
+    return 'Time remaining: ${remaining.inHours} hour(s)';
+  }
+
+  return 'Time remaining: ${remaining.inMinutes} minute(s)';
+}
   // ---------------------------------------------------------
   // CHECK WHETHER RESERVATION CAN BE CANCELLED
   // ---------------------------------------------------------
@@ -464,35 +484,53 @@ class _ReaderReservationsScreenState extends State<ReaderReservationsScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    if (r.pickupLocation != null)
-                      Text(
-                        'Pickup Location: ${r.pickupLocation} · '
-                        '${_pickupTimeRemainingText(r)}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFFF25635),
-                        ),
-                      )
-                    else if (r.status.toUpperCase() == 'EXPIRED')
-                      const Text(
-                        'Expired: the pickup deadline has passed.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFFDC2626),
-                        ),
-                      ),
-                    if (r.queuePosition > 0) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        'Queue Position: ${r.queuePosition}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF666666),
-                        ),
-                      ),
-                    ],
+                    if (r.status.toUpperCase() == 'READY_FOR_PICKUP') ...[
+  const SizedBox(height: 6),
+  Text(
+    'Pickup Location: ${r.pickupLocation ?? 'Main Library'}',
+    style: const TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      color: Color(0xFFF25635),
+    ),
+  ),
+  const SizedBox(height: 4),
+  Text(
+    _pickupTimeRemainingText(r),
+    style: const TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      color: Color(0xFF059669),
+    ),
+  ),
+] else if (r.status.toUpperCase() == 'WAITING') ...[
+  const SizedBox(height: 6),
+  Text(
+    'Queue Position: ${r.queuePosition}',
+    style: const TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      color: Color(0xFF666666),
+    ),
+  ),
+  const SizedBox(height: 4),
+  Text(
+    'Expected availability: '
+    '${_formatEstimatedAvailability(r.estimatedAvailableAt)}',
+    style: const TextStyle(
+      fontSize: 11,
+      color: Color(0xFF666666),
+    ),
+  ),
+] else if (r.status.toUpperCase() == 'EXPIRED')
+  const Text(
+    'Expired: the pickup deadline has passed.',
+    style: TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      color: Color(0xFFDC2626),
+    ),
+  ),
                   ],
                 ),
               ),

@@ -60,6 +60,23 @@ public class NotificationController {
                 notificationService.getUnreadLibrarianNotifications());
     }
 
+    @GetMapping("/students/{userId}")
+public ResponseEntity<List<Notification>> getStudentNotifications(
+        @PathVariable Integer userId) {
+
+    return ResponseEntity.ok(
+            notificationService.getStudentNotifications(userId)
+    );
+}
+
+@GetMapping("/students/{userId}/unread")
+public ResponseEntity<List<Notification>> getUnreadStudentNotifications(
+        @PathVariable Integer userId) {
+
+    return ResponseEntity.ok(
+            notificationService.getUnreadStudentNotifications(userId)
+    );
+}
     // POST: Create a notification
     @PostMapping
     public ResponseEntity<Notification> createNotification(

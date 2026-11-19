@@ -1,3 +1,4 @@
+
 package com.library.library_backend.dto;
 
 import java.time.LocalDate;
@@ -12,5 +13,6 @@ public record MyBookResponse(
         String status,
         Integer renewalCount,
         String location,
-        Integer renewalLimit
+        Integer renewalLimit,
+        String coverImage
 ) {}

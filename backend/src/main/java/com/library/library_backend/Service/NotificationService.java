@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import com.library.library_backend.entity.Notification;
 import com.library.library_backend.entity.NotificationType;
@@ -211,4 +212,41 @@ public class NotificationService {
 
         notificationRepository.deleteById(id);
     }
+    public List<Notification> getStudentNotifications(Integer userId) {
+    return notificationRepository.findStudentNotifications(userId);
+}
+
+public List<Notification> getUnreadStudentNotifications(Integer userId) {
+    return notificationRepository.findUnreadStudentNotifications(userId);
+}
+
+@Transactional
+public Notification createReservationReadyNotification(
+        Integer reservationId,
+        Integer userId,
+        String bookTitle,
+        LocalDateTime holdUntil) {
+
+    Notification notification = new Notification();
+
+    notification.setTitle("Reserved Book Ready for Pickup");
+
+    notification.setMessage(
+            "\"" + bookTitle + "\" is now ready for collection. "
+            + "Please collect it before " + holdUntil + "."
+    );
+
+    notification.setDetails(
+            "Reservation ID: " + reservationId
+            + ". Your pickup hold expires at " + holdUntil + "."
+    );
+
+    notification.setNotificationType(NotificationType.RESERVATION);
+    notification.setRecipientType("STUDENT");
+    notification.setRecipientId(userId);
+    notification.setReservationId(reservationId);
+    notification.setIsRead(false);
+
+    return notificationRepository.save(notification);
+}
 }

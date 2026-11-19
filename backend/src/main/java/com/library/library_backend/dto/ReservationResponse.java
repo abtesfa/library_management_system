@@ -12,6 +12,7 @@ public record ReservationResponse(
         LocalDateTime holdUntil,
         String pickupLocation,
         String status,
-        Integer queuePosition
+        Integer queuePosition,
+        LocalDateTime estimatedAvailableAt
 ) {
 }

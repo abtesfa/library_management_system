@@ -81,4 +81,24 @@ int deleteByBorrowingIdAndNotificationType(
             + "WHERE notification.reservationId IN :reservationIds")
     int deleteAllByReservationIdIn(
             @Param("reservationIds") Collection<Integer> reservationIds);
+            @Query("""
+    SELECT n FROM Notification n
+    WHERE n.recipientType = 'STUDENT'
+    AND n.recipientId = :userId
+    ORDER BY n.createdAt DESC
+    """)
+List<Notification> findStudentNotifications(
+        @Param("userId") Integer userId
+);
+
+@Query("""
+    SELECT n FROM Notification n
+    WHERE n.recipientType = 'STUDENT'
+    AND n.recipientId = :userId
+    AND n.isRead = false
+    ORDER BY n.createdAt DESC
+    """)
+List<Notification> findUnreadStudentNotifications(
+        @Param("userId") Integer userId
+);
 }

@@ -1,3 +1,4 @@
+
 package com.library.library_backend.repository;
 
 import java.util.Optional;
@@ -13,21 +14,23 @@ import com.library.library_backend.entity.BookCopy;
 public interface BookCopyRepository
         extends JpaRepository<BookCopy, Integer> {
 
-    // Count all physical copies of a book
     long countByBookId(Integer bookId);
 
-    // Count copies with a particular status
     long countByBookIdAndStatus(Integer bookId, String status);
 
-    // Find the first copy with a particular status
     Optional<BookCopy> findFirstByBookIdAndStatus(
-            Integer bookId, String status
+            Integer bookId,
+            String status
     );
 
-    // Find the first copy regardless of status
     Optional<BookCopy> findFirstByBookId(Integer bookId);
 
     List<BookCopy> findAllByBookId(Integer bookId);
+
+    List<BookCopy> findAllByBookIdAndStatusOrderByCopyIdAsc(
+            Integer bookId,
+            String status
+    );
 
     @Modifying
     @Query("""
@@ -37,5 +40,6 @@ public interface BookCopyRepository
         """)
     int updateLocationByBookId(
             @Param("bookId") Integer bookId,
-            @Param("location") String location);
+            @Param("location") String location
+    );
 }

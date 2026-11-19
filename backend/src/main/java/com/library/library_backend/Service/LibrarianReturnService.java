@@ -26,18 +26,21 @@ public class LibrarianReturnService {
     private final BookRepository bookRepository;
     private final LibrarySettingsRepository settingsRepository;
     private final NotificationService notificationService;
+    private final ReservationService reservationService;
     public LibrarianReturnService(
             BorrowingRepository borrowingRepository,
             BookCopyRepository bookCopyRepository,
             BookRepository bookRepository,
             LibrarySettingsRepository settingsRepository,
-            NotificationService notificationService
+            NotificationService notificationService,
+                ReservationService reservationService
     ) {
         this.borrowingRepository = borrowingRepository;
         this.bookCopyRepository = bookCopyRepository;
         this.bookRepository = bookRepository;
         this.settingsRepository = settingsRepository;
         this.notificationService = notificationService;
+        this.reservationService = reservationService;
     }
     @Transactional(readOnly = true)
 public ActiveBorrowingResponse findActiveBorrowing(
@@ -167,12 +170,17 @@ notificationService.deleteByBorrowingId(
 
         // A lost copy must not become available again.
         if (condition.equals("LOST")) {
-            copy.setStatus("Lost");
-        } else {
-            copy.setStatus("Available");
-        }
+    copy.setStatus("Lost");
+} else {
+    copy.setStatus("Available");
+}
 
-        bookCopyRepository.save(copy);
+bookCopyRepository.save(copy);
+
+// Give the returned copy to the next waiting student.
+if (!condition.equals("LOST")) {
+    reservationService.processQueueForBook(copy.getBookId());
+}
 
         return new ReturnBookResponse(
                 borrowing.getBorrowingId(),

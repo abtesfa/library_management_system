@@ -1,6 +1,5 @@
 import '../../domain/entities/reservation_record.dart';
 
-/// JSON-aware version of [ReservationRecord] used by the data layer.
 class ReservationRecordModel extends ReservationRecord {
   ReservationRecordModel({
     required super.id,
@@ -12,9 +11,12 @@ class ReservationRecordModel extends ReservationRecord {
     super.pickupLocation,
     required super.status,
     required super.queuePosition,
+    super.estimatedAvailableAt,
   });
 
-  factory ReservationRecordModel.fromJson(Map<String, dynamic> json) {
+  factory ReservationRecordModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
     return ReservationRecordModel(
       id: json['reservationId']?.toString() ?? '',
       bookId: json['bookId']?.toString() ?? '',
@@ -24,7 +26,10 @@ class ReservationRecordModel extends ReservationRecord {
       holdUntil: json['holdUntil']?.toString(),
       pickupLocation: json['pickupLocation']?.toString(),
       status: json['status']?.toString() ?? 'WAITING',
-      queuePosition: (json['queuePosition'] as num?)?.toInt() ?? 1,
+      queuePosition:
+          (json['queuePosition'] as num?)?.toInt() ?? 0,
+      estimatedAvailableAt:
+          json['estimatedAvailableAt']?.toString(),
     );
   }
 }

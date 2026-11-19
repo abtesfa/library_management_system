@@ -15,6 +15,7 @@ class BorrowRecord {
   final String? coverImage;
   /// Maximum renewals allowed by library settings.
 final int renewalLimit;
+final bool hasActiveReservation;
 
   BorrowRecord({
     required this.id,
@@ -32,6 +33,7 @@ final int renewalLimit;
     this.renewalCount = 0,
     this.coverImage,
     this.renewalLimit = 1,
+    this.hasActiveReservation = false,
   });
 
   BorrowRecord copyWith({
@@ -50,6 +52,7 @@ final int renewalLimit;
     int? renewalCount,
     String? coverImage,
     int? renewalLimit,
+    bool? hasActiveReservation,
   }) {
     return BorrowRecord(
       id: id ?? this.id,
@@ -67,6 +70,8 @@ final int renewalLimit;
       renewalCount: renewalCount ?? this.renewalCount,
       coverImage: coverImage ?? this.coverImage,
       renewalLimit: renewalLimit ?? this.renewalLimit,
+      hasActiveReservation:
+    hasActiveReservation ?? this.hasActiveReservation,
     );
   }
 }

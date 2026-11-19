@@ -18,6 +18,7 @@ class BorrowRecordModel extends BorrowRecord {
     required super.renewalCount,
     super.coverImage,
     required super.renewalLimit,
+    super.hasActiveReservation,
   });
 
   factory BorrowRecordModel.fromJson(
@@ -61,6 +62,8 @@ class BorrowRecordModel extends BorrowRecord {
       coverImage: json['coverImage']?.toString(),
       renewalLimit:
     (json['renewalLimit'] as num?)?.toInt() ?? 1,
+    hasActiveReservation:
+    json['hasActiveReservation'] == true,
     );
   }
 }
