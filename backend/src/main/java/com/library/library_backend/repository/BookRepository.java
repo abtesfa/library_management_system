@@ -10,11 +10,11 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.library.library_backend.entity.book;
+import java.util.List;
 
 public interface BookRepository extends JpaRepository<book, Integer> {
 
-    @Query(
-        value = """
+    @Query(value = """
             SELECT b.*
             FROM book b
             LEFT JOIN author a ON a.Author_ID = b.Author_ID
@@ -30,8 +30,7 @@ public interface BookRepository extends JpaRepository<book, Integer> {
                     LIKE CONCAT('%', LOWER(:keyword), '%')
             )
             ORDER BY b.Book_ID ASC
-            """,
-        countQuery = """
+            """, countQuery = """
             SELECT COUNT(*)
             FROM book b
             LEFT JOIN author a ON a.Author_ID = b.Author_ID
@@ -46,13 +45,12 @@ public interface BookRepository extends JpaRepository<book, Integer> {
                 OR LOWER(COALESCE(c.Category_Name, ''))
                     LIKE CONCAT('%', LOWER(:keyword), '%')
             )
-            """,
-        nativeQuery = true
-    )
+            """, nativeQuery = true)
     Page<book> searchCatalogue(
-        @Param("keyword") String keyword,
-        Pageable pageable
-    );
+            @Param("keyword") String keyword,
+            Pageable pageable);
 
     Optional<book> findByIsbn(String isbn);
+
+    List<book> findByTitleContainingIgnoreCase(String keyword);
 }
