@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import '../../data/datasources/settings_remote_data_source.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/di/injector.dart';
@@ -23,10 +25,14 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   late TextEditingController _renewalLimitController;
   late TextEditingController _fineController;
   late TextEditingController _reservationHoldController;
+  late TextEditingController _schoolEmailController;
+  late TextEditingController _schoolLocationController;
   String _reservationHoldUnit = 'hours';
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
+  String? _selectedLogoName;
+  bool _isUploadingLogo = false;
   bool _isLoading = true;
   bool _isSaving = false;
   String? _errorMessage;
@@ -46,6 +52,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     _renewalLimitController = TextEditingController();
     _fineController = TextEditingController();
     _reservationHoldController = TextEditingController();
+    _schoolEmailController = TextEditingController();
+    _schoolLocationController = TextEditingController();
 
     _nameController.addListener(_refreshSummary);
     _maxBooksPerStudentController.addListener(_refreshSummary);
@@ -53,8 +61,25 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     _renewalLimitController.addListener(_refreshSummary);
     _fineController.addListener(_refreshSummary);
     _reservationHoldController.addListener(_refreshSummary);
+    _schoolEmailController.addListener(_refreshSummary);
+    _schoolLocationController.addListener(_refreshSummary);
 
     _loadSettings();
+  }
+
+  Future<void> _pickAndUploadLogo() async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (picked == null || !mounted) return;
+    setState(() { _selectedLogoName = picked.name; _isUploadingLogo = true; });
+    try {
+      await SettingsRemoteDataSource().uploadLogo(await picked.readAsBytes(), picked.name);
+      await context.read<LibraryService>().loadSettingsFromApi();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Library logo uploaded.')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Logo upload failed: $e')));
+    } finally { if (mounted) setState(() => _isUploadingLogo = false); }
   }
 
   // =========================================================
@@ -85,6 +110,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       if (!mounted) return;
 
       _nameController.text = data['libraryName']?.toString() ?? '';
+      _schoolEmailController.text = data['schoolEmail']?.toString() ?? '';
+      _schoolLocationController.text = data['schoolLocation']?.toString() ?? '';
 
       _maxBooksPerStudentController.text =
           data['maxBooksPerStudent']?.toString() ?? '3';
@@ -182,6 +209,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
         renewalLimit: renewalLimit,
         finePerDay: fine,
         reservationHoldMinutes: reservationHoldMinutes,
+        schoolEmail: _schoolEmailController.text.trim(),
+        schoolLocation: _schoolLocationController.text.trim(),
       );
       // Refresh application-wide settings, including the top header.
       await context.read<LibraryService>().loadSettingsFromApi();
@@ -254,6 +283,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     _renewalLimitController.removeListener(_refreshSummary);
     _fineController.removeListener(_refreshSummary);
     _reservationHoldController.removeListener(_refreshSummary);
+    _schoolEmailController.removeListener(_refreshSummary);
+    _schoolLocationController.removeListener(_refreshSummary);
 
     _nameController.dispose();
     _maxBooksPerStudentController.dispose();
@@ -261,6 +292,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     _renewalLimitController.dispose();
     _fineController.dispose();
     _reservationHoldController.dispose();
+    _schoolEmailController.dispose();
+    _schoolLocationController.dispose();
 
     super.dispose();
   }
@@ -308,6 +341,28 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                           icon: Icons.library_books_outlined,
                           requiredField: true,
                         ),
+                        const SizedBox(height: 14),
+                        _buildTextField(
+                          controller: _schoolEmailController,
+                          label: 'School Email',
+                          icon: Icons.email_outlined,
+                        ),
+                        const SizedBox(height: 14),
+                        _buildTextField(
+                          controller: _schoolLocationController,
+                          label: 'School Location',
+                          icon: Icons.location_on_outlined,
+                        ),
+                        const SizedBox(height: 14),
+                        Row(children: [
+                          if (_selectedLogoName != null)
+                            Expanded(child: Text('Selected: $_selectedLogoName', overflow: TextOverflow.ellipsis)) ,
+                          OutlinedButton.icon(
+                            onPressed: _isUploadingLogo ? null : _pickAndUploadLogo,
+                            icon: _isUploadingLogo ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.upload),
+                            label: const Text('Upload Logo'),
+                          ),
+                        ]),
                       ],
                     ),
                     const SizedBox(height: 20),

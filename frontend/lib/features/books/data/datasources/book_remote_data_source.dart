@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -9,7 +8,7 @@ import '../models/book_model.dart';
 
 class BookRemoteDataSource {
   static const String baseUrl = '${ApiConfig.baseUrl}/books';
-  static const Duration _requestTimeout = Duration(seconds: 15);
+  static const Duration _requestTimeout = Duration(seconds: 25);
 
   /// Loads every book from the backend.
   Future<List<BookModel>> getAllBooks() async {

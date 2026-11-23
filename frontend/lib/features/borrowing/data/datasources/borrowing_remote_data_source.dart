@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../../../../core/config/api_config.dart';
 import '../../../../core/error/api_exception.dart';
 import '../models/borrow_record_model.dart';
+import '../../domain/entities/borrowing_history_page.dart';
 
 /// Talks to the librarian borrow/return endpoints and to the student's
 /// "my books" endpoints.
@@ -204,4 +205,43 @@ Future<String> borrowBook({
     }
     return 'Request failed (${response.statusCode}).';
   }
+  Future<BorrowingHistoryPage> getBorrowingHistory(
+  String studentId,
+  int page,
+) async {
+  final uri = Uri.parse(
+    '$baseUrl/students/$studentId/borrowings/history',
+  ).replace(
+    queryParameters: {
+      'page': page.toString(),
+    },
+  );
+
+  final response = await http
+      .get(uri)
+      .timeout(_requestTimeout);
+
+  if (response.statusCode == 200) {
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+    final records = (data['records'] as List<dynamic>)
+        .map((item) => BorrowRecordModel.fromJson(
+              item as Map<String, dynamic>,
+              studentId: studentId,
+            ))
+        .toList();
+
+    return BorrowingHistoryPage(
+      records: records,
+      page: (data['page'] as num).toInt(),
+      pageSize: (data['pageSize'] as num).toInt(),
+      hasNext: data['hasNext'] as bool,
+    );
+  }
+
+  throw Exception(
+    'Failed to load borrowing history: '
+    '${response.statusCode} ${response.body}',
+  );
+}
 }

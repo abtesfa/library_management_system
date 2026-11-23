@@ -53,9 +53,11 @@ class BorrowRecordModel extends BorrowRecord {
       borrowDate: json['borrowDate']?.toString() ?? '',
       dueDate: json['dueDate']?.toString() ?? '',
       returnDate: json['returnDate']?.toString(),
-      status: apiStatus == 'OVERDUE' || daysRemaining < 0
-          ? 'Overdue'
-          : 'Active',
+      status: apiStatus == 'RETURNED'
+    ? 'Returned'
+    : apiStatus == 'OVERDUE' || daysRemaining < 0
+        ? 'Overdue'
+        : 'Active',
       fineAmount: 0.0,
       daysLeft: daysRemaining,
       renewalCount: (json['renewalCount'] as num?)?.toInt() ?? 0,

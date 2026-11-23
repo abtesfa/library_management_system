@@ -28,6 +28,8 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
 
   String _searchQuery = '';
   String _selectedInventoryFilter = 'all';
+  int _currentPage = 0;
+  static const int _pageSize = 10;
 
   static const Color primaryBlue = Color(0xFFF25635);
   static const Color darkBlue = Color(0xFFF25635);
@@ -48,6 +50,7 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
   void _performSearch() {
     setState(() {
       _searchQuery = _searchController.text.trim();
+      _currentPage = 0;
     });
 
     FocusScope.of(context).unfocus();
@@ -57,12 +60,14 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
     setState(() {
       _searchController.clear();
       _searchQuery = '';
+      _currentPage = 0;
     });
   }
 
   void _selectInventoryFilter(String filter) {
     setState(() {
       _selectedInventoryFilter = filter;
+      _currentPage = 0;
 
       if (filter == 'all') {
         _searchController.clear();
@@ -294,6 +299,15 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
       return matchesSearch && matchesFilter;
     }).toList();
 
+    final int inventoryPageCount =
+        (filteredBooks.length / _pageSize).ceil();
+    final int safeInventoryPage =
+        inventoryPageCount == 0 ? 0 : _currentPage.clamp(0, inventoryPageCount - 1).toInt();
+    final List<Book> pageBooks = filteredBooks
+        .skip(safeInventoryPage * _pageSize)
+        .take(_pageSize)
+        .toList();
+
     // INVENTORY STATISTICS
     final int totalBooks = books.length;
 
@@ -414,6 +428,7 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
                   onChanged: (value) {
                     setState(() {
                       _searchQuery = value.trim();
+                      _currentPage = 0;
                     });
                   },
 
@@ -562,7 +577,9 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
                         ),
                       ),
                       Text(
-                        'Showing ${filteredBooks.length} of ${books.length}',
+                        'Showing ${filteredBooks.isEmpty ? 0 : safeInventoryPage * _pageSize + 1}-'
+                            '${(safeInventoryPage * _pageSize + pageBooks.length)} '
+                            'of ${filteredBooks.length}',
                         style: const TextStyle(
                           color: textMuted,
                           fontSize: 12,
@@ -646,8 +663,9 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
                     ),
                   )
                 else
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
                     child: DataTable(
                       headingRowColor: WidgetStateProperty.all(
                         const Color(0xFFFBF1E4),
@@ -726,7 +744,11 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
                           ),
                         ),
                       ],
-                      rows: filteredBooks.map((book) {
+                      columnSpacing: 12,
+                      horizontalMargin: 8,
+                      dataRowMinHeight: 48,
+                      dataRowMaxHeight: 64,
+                      rows: pageBooks.map((book) {
                         final bool isAvailable = book.availableCopies > 0;
 
                         final String status =
@@ -812,8 +834,46 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
                       }).toList(),
                     ),
                   ),
+                if (filteredBooks.isNotEmpty)
+                  _buildInventoryPagination(
+                    currentPage: safeInventoryPage,
+                    pageCount: inventoryPageCount,
+                  ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _buildInventoryPagination({
+    required int currentPage,
+    required int pageCount,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Text(
+            'Page ${currentPage + 1} of $pageCount',
+            style: const TextStyle(color: textMuted, fontSize: 12),
+          ),
+          const SizedBox(width: 12),
+          OutlinedButton(
+            onPressed: currentPage > 0
+                ? () => setState(() => _currentPage--)
+                : null,
+            child: const Text('Previous'),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: currentPage + 1 < pageCount
+                ? () => setState(() => _currentPage++)
+                : null,
+            child: const Text('Next'),
           ),
         ],
       ),

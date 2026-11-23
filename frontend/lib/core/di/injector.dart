@@ -53,7 +53,7 @@ import '../../features/staff/domain/usecases/add_staff.dart';
 import '../../features/staff/domain/usecases/get_all_staff.dart';
 import '../../features/staff/domain/usecases/update_staff.dart';
 import '../../features/staff/domain/usecases/update_staff_status.dart';
-
+import '../../features/borrowing/domain/usecases/get_borrowing_history.dart';
 /// Wires data sources -> repositories -> use cases.
 ///
 /// Everything is created lazily the first time it is used. Presentation code
@@ -124,6 +124,8 @@ class Injector {
       FindActiveBorrowing(_borrowingRepository);
   late final ReturnBook returnBook = ReturnBook(_borrowingRepository);
   late final GetMyBooks getMyBooks = GetMyBooks(_borrowingRepository);
+  late final GetBorrowingHistory getBorrowingHistory =
+    GetBorrowingHistory(_borrowingRepository);
   late final RenewBook renewBook = RenewBook(_borrowingRepository);
   final CalculateOverdueDays calculateOverdueDays =
       const CalculateOverdueDays();

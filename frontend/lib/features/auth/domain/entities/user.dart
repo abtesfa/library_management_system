@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 enum UserRole { admin, librarian, reader }
 
 class UserAccount {
@@ -7,6 +9,7 @@ class UserAccount {
   final String email;
   final UserRole role;
   final String? avatarPath;
+ final Uint8List? avatarBytes;
   final Set<String> permissions;
 
   const UserAccount({
@@ -16,6 +19,7 @@ class UserAccount {
     required this.email,
     required this.role,
     this.avatarPath,
+    this.avatarBytes,
     this.permissions = const {},
   });
 
@@ -26,6 +30,7 @@ class UserAccount {
     String? email,
     UserRole? role,
     String? avatarPath,
+    Uint8List? avatarBytes,
     Set<String>? permissions,
   }) {
     return UserAccount(
@@ -35,6 +40,7 @@ class UserAccount {
       email: email ?? this.email,
       role: role ?? this.role,
       avatarPath: avatarPath ?? this.avatarPath,
+      avatarBytes: avatarBytes ?? this.avatarBytes,
       permissions: permissions ?? this.permissions,
     );
   }

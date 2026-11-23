@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
@@ -14,6 +15,7 @@ class TopHeaderBar extends StatelessWidget {
   final VoidCallback onChangeProfilePhoto;
   final List<Map<String, dynamic>> navItems;
   final String libraryName;
+  final Uint8List? libraryLogo;
 
   const TopHeaderBar({
     super.key,
@@ -26,10 +28,20 @@ class TopHeaderBar extends StatelessWidget {
     required this.onChangeProfilePhoto,
     required this.navItems,
     required this.libraryName,
+    this.libraryLogo,
   });
 
   @override
   Widget build(BuildContext context) {
+    final ImageProvider<Object>? avatarImage =
+        currentAccount?.avatarBytes is Uint8List
+            ? MemoryImage(currentAccount!.avatarBytes as Uint8List)
+                as ImageProvider<Object>
+            : (currentAccount?.avatarPath != null &&
+                    currentAccount!.avatarPath!.isNotEmpty)
+                ? FileImage(File(currentAccount!.avatarPath!))
+                    as ImageProvider<Object>
+                : null;
     final initials = currentAccount != null
         ? currentAccount!.name
             .trim()
@@ -56,8 +68,13 @@ class TopHeaderBar extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.menu_book,
-                      color: Colors.white, size: 20),
+                  child: libraryLogo == null
+                      ? const Icon(Icons.menu_book,
+                          color: Colors.white, size: 20)
+                      : ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: Image.memory(libraryLogo!,
+                              width: 34, height: 34, fit: BoxFit.contain)),
                 ),
                 const SizedBox(width: 10),
                 Column(
@@ -65,16 +82,16 @@ class TopHeaderBar extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-  libraryName.isNotEmpty
-      ? libraryName
-      : 'Library Management System',
-  overflow: TextOverflow.ellipsis,
-  style: const TextStyle(
-    color: Colors.white,
-    fontSize: 16,
-    fontWeight: FontWeight.bold,
-  ),
-),
+                      libraryName.isNotEmpty
+                          ? libraryName
+                          : 'Library Management System',
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 1),
@@ -226,10 +243,8 @@ class TopHeaderBar extends StatelessWidget {
                     radius: 17,
                     backgroundColor: Colors.white,
                     foregroundColor: AppColors.primary,
-                    backgroundImage: currentAccount?.avatarPath != null
-                        ? FileImage(File(currentAccount!.avatarPath!))
-                        : null,
-                    child: currentAccount?.avatarPath == null
+                    backgroundImage: avatarImage,
+                    child: avatarImage == null
                         ? Text(
                             initials,
                             style: const TextStyle(

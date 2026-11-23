@@ -162,6 +162,9 @@ public ActiveBorrowingResponse findActiveBorrowing(
         borrowing.setFineAmount(fineAmount);
         borrowing.setBookCondition(condition);
 
+        // Serialize the return with reservation expiry/allocation for this book.
+        reservationService.lockBookForQueue(copy.getBookId());
+
         borrowingRepository.save(borrowing);
         // Remove Due Soon and Overdue notifications for this borrowing
 notificationService.deleteByBorrowingId(

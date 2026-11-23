@@ -1,4 +1,5 @@
 import '../entities/borrow_record.dart';
+import '../entities/borrowing_history_page.dart';
 
 abstract class BorrowingRepository {
   /// Creates a borrowing record. Throws an `ApiException` when the server
@@ -29,4 +30,8 @@ abstract class BorrowingRepository {
 
   /// Renews a loan and returns its new due date (`yyyy-MM-dd`).
   Future<String> renewBook(String studentId, String borrowingId);
+  Future<BorrowingHistoryPage> getBorrowingHistory(
+  String studentId,
+  int page,
+);
 }

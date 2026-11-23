@@ -3,6 +3,8 @@ package com.library.library_backend.entity;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
+import jakarta.persistence.Lob;
+import jakarta.persistence.Column;
 
 @Entity
 @Table(name = "library_settings")
@@ -16,6 +18,12 @@ public class LibrarySettings {
     @Column(name = "library_name", nullable = false, length = 150)
     private String libraryName;
 
+    @Column(name = "school_email", length = 255)
+    private String schoolEmail;
+
+    @Column(name = "school_location", length = 500)
+    private String schoolLocation;
+
     @Column(name = "max_books_per_student", nullable = false)
 private Integer maxBooksPerStudent;
 
@@ -27,6 +35,10 @@ private Integer maxBooksPerStudent;
 
     @Column(name = "fine_per_day", nullable = false, precision = 10, scale = 2)
     private BigDecimal finePerDay;
+
+    @Lob
+    @Column(name = "library_logo", columnDefinition = "LONGBLOB")
+    private byte[] libraryLogo;
 
     @Column(
         name = "reservation_hold_minutes",
@@ -52,6 +64,22 @@ private Integer maxBooksPerStudent;
 
     public void setLibraryName(String libraryName) {
         this.libraryName = libraryName;
+    }
+
+    public String getSchoolEmail() {
+        return schoolEmail;
+    }
+
+    public void setSchoolEmail(String schoolEmail) {
+        this.schoolEmail = schoolEmail;
+    }
+
+    public String getSchoolLocation() {
+        return schoolLocation;
+    }
+
+    public void setSchoolLocation(String schoolLocation) {
+        this.schoolLocation = schoolLocation;
     }
 
     public Integer getMaxBooksPerStudent() {
@@ -93,4 +121,6 @@ private Integer maxBooksPerStudent;
     public void setReservationHoldMinutes(Integer reservationHoldMinutes) {
         this.reservationHoldMinutes = reservationHoldMinutes;
     }
+    public byte[] getLibraryLogo() { return libraryLogo; }
+    public void setLibraryLogo(byte[] libraryLogo) { this.libraryLogo = libraryLogo; }
 }

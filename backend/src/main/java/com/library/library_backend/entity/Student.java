@@ -22,6 +22,10 @@ public class Student {
     @Column(name = "Phone_Number", length = 20)
     private String phoneNumber;
 
+    @Lob
+    @Column(name = "profile_picture", columnDefinition = "LONGBLOB")
+    private byte[] profilePicture;
+
     @Column(name = "Password", nullable = false, length = 255)
     private String password;
 
@@ -124,4 +128,6 @@ public class Student {
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
     }
+    public byte[] getProfilePicture() { return profilePicture; }
+    public void setProfilePicture(byte[] profilePicture) { this.profilePicture = profilePicture; }
 }

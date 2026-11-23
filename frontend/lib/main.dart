@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-
+import 'package:http_parser/http_parser.dart';
+import 'core/utils/image_content_type.dart';
 import 'core/constants/app_colors.dart';
+import 'core/config/api_config.dart';
 import 'core/di/injector.dart';
 import 'features/auth/domain/entities/user.dart';
 import 'features/books/presentation/screens/admin_inventory_screen.dart';
@@ -86,6 +89,20 @@ class _MainShellState extends State<MainShell> {
       _currentRole = role;
       _selectedNavIndex = initialIndex;
     });
+    _loadProfilePicture(account);
+  }
+
+  Future<void> _loadProfilePicture(UserAccount account) async {
+    try {
+      final response = await http.get(Uri.parse(
+        '${ApiConfig.baseUrl}/profile-pictures/${account.role.apiRole}/${account.id}',
+      ));
+      if (response.statusCode == 200 && mounted && _currentAccount?.id == account.id) {
+        setState(() { _currentAccount = _currentAccount!.copyWith(avatarBytes: response.bodyBytes); });
+      }
+    } catch (_) {
+      // A missing profile picture is normal; keep the initials placeholder.
+    }
   }
 
   void _returnToLanding() {
@@ -101,6 +118,7 @@ class _MainShellState extends State<MainShell> {
     final controllerCurrent = TextEditingController();
     final controllerNew = TextEditingController();
     final controllerConfirm = TextEditingController();
+    bool showCurrent = false, showNew = false, showConfirm = false;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -114,29 +132,20 @@ class _MainShellState extends State<MainShell> {
               children: [
                 TextField(
                   controller: controllerCurrent,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Current Password',
-                    border: OutlineInputBorder(),
-                  ),
+                  obscureText: !showCurrent,
+                  decoration: InputDecoration(labelText: 'Current Password', border: const OutlineInputBorder(), suffixIcon: IconButton(icon: Icon(showCurrent ? Icons.visibility_off : Icons.visibility), onPressed: () { showCurrent = !showCurrent; (dialogContext as Element).markNeedsBuild(); })),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: controllerNew,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'New Password',
-                    border: OutlineInputBorder(),
-                  ),
+                  obscureText: !showNew,
+                  decoration: InputDecoration(labelText: 'New Password', border: const OutlineInputBorder(), suffixIcon: IconButton(icon: Icon(showNew ? Icons.visibility_off : Icons.visibility), onPressed: () { showNew = !showNew; (dialogContext as Element).markNeedsBuild(); })),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: controllerConfirm,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Confirm New Password',
-                    border: OutlineInputBorder(),
-                  ),
+                  obscureText: !showConfirm,
+                  decoration: InputDecoration(labelText: 'Confirm New Password', border: const OutlineInputBorder(), suffixIcon: IconButton(icon: Icon(showConfirm ? Icons.visibility_off : Icons.visibility), onPressed: () { showConfirm = !showConfirm; (dialogContext as Element).markNeedsBuild(); })),
                 ),
               ],
             ),
@@ -155,7 +164,12 @@ class _MainShellState extends State<MainShell> {
       },
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true) {
+      controllerCurrent.dispose();
+      controllerNew.dispose();
+      controllerConfirm.dispose();
+      return;
+    }
 
     final currentPassword = controllerCurrent.text.trim();
     final newPassword = controllerNew.text;
@@ -198,25 +212,83 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  Future<void> _changeProfilePhoto() async {
-    if (_currentAccount == null) return;
+  
+Future<void> _changeProfilePhoto() async {
+  if (_currentAccount == null) return;
 
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
+  final picker = ImagePicker();
+
+  final pickedFile = await picker.pickImage(
+    source: ImageSource.gallery,
+    imageQuality: 85,
+  );
+
+  if (pickedFile == null) return;
+
+  try {
+    final extension = pickedFile.name.split('.').last.toLowerCase();
+
+    final MediaType contentType;
+
+    switch (extension) {
+      case 'jpg':
+      case 'jpeg':
+        contentType = MediaType('image', 'jpeg');
+        break;
+      case 'png':
+        contentType = MediaType('image', 'png');
+        break;
+      case 'webp':
+        contentType = MediaType('image', 'webp');
+        break;
+      default:
+        throw ArgumentError(
+          'Only JPG, PNG, and WEBP images are allowed.',
+        );
+    }
+
+    final role = _currentAccount!.role.apiRole;
+
+    final request = http.MultipartRequest(
+      'PUT',
+      Uri.parse(
+        '${ApiConfig.baseUrl}/profile-pictures/$role/${_currentAccount!.id}',
+      ),
     );
 
-    if (pickedFile == null) return;
+    final bytes = await pickedFile.readAsBytes();
+
+         request.files.add(http.MultipartFile.fromBytes(
+        'file',
+        await pickedFile.readAsBytes(),
+        filename: pickedFile.name,
+        contentType: imageContentType(pickedFile.name, pickedFile.mimeType),
+      ));
+
+    final response = await request.send();
+
+    if (response.statusCode != 204) {
+      final errorBody = await response.stream.bytesToString();
+      throw Exception(errorBody);
+    }
+
+    if (!mounted) return;
 
     setState(() {
       _currentAccount = _currentAccount!.copyWith(
-        avatarPath: pickedFile.path,
+        avatarBytes: bytes,
       );
     });
 
-    _showMessage('Profile photo updated.');
+    _showMessage('Profile photo saved to your account.');
+  } catch (e) {
+    _showMessage(
+      'Could not save profile photo: $e',
+      isError: true,
+    );
   }
+}
+
 
   void _showMessage(String message, {bool isError = false}) {
     if (!mounted) return;
@@ -226,6 +298,7 @@ class _MainShellState extends State<MainShell> {
       ..showSnackBar(
         SnackBar(
           content: Text(message),
+          duration: const Duration(seconds: 60),
           backgroundColor:
               isError ? Colors.red.shade700 : Colors.green.shade700,
           behavior: SnackBarBehavior.floating,
@@ -246,6 +319,7 @@ class _MainShellState extends State<MainShell> {
         children: [
           TopHeaderBar(
             libraryName: libraryName,
+            libraryLogo: context.watch<LibraryService>().settings.libraryLogo,
             currentRole: _currentRole,
             selectedNavIndex: _selectedNavIndex,
             currentAccount: _currentAccount,

@@ -3,6 +3,7 @@ package com.library.library_backend.repository;
 
 import java.util.Optional;
 
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -49,6 +50,11 @@ public interface BookRepository extends JpaRepository<book, Integer> {
     Page<book> searchCatalogue(
             @Param("keyword") String keyword,
             Pageable pageable);
+
+
+    /** Serializes reservation/checkout allocation for one book. */
+    @Query(value = "SELECT * FROM book WHERE book_id = :bookId FOR UPDATE", nativeQuery = true)
+    Optional<book> findByIdForUpdate(@Param("bookId") Integer bookId);
 
     Optional<book> findByIsbn(String isbn);
 

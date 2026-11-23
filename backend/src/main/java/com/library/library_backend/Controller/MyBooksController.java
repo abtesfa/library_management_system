@@ -5,6 +5,7 @@ import com.library.library_backend.dto.MyBookResponse;
 import com.library.library_backend.dto.RenewBookResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.library.library_backend.dto.BorrowingHistoryPageResponse;
 
 import java.util.List;
 
@@ -28,6 +29,15 @@ public class MyBooksController {
         );
     }
 
+    @GetMapping("/{userId}/borrowings/history")
+public ResponseEntity<BorrowingHistoryPageResponse> getBorrowingHistory(
+        @PathVariable Integer userId,
+        @RequestParam(defaultValue = "0") int page
+) {
+    return ResponseEntity.ok(
+            myBooksService.getBorrowingHistory(userId, page)
+    );
+}
     /** Renews one of the student's active loans (one renewal only). */
     @PostMapping("/{userId}/borrowings/{borrowingId}/renew")
     public ResponseEntity<RenewBookResponse> renewBook(

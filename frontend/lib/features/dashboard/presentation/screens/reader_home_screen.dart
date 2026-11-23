@@ -7,6 +7,7 @@ import '../../domain/entities/student_dashboard.dart';
 import '../../../library/presentation/providers/library_service.dart';
 import '../../../../core/di/injector.dart';
 import '../../../books/domain/usecases/get_available_books.dart';
+import '../../../books/domain/usecases/get_categories.dart';
 import '../../../borrowing/domain/usecases/get_my_books.dart';
 import '../../domain/usecases/get_student_dashboard.dart';
 import '../../../reservations/domain/usecases/create_reservation.dart';
@@ -33,6 +34,7 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
 
   final GetAvailableBooks _getAvailableBooksUseCase =
       injector.getAvailableBooks;
+  final GetCategories _getCategoriesUseCase = injector.getCategories;
 
   final GetMyBooks _getMyBooksUseCase = injector.getMyBooks;
 
@@ -41,6 +43,10 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
 
   late Future<StudentDashboard> _dashboardFuture;
   late Future<List<Book>> _booksFuture;
+  late Future<List<dynamic>> _categoriesFuture;
+  String _selectedCategory = 'Recommended for You';
+  int _bookPage = 0;
+  static const int _booksPerPage = 6;
   late Future<List<BorrowRecord>> _borrowingsFuture;
 
   String _searchQuery = '';
@@ -61,6 +67,7 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
     _dashboardFuture = _getStudentDashboardUseCase(widget.studentId);
 
     _booksFuture = _getAvailableBooksUseCase();
+    _categoriesFuture = _getCategoriesUseCase();
     _borrowingsFuture = _getMyBooksUseCase(widget.studentId.toString());
   }
 
@@ -200,22 +207,36 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
   // ---------------------------------------------------------
 
   List<Book> _filterBooks(List<Book> books) {
-    if (_searchQuery.trim().isEmpty) {
-      return books;
-    }
-
     final query = _searchQuery.toLowerCase().trim();
-
     return books.where((book) {
-      return book.title.toLowerCase().contains(query) ||
-          book.author.toLowerCase().contains(query) ||
-          book.category.toLowerCase().contains(query);
+      final matchesCategory = _selectedCategory == 'Recommended for You' || book.category.toLowerCase() == _selectedCategory.toLowerCase();
+      final matchesSearch = query.isEmpty || book.title.toLowerCase().contains(query) || book.author.toLowerCase().contains(query) || book.category.toLowerCase().contains(query);
+      return matchesCategory && matchesSearch;
     }).toList();
+  }
+
+  void _selectCategory(String? category) {
+    if (category == null) return;
+    setState(() { _selectedCategory = category; _bookPage = 0; });
+  }
+
+  Widget _buildBookPagination(int total, int currentPage) {
+    final pageCount = (total / _booksPerPage).ceil();
+    if (pageCount <= 1) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        OutlinedButton.icon(onPressed: currentPage > 0 ? () => setState(() => _bookPage = currentPage - 1) : null, icon: const Icon(Icons.chevron_left), label: const Text('Previous')),
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text('Page ${currentPage + 1} of $pageCount')),
+        OutlinedButton.icon(onPressed: currentPage + 1 < pageCount ? () => setState(() => _bookPage = currentPage + 1) : null, icon: const Icon(Icons.chevron_right), label: const Text('Next')),
+      ]),
+    );
   }
 
   void _searchBooks() {
     setState(() {
       _searchQuery = _searchController.text.trim();
+    _bookPage = 0;
     });
   }
 
@@ -224,6 +245,7 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
 
     setState(() {
       _searchQuery = '';
+      _bookPage = 0;
     });
   }
   // ---------------------------------------------------------
@@ -256,8 +278,6 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
 
               const SizedBox(height: 20),
 
-              _buildSearchBar(compact),
-
               const SizedBox(height: 24),
 
               _buildHeroBanner(compact),
@@ -283,41 +303,32 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
 
               const SizedBox(height: 30),
 
-              // Recommended Books Heading
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _searchQuery.isEmpty
-                          ? 'Recommended Books For You'
-                          : 'Search Results',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: textDark,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: _refreshBooks,
-                    tooltip: 'Refresh books',
-                    icon: const Icon(
-                      Icons.refresh,
-                      color: primaryBlue,
-                    ),
-                  ),
-                  if (_searchQuery.isNotEmpty)
-                    TextButton.icon(
-                      onPressed: _clearSearch,
-                      icon: const Icon(
-                        Icons.close,
-                        size: 16,
-                      ),
-                      label: const Text('Clear search'),
-                    ),
-                ],
+              // Search and catalogue category filter
+              _buildSearchBar(compact),
+              const SizedBox(height: 12),
+              FutureBuilder<List<dynamic>>(
+                future: _categoriesFuture,
+                builder: (context, categorySnapshot) {
+                  final names = <String>['Recommended for You'];
+                  if (categorySnapshot.hasData) {
+                    for (final item in categorySnapshot.data!) {
+                      if (item is Map && item['categoryName'] != null) names.add(item['categoryName'].toString());
+                    }
+                  }
+                  return DropdownButtonFormField<String>(
+                    value: names.contains(_selectedCategory) ? _selectedCategory : 'Recommended for You',
+                    decoration: const InputDecoration(labelText: 'Browse books by category', prefixIcon: Icon(Icons.category_outlined), border: OutlineInputBorder()),
+                    items: names.toSet().map((name) => DropdownMenuItem(value: name, child: Text(name))).toList(),
+                    onChanged: _selectCategory,
+                  );
+                },
               ),
-
+              const SizedBox(height: 14),
+              Row(children: [
+                Expanded(child: Text(_searchQuery.isNotEmpty ? 'Search Results' : _selectedCategory, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textDark))),
+                IconButton(onPressed: _refreshBooks, tooltip: 'Refresh books', icon: const Icon(Icons.refresh, color: primaryBlue)),
+                if (_searchQuery.isNotEmpty) TextButton.icon(onPressed: _clearSearch, icon: const Icon(Icons.close, size: 16), label: const Text('Clear search')),
+              ]),
               const SizedBox(height: 14),
 
               // Books loaded from backend
@@ -347,7 +358,11 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
                     return _buildNoSearchResults();
                   }
 
-                  return Container(
+                  final pageCount = (filteredBooks.length / _booksPerPage).ceil();
+                  final currentPage = pageCount > 0 ? _bookPage.clamp(0, pageCount - 1).toInt() : 0;
+                  final startIndex = currentPage * _booksPerPage;
+                  final visibleBooks = filteredBooks.skip(startIndex).take(_booksPerPage).toList();
+                  return Column(children: [Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -365,14 +380,14 @@ class _ReaderHomeScreenState extends State<ReaderHomeScreen> {
                         mainAxisSpacing: 16,
                         childAspectRatio: compact ? 2.0 : 1.65,
                       ),
-                      itemCount: filteredBooks.length,
+                      itemCount: visibleBooks.length,
                       itemBuilder: (context, index) {
-                        final book = filteredBooks[index];
+                        final book = visibleBooks[index];
 
                         return _buildBookItem(context, book);
                       },
                     ),
-                  );
+                  ), _buildBookPagination(filteredBooks.length, currentPage)]);
                 },
               ),
             ],

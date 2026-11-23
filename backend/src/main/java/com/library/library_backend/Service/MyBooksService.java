@@ -11,6 +11,7 @@ import com.library.library_backend.repository.BookCopyRepository;
 import com.library.library_backend.repository.LibrarySettingsRepository;
 import com.library.library_backend.repository.MyBooksRepository;
 import com.library.library_backend.repository.ReservationRepository;
+import com.library.library_backend.dto.BorrowingHistoryPageResponse;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -214,4 +215,60 @@ public List<MyBookResponse> getMyBooks(Integer userId) {
         throw new IllegalArgumentException(
                 "Unsupported date type: " + value.getClass().getName());
     }
+    public BorrowingHistoryPageResponse getBorrowingHistory(
+        Integer userId,
+        int page
+) {
+    final int pageSize = 5;
+
+    if (page < 0) {
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Page number cannot be negative."
+        );
+    }
+
+    int offset = page * pageSize;
+
+    // Fetch one extra record to determine whether another page exists.
+    List<Object[]> rows =
+            myBooksRepository.findReturnedBorrowings(
+                    userId,
+                    pageSize + 1,
+                    offset
+            );
+
+    LibrarySettings settings = settingsRepository.findById(1)
+            .orElseThrow(() -> new IllegalStateException(
+                    "Library settings record was not found."
+            ));
+
+    int renewalLimit = settings.getRenewalLimit();
+
+    boolean hasNext = rows.size() > pageSize;
+
+    List<MyBookResponse> records = rows.stream()
+            .limit(pageSize)
+            .map(row -> new MyBookResponse(
+                    toInteger(row[0]),
+                    toStringValue(row[1]),
+                    toStringValue(row[2]),
+                    toLocalDate(row[3]),
+                    toLocalDate(row[4]),
+                    toLocalDate(row[5]),
+                    toStringValue(row[6]),
+                    toInteger(row[7]),
+                    toStringValue(row[8]),
+                    renewalLimit,
+                    toStringValue(row[9])
+            ))
+            .toList();
+
+    return new BorrowingHistoryPageResponse(
+            records,
+            page,
+            pageSize,
+            hasNext
+    );
+}
 }

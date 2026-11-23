@@ -25,6 +25,8 @@ class SettingsRepositoryImpl implements SettingsRepository {
     required int renewalLimit,
     required double finePerDay,
     required int reservationHoldMinutes,
+    required String schoolEmail,
+    required String schoolLocation,
   }) {
     return remoteDataSource.updateSettings(
       libraryName: libraryName,
@@ -33,6 +35,8 @@ class SettingsRepositoryImpl implements SettingsRepository {
       renewalLimit: renewalLimit,
       finePerDay: finePerDay,
       reservationHoldMinutes: reservationHoldMinutes,
+      schoolEmail: schoolEmail,
+      schoolLocation: schoolLocation,
     );
   }
 }

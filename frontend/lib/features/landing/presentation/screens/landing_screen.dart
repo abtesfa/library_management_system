@@ -141,11 +141,9 @@ class _LandingScreenState extends State<LandingScreen>
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(
-                      Icons.menu_book,
-                      color: Colors.white,
-                      size: 22,
-                    ),
+                    child: libraryService.settings.libraryLogo == null
+                        ? const Icon(Icons.menu_book, color: Colors.white, size: 22)
+                        : ClipRRect(borderRadius: BorderRadius.circular(6), child: Image.memory(libraryService.settings.libraryLogo!, width: 38, height: 38, fit: BoxFit.contain)),
                   ),
                   const SizedBox(width: 12),
                   Text(
@@ -517,7 +515,7 @@ class _LandingScreenState extends State<LandingScreen>
                           ),
                           alignment: Alignment.bottomLeft,
                           padding: const EdgeInsets.all(24),
-                          child: const Column(
+                          child:  Column(
                             mainAxisAlignment: MainAxisAlignment.end,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -528,7 +526,11 @@ class _LandingScreenState extends State<LandingScreen>
                               ),
                               SizedBox(height: 12),
                               Text(
-                                '1,200+ Books',
+                                libraryService.isLoadingBooks
+                                    ? 'Loading...'
+                                    : libraryService.booksError != null
+                                        ? 'Unavailable'
+                                        : '${allBooks.length} Books',
                                 style: TextStyle(
                                   fontSize: 28,
                                   fontWeight: FontWeight.bold,
@@ -769,8 +771,8 @@ class _LandingScreenState extends State<LandingScreen>
                       children: [
                         _buildStep(
                           '1',
-                          'Create an Account',
-                          'Sign up as a member and get access to '
+                          'Log in to your Account',
+                          'Log in as a student and get access to '
                               'library services.',
                         ),
                         const SizedBox(width: 16),
@@ -823,7 +825,7 @@ class _LandingScreenState extends State<LandingScreen>
             builder: (context, constraints) {
               final brand = _footerBrand();
               final links = _footerLinks(context);
-              final contact = _footerContact();
+              final contact = _footerContact(context);
 
               if (constraints.maxWidth < 700) {
                 return Column(
@@ -1008,8 +1010,9 @@ class _LandingScreenState extends State<LandingScreen>
 
   // FOOTER CONTACT
 
-  Widget _footerContact() {
-    return const Column(
+  Widget _footerContact(BuildContext context) {
+    final settings = context.watch<LibraryService>().settings;
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
@@ -1033,7 +1036,7 @@ class _LandingScreenState extends State<LandingScreen>
             SizedBox(width: 10),
             Expanded(
               child: Text(
-                'centralacademy@example.com',
+                settings.schoolEmail,
                 style: TextStyle(
                   color: Color(0xFFF6B7A5),
                   fontSize: 13,
@@ -1054,7 +1057,7 @@ class _LandingScreenState extends State<LandingScreen>
             SizedBox(width: 10),
             Expanded(
               child: Text(
-                '5kilo,Addis Ababa',
+                settings.schoolLocation,
                 style: TextStyle(
                   color: Color(0xFFF6B7A5),
                   fontSize: 13,

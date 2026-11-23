@@ -3,6 +3,8 @@ import '../../domain/entities/borrow_record.dart';
 import '../../../../core/di/injector.dart';
 import '../../domain/usecases/get_my_books.dart';
 import '../../domain/usecases/renew_book.dart';
+import '../../domain/entities/borrowing_history_page.dart';
+import '../../domain/usecases/get_borrowing_history.dart';
 
 class ReaderMyBooksScreen extends StatefulWidget {
   final String studentId;
@@ -21,6 +23,14 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
 
   final GetMyBooks _getMyBooksUseCase = injector.getMyBooks;
   final RenewBook _renewBookUseCase = injector.renewBook;
+  final GetBorrowingHistory _getBorrowingHistoryUseCase =
+    injector.getBorrowingHistory;
+
+BorrowingHistoryPage? _historyPage;
+
+bool _isHistoryLoading = true;
+String? _historyError;
+int _historyPageIndex = 0;
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -33,10 +43,12 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
   String? _renewingId;
 
   @override
-  void initState() {
-    super.initState();
-    _loadBorrowedBooks();
-  }
+void initState() {
+  super.initState();
+
+  _loadBorrowedBooks();
+  _loadHistoryPage(0);
+}
 
   @override
   void dispose() {
@@ -69,7 +81,57 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
       });
     }
   }
+  
+  Future<void> _loadHistoryPage(int page) async {
+  setState(() {
+    _isHistoryLoading = true;
+    _historyError = null;
+  });
 
+  try {
+    final result = await _getBorrowingHistoryUseCase(
+      widget.studentId,
+      page,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _historyPage = result;
+      _historyPageIndex = result.page;
+      _isHistoryLoading = false;
+    });
+  } catch (error) {
+    if (!mounted) return;
+
+    setState(() {
+      _historyError = error.toString();
+      _isHistoryLoading = false;
+    });
+  }
+}
+
+Future<void> _refreshAll() async {
+  await Future.wait([
+    _loadBorrowedBooks(),
+    _loadHistoryPage(_historyPageIndex),
+  ]);
+}
+
+String _formatHistoryDate(String? value) {
+  if (value == null || value.isEmpty) {
+    return 'Not available';
+  }
+
+  final date = DateTime.tryParse(value);
+
+  if (date == null) return value;
+
+  final day = date.day.toString().padLeft(2, '0');
+  final month = date.month.toString().padLeft(2, '0');
+
+  return '$day/$month/${date.year}';
+}
   // Filter borrowed books by title or ISBN.
   List<BorrowRecord> get _filteredBorrowed {
     final query = _searchQuery.trim().toLowerCase();
@@ -90,6 +152,352 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
       _searchQuery = _searchController.text.trim();
     });
   }
+  
+  Widget _buildHistorySection() {
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(24),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(
+        color: const Color(0xFFD9D9D9),
+      ),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section heading.
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFBE2D9),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.history_rounded,
+                color: Color(0xFFF25635),
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Borrowing History',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF171717),
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Books you have previously borrowed and returned.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF666666),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_historyPage != null)
+              Text(
+                '${_historyPage!.records.length} books',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF666666),
+                ),
+              ),
+          ],
+        ),
+
+        const SizedBox(height: 24),
+
+        // Loading.
+        if (_isHistoryLoading)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(
+                color: Color(0xFFF25635),
+              ),
+            ),
+          )
+
+        // Error.
+        else if (_historyError != null)
+          Center(
+            child: Column(
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: Colors.red,
+                  size: 36,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Unable to load borrowing history.',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () =>
+                      _loadHistoryPage(_historyPageIndex),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Try Again'),
+                ),
+              ],
+            ),
+          )
+
+        // No history.
+        else if (_historyPage == null ||
+            _historyPage!.records.isEmpty)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.menu_book_outlined,
+                    size: 42,
+                    color: Color(0xFFAAA898),
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    'No borrowing history yet.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF666666),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+
+        // History records.
+        else
+          Column(
+            children: _historyPage!.records
+                .map(_buildHistoryCard)
+                .toList(),
+          ),
+
+        // Pagination.
+        if (!_isHistoryLoading &&
+            _historyError == null &&
+            _historyPage != null &&
+            _historyPage!.records.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          const Divider(color: Color(0xFFE5E5E5)),
+          const SizedBox(height: 12),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Page ${_historyPageIndex + 1}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF666666),
+                ),
+              ),
+
+              Row(
+                children: [
+                  // Previous button.
+                  OutlinedButton.icon(
+                    onPressed: _historyPageIndex > 0
+                        ? () => _loadHistoryPage(
+                              _historyPageIndex - 1,
+                            )
+                        : null,
+                    icon: const Icon(
+                      Icons.chevron_left,
+                      size: 18,
+                    ),
+                    label: const Text('Previous'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor:
+                          const Color(0xFFF25635),
+                    ),
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  // Next button.
+                  ElevatedButton.icon(
+                    onPressed: _historyPage!.hasNext
+                        ? () => _loadHistoryPage(
+                              _historyPageIndex + 1,
+                            )
+                        : null,
+                    icon: const Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                    ),
+                    label: const Text('Next'),
+                    iconAlignment: IconAlignment.end,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          const Color(0xFFF25635),
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor:
+                          const Color(0xFFE5E5E5),
+                      disabledForegroundColor:
+                          const Color(0xFF999999),
+                      elevation: 0,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
+Widget _buildHistoryCard(BorrowRecord book) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 14),
+    child: Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAFAFA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFFE5E5E5),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Book cover.
+          ClipRRect(
+            borderRadius: BorderRadius.circular(7),
+            child: book.coverImage != null &&
+                    book.coverImage!.trim().isNotEmpty
+                ? Image.network(
+                    book.coverImage!.trim(),
+                    width: 48,
+                    height: 64,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) =>
+                        _buildBookCoverPlaceholder(),
+                  )
+                : _buildBookCoverPlaceholder(),
+          ),
+
+          const SizedBox(width: 16),
+
+          // Book information.
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  book.bookTitle,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF171717),
+                  ),
+                ),
+
+                const SizedBox(height: 5),
+
+                Text(
+                  'ISBN: ${book.isbn}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF666666),
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                Wrap(
+                  spacing: 20,
+                  runSpacing: 8,
+                  children: [
+                    _historyDateItem(
+                      'Borrowed',
+                      book.borrowDate,
+                      Icons.login_rounded,
+                    ),
+                    _historyDateItem(
+                      'Returned',
+                      book.returnDate,
+                      Icons.assignment_turned_in_outlined,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // Returned status.
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 6,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0xFFECFDF5),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Text(
+              'Returned',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF059669),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+Widget _historyDateItem(
+  String label,
+  String? date,
+  IconData icon,
+) {
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(
+        icon,
+        size: 14,
+        color: const Color(0xFF888888),
+      ),
+      const SizedBox(width: 5),
+      Text(
+        '$label: ${_formatHistoryDate(date)}',
+        style: const TextStyle(
+          fontSize: 11,
+          color: Color(0xFF666666),
+        ),
+      ),
+    ],
+  );
+}
+
 
   Widget _buildBookCoverPlaceholder() {
     return Container(
@@ -283,7 +691,9 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
               // Refresh button.
               IconButton(
                 tooltip: 'Refresh borrowed books',
-                onPressed: _isLoading ? null : _loadBorrowedBooks,
+                onPressed: _isLoading || _isHistoryLoading
+    ? null
+    : _refreshAll,
                 icon: const Icon(
                   Icons.refresh,
                   color: Color(0xFFF25635),
@@ -389,106 +799,22 @@ class _ReaderMyBooksScreenState extends State<ReaderMyBooksScreen> {
           const SizedBox(height: 24),
 
           // Borrowed books and tips panel.
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          
               // Borrowed books list.
               Expanded(
                 flex: 3,
                 child: _buildBorrowedBooksSection(),
               ),
 
-              const SizedBox(width: 24),
+              
 
               // Book Care & Return Tips (with hover animation).
-              Expanded(
-                flex: 2,
-                child: _HoverLift(
-                  radius: 16,
-                  child: Container(
-                    padding: const EdgeInsets.all(22),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: const Color(0xFFD9D9D9),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(
-                              Icons.menu_book_rounded,
-                              color: Color(0xFFF25635),
-                              size: 24,
-                            ),
-                            SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                'Book Care & Return Tips',
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF171717),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Help keep our library books in good condition.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF666666),
-                            height: 1.5,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        _bookCareTip(
-                          icon: Icons.calendar_month_rounded,
-                          title: 'Return Books on Time',
-                          description:
-                              'Return borrowed books by their due dates to avoid overdue fines.',
-                          color: const Color(0xFFF25635),
-                          background: const Color(0xFFFBE2D9),
-                        ),
-                        const SizedBox(height: 22),
-                        _bookCareTip(
-                          icon: Icons.favorite_border_rounded,
-                          title: 'Keep Books Safe',
-                          description:
-                              'Protect books from water, dirt, torn pages and other damage.',
-                          color: const Color(0xFF059669),
-                          background: const Color(0xFFECFDF5),
-                        ),
-                        const SizedBox(height: 22),
-                        _bookCareTip(
-                          icon: Icons.autorenew_rounded,
-                          title: 'Renew on Due Date',
-                          description:
-                              'You can renew a borrowed book only on its due date, subject to the library renewal limit.',
-                          color: const Color(0xFFF25635),
-                          background: const Color(0xFFFBE2D9),
-                        ),
-                        const SizedBox(height: 22),
-                        _bookCareTip(
-                          icon: Icons.bookmark_outline_rounded,
-                          title: 'Handle Books Carefully',
-                          description:
-                              'Keep pages clean and avoid writing or marking inside library books.',
-                          color: const Color(0xFFD97706),
-                          background: const Color(0xFFFFF7ED),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+              
+            
+        
+          const SizedBox(height: 32),
+
+_buildHistorySection(),
         ],
       ),
     );

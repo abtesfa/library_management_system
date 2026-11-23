@@ -1,6 +1,7 @@
 import '../../domain/entities/borrow_record.dart';
 import '../../domain/repositories/borrowing_repository.dart';
 import '../datasources/borrowing_remote_data_source.dart';
+import '../../domain/entities/borrowing_history_page.dart';
 
 class BorrowingRepositoryImpl implements BorrowingRepository {
   final BorrowingRemoteDataSource remoteDataSource;
@@ -9,16 +10,16 @@ class BorrowingRepositoryImpl implements BorrowingRepository {
 
   @override
   Future<String> borrowBook({
-  required String studentId,
-  required String bookQuery,
-  required DateTime borrowDate,
-}) {
-  return remoteDataSource.borrowBook(
-    studentId: studentId,
-    bookQuery: bookQuery,
-    borrowDate: borrowDate,
-  );
-}
+    required String studentId,
+    required String bookQuery,
+    required DateTime borrowDate,
+  }) {
+    return remoteDataSource.borrowBook(
+      studentId: studentId,
+      bookQuery: bookQuery,
+      borrowDate: borrowDate,
+    );
+  }
 
   @override
   Future<BorrowRecord> findActiveBorrowing({
@@ -51,4 +52,14 @@ class BorrowingRepositoryImpl implements BorrowingRepository {
   @override
   Future<String> renewBook(String studentId, String borrowingId) =>
       remoteDataSource.renewBook(studentId, borrowingId);
+  @override
+  Future<BorrowingHistoryPage> getBorrowingHistory(
+    String studentId,
+    int page,
+  ) {
+    return remoteDataSource.getBorrowingHistory(
+      studentId,
+      page,
+    );
+  }
 }

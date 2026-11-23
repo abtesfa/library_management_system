@@ -77,7 +77,11 @@ Optional<Integer> findActiveBorrowingId(
     
 );
 // Retrieve all borrowing records with a particular status
-List<Borrowing> findByStatusIgnoreCase(String status);
+List<Borrowing> findByCopyIdInAndStatusIn(
+        Collection<Integer> copyIds,
+        Collection<String> statuses);
+
+    List<Borrowing> findByStatusIgnoreCase(String status);
 @Query(value = """
     SELECT br.Due_Date
     FROM borrowing br

@@ -12,6 +12,8 @@ class UpdateSettings {
     required int renewalLimit,
     required double finePerDay,
     required int reservationHoldMinutes,
+    required String schoolEmail,
+    required String schoolLocation,
   }) {
     return repository.updateSettings(
       libraryName: libraryName,
@@ -20,6 +22,8 @@ class UpdateSettings {
       renewalLimit: renewalLimit,
       finePerDay: finePerDay,
       reservationHoldMinutes: reservationHoldMinutes,
+      schoolEmail: schoolEmail,
+      schoolLocation: schoolLocation,
     );
   }
 }

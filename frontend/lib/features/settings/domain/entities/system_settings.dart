@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 class SystemSettings {
   final String libraryName;
+  final Uint8List? libraryLogo;
   final String openingTime;
   final String closingTime;
   final int maxBorrowDays;
@@ -8,9 +11,12 @@ class SystemSettings {
   final int reservationHoldMinutes;
   final String contactEmail;
   final String contactPhone;
+  final String schoolEmail;
+  final String schoolLocation;
 
   SystemSettings({
     this.libraryName = 'Central Academic Library',
+    this.libraryLogo,
     this.openingTime = '08:00 AM',
     this.closingTime = '08:00 PM',
     this.maxBorrowDays = 14,
@@ -19,6 +25,8 @@ class SystemSettings {
     this.reservationHoldMinutes = 1440,
     this.contactEmail = 'info@librarysystem.com',
     this.contactPhone = '+251 11 123 4567',
+    this.schoolEmail = 'centralacademy@example.com',
+    this.schoolLocation = '5kilo, Addis Ababa',
   });
 
   // Default settings
@@ -29,6 +37,7 @@ class SystemSettings {
   // Create a copy with updated values
   SystemSettings copyWith({
     String? libraryName,
+    Uint8List? libraryLogo,
     String? openingTime,
     String? closingTime,
     int? maxBorrowDays,
@@ -37,9 +46,12 @@ class SystemSettings {
     int? reservationHoldMinutes,
     String? contactEmail,
     String? contactPhone,
+    String? schoolEmail,
+    String? schoolLocation,
   }) {
     return SystemSettings(
       libraryName: libraryName ?? this.libraryName,
+      libraryLogo: libraryLogo ?? this.libraryLogo,
       openingTime: openingTime ?? this.openingTime,
       closingTime: closingTime ?? this.closingTime,
       maxBorrowDays: maxBorrowDays ?? this.maxBorrowDays,
@@ -49,6 +61,8 @@ class SystemSettings {
           reservationHoldMinutes ?? this.reservationHoldMinutes,
       contactEmail: contactEmail ?? this.contactEmail,
       contactPhone: contactPhone ?? this.contactPhone,
+      schoolEmail: schoolEmail ?? this.schoolEmail,
+      schoolLocation: schoolLocation ?? this.schoolLocation,
     );
   }
 }

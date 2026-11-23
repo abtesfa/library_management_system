@@ -35,6 +35,8 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
   String? _errorMessage;
 
   String _selectedRole = 'All Roles';
+  int _currentPage = 0;
+  static const int _pageSize = 10;
 
   final List<String> _positions = [
     'Chief Circulation Librarian',
@@ -207,6 +209,14 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
 
       return matchesSearch && matchesRole;
     }).toList();
+  }
+
+  List<StaffMember> get _pageStaff {
+    final results = _filteredStaff;
+    final pageCount = (results.length / _pageSize).ceil();
+    if (pageCount == 0) return [];
+    final page = _currentPage.clamp(0, pageCount - 1).toInt();
+    return results.skip(page * _pageSize).take(_pageSize).toList();
   }
 
   // ------------------------------------------------------------
@@ -1267,7 +1277,8 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
           const SizedBox(height: 16),
           _buildSearchAndFilter(),
           const SizedBox(height: 18),
-          _buildStaffTable(filteredStaff),
+          _buildStaffTable(_pageStaff),
+          if (filteredStaff.isNotEmpty) _buildStaffPagination(filteredStaff.length),
           if (filteredStaff.isEmpty)
             const Padding(
               padding: EdgeInsets.all(24),
@@ -1307,7 +1318,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
 
         final searchField = TextField(
           controller: _searchController,
-          onChanged: (_) => setState(() {}),
+          onChanged: (_) => setState(() => _currentPage = 0),
           decoration: InputDecoration(
             hintText: 'Search by name, email or staff ID...',
             prefixIcon: const Icon(
@@ -1400,6 +1411,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
             onChanged: (value) {
               setState(() {
                 _selectedRole = value ?? 'All Roles';
+                _currentPage = 0;
               });
             },
           ),
@@ -1431,9 +1443,12 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
   // ------------------------------------------------------------
 
   Widget _buildStaffTable(List<StaffMember> filteredStaff) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
+    return SizedBox(
+      width: double.infinity,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: DataTable(
         headingRowColor: WidgetStateProperty.all(
           const Color(0xFFFBF1E4),
         ),
@@ -1446,8 +1461,8 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
           fontSize: 12,
           color: dark,
         ),
-        horizontalMargin: 16,
-        columnSpacing: 24,
+        horizontalMargin: 8,
+        columnSpacing: 12,
         columns: const [
           DataColumn(label: Text('STAFF ID')),
           DataColumn(label: Text('NAME')),
@@ -1594,6 +1609,38 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
             ],
           );
         }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStaffPagination(int totalItems) {
+    final pageCount = (totalItems / _pageSize).ceil();
+    final page = pageCount == 0 ? 0 : _currentPage.clamp(0, pageCount - 1).toInt();
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Text(
+            'Page ${page + 1} of $pageCount',
+            style: const TextStyle(fontSize: 12, color: muted),
+          ),
+          const SizedBox(width: 12),
+          OutlinedButton(
+            onPressed: page > 0
+                ? () => setState(() => _currentPage--)
+                : null,
+            child: const Text('Previous'),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: page + 1 < pageCount
+                ? () => setState(() => _currentPage++)
+                : null,
+            child: const Text('Next'),
+          ),
+        ],
       ),
     );
   }

@@ -177,6 +177,8 @@ public class LibrarianBorrowingService {
             Reservation reservation = ownReservation.get();
 
             reservation.setStatus("FULFILLED");
+            reservation.setQueuePosition(null);
+            reservation.setEstimatedAvailableAt(null);
             reservation.setHoldUntil(null);
             reservation.setPickupLocation(null);
             reservation.setAllocatedCopyId(null);
@@ -186,6 +188,10 @@ public class LibrarianBorrowingService {
 
         selectedCopy.setStatus("Borrowed");
         bookCopyRepository.save(selectedCopy);
+
+        // The reservation has left the queue and the copy is now on loan.
+        // Refresh remaining queue positions and their projected availability.
+        reservationService.processQueueForBook(bookId);
 
         return new BorrowBookResponse(
                 savedBorrowing.getBorrowingId(),

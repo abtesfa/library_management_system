@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class LibrarySettingsService {
@@ -83,6 +84,14 @@ public LibrarySettings getSettings() {
         existingSettings.setLibraryName(
             updatedSettings.getLibraryName().trim()
         );
+        existingSettings.setSchoolEmail(
+            updatedSettings.getSchoolEmail() == null
+                ? null : updatedSettings.getSchoolEmail().trim()
+        );
+        existingSettings.setSchoolLocation(
+            updatedSettings.getSchoolLocation() == null
+                ? null : updatedSettings.getSchoolLocation().trim()
+        );
 
         existingSettings.setMaxBooksPerStudent(
             updatedSettings.getMaxBooksPerStudent()
@@ -101,6 +110,18 @@ public LibrarySettings getSettings() {
 
         return repository.save(existingSettings);
     }
+
+    @Transactional
+    public void updateLogo(MultipartFile file) throws java.io.IOException {
+        if (file == null || file.isEmpty() || file.getSize() > 5 * 1024 * 1024) throw new IllegalArgumentException("Choose a logo smaller than 5 MB.");
+        String type = file.getContentType() == null ? "" : file.getContentType();
+        if (!type.equals("image/jpeg") && !type.equals("image/png") && !type.equals("image/webp")) throw new IllegalArgumentException("Only JPG, PNG, or WEBP logos are allowed.");
+        LibrarySettings settings = getSettings();
+        settings.setLibraryLogo(file.getBytes());
+        repository.save(settings);
+    }
+
+    public byte[] getLogo() { return getSettings().getLibraryLogo(); }
 
     public int getReservationHoldMinutes() {
         Integer minutes = getSettings().getReservationHoldMinutes();

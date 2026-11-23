@@ -25,6 +25,8 @@ class _LibrarianNotificationsScreenState
       injector.markNotificationAsRead;
 
   String _selectedFilter = 'All';
+  int _currentPage = 0;
+  static const int _pageSize = 10;
   List<LibraryNotification> _notifications = [];
   bool _isLoading = true;
   String? _error;
@@ -47,7 +49,21 @@ class _LibrarianNotificationsScreenState
       if (!mounted) return;
 
       setState(() {
-        _notifications = notifications;
+        _notifications = notifications
+            .where((notification) {
+              final createdAt = notification.createdAt;
+              return createdAt != null &&
+                  !createdAt.isBefore(
+                    DateTime.now().subtract(const Duration(days: 7)),
+                  ) &&
+                  !createdAt.isAfter(DateTime.now());
+            })
+            .toList()
+          ..sort((a, b) =>
+              (b.createdAt ?? DateTime(1970)).compareTo(
+                a.createdAt ?? DateTime(1970),
+              ));
+        _currentPage = 0;
         _isLoading = false;
       });
     } catch (e) {
@@ -83,6 +99,14 @@ class _LibrarianNotificationsScreenState
     return _notifications
         .where((notification) => notification.notificationType == type)
         .toList();
+  }
+
+  List<LibraryNotification> get _pageNotifications {
+    final results = _filteredNotifications;
+    final pageCount = (results.length / _pageSize).ceil();
+    if (pageCount == 0) return [];
+    final page = _currentPage.clamp(0, pageCount - 1).toInt();
+    return results.skip(page * _pageSize).take(_pageSize).toList();
   }
 
   int _countFor(String filter) {
@@ -381,6 +405,7 @@ class _LibrarianNotificationsScreenState
                             onTap: () {
                               setState(() {
                                 _selectedFilter = filter.$1;
+                                _currentPage = 0;
                               });
                             },
                             child: Container(
@@ -441,7 +466,7 @@ class _LibrarianNotificationsScreenState
                     ),
                   )
                 else
-                  ..._filteredNotifications.map((notification) {
+                  ..._pageNotifications.map((notification) {
                     final type = _notificationType(notification);
                     final color = _notificationColor(type);
                     final background = _notificationBackground(type);
@@ -575,6 +600,37 @@ class _LibrarianNotificationsScreenState
                       ),
                     );
                   }),
+                if (_filteredNotifications.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12, bottom: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Text(
+                          'Page ${_currentPage + 1} of ${(_filteredNotifications.length / _pageSize).ceil()}',
+                          style: const TextStyle(
+                            color: Color(0xFF666666),
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        OutlinedButton(
+                          onPressed: _currentPage > 0
+                              ? () => setState(() => _currentPage--)
+                              : null,
+                          child: const Text('Previous'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: (_currentPage + 1) * _pageSize <
+                                  _filteredNotifications.length
+                              ? () => setState(() => _currentPage++)
+                              : null,
+                          child: const Text('Next'),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             );
           },

@@ -55,7 +55,7 @@ public class ReservationService {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Student not found"));
 
-        book selectedBook = bookRepository.findById(bookId)
+        book selectedBook = bookRepository.findByIdForUpdate(bookId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Book not found"));
 
@@ -149,13 +149,19 @@ public List<ReservationResponse> getStudentReservations(Integer userId) {
                     "You cannot cancel another student's reservation.");
         }
 
+        Integer bookId = reservation.getBookId();
+        bookRepository.findByIdForUpdate(bookId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Book not found"));
+
+        // Re-check after acquiring the book lock so cancellation cannot race
+        // with checkout or expiration of the same reservation.
         if (!isActive(reservation)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "This reservation is no longer active.");
         }
 
-        Integer bookId = reservation.getBookId();
         Integer copyId = reservation.getAllocatedCopyId();
 
         reservation.setStatus("CANCELLED");
@@ -175,37 +181,53 @@ public List<ReservationResponse> getStudentReservations(Integer userId) {
         updateQueueEstimates(bookId);
     }
 
-    @Scheduled(fixedRate = 60000)
+    @Scheduled(fixedRate = 10000)
     @Transactional
     public void expireOverdueReservations() {
 
-        List<Reservation> expired =
-                reservationRepository.findExpiredReadyReservations(
-                        LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+
+        // First discover affected book IDs, then lock each book and re-read
+        // its expired reservations. This serializes expiry with checkout,
+        // cancellation, and other queue allocation operations.
+        List<Reservation> candidates =
+                reservationRepository.findExpiredReadyReservations(now);
 
         Set<Integer> affectedBooks = new HashSet<>();
-
-        for (Reservation reservation : expired) {
-
-            Integer copyId = reservation.getAllocatedCopyId();
-
-            reservation.setStatus("EXPIRED");
-            reservation.setHoldUntil(null);
-            reservation.setPickupLocation(null);
-            reservation.setAllocatedCopyId(null);
-
-            reservationRepository.save(reservation);
-            notificationService.deleteByReservationId(
-                    reservation.getReservationId());
-
-            if (copyId != null) {
-                releaseCopy(copyId);
-            }
-
+        for (Reservation reservation : candidates) {
             affectedBooks.add(reservation.getBookId());
         }
 
         for (Integer bookId : affectedBooks) {
+            bookRepository.findByIdForUpdate(bookId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND, "Book not found"));
+
+            List<Reservation> expiredForBook =
+                    reservationRepository.findExpiredReadyReservationsByBookId(
+                            bookId, LocalDateTime.now());
+
+            for (Reservation reservation : expiredForBook) {
+                Integer copyId = reservation.getAllocatedCopyId();
+
+                reservation.setStatus("EXPIRED");
+                reservation.setQueuePosition(null);
+                reservation.setHoldUntil(null);
+                reservation.setPickupLocation(null);
+                reservation.setAllocatedCopyId(null);
+                reservation.setEstimatedAvailableAt(null);
+
+                reservationRepository.save(reservation);
+                notificationService.deleteByReservationId(
+                        reservation.getReservationId());
+
+                if (copyId != null) {
+                    releaseCopy(copyId);
+                }
+            }
+
+            // The released copy is now immediately assigned to the oldest
+            // WAITING reservation for this book, if one exists.
             allocateAvailableCopies(bookId);
             updateQueueEstimates(bookId);
         }
@@ -216,7 +238,15 @@ public List<ReservationResponse> getStudentReservations(Integer userId) {
      * The oldest waiting reservation receives the copy first.
      */
     @Transactional
+    public void lockBookForQueue(Integer bookId) {
+        bookRepository.findByIdForUpdate(bookId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Book not found"));
+    }
+
+    @Transactional
     public void processQueueForBook(Integer bookId) {
+        lockBookForQueue(bookId);
         allocateAvailableCopies(bookId);
         updateQueueEstimates(bookId);
     }
@@ -246,6 +276,7 @@ public List<ReservationResponse> getStudentReservations(Integer userId) {
             bookCopyRepository.save(copy);
 
             reservation.setStatus("READY_FOR_PICKUP");
+            reservation.setQueuePosition(null);
             reservation.setAllocatedCopyId(copy.getCopyId());
             reservation.setPickupLocation(copy.getLocation());
             reservation.setHoldUntil(now.plusMinutes(holdMinutes));
@@ -267,44 +298,126 @@ public List<ReservationResponse> getStudentReservations(Integer userId) {
     }
 
     /**
-     * Waiting students receive estimates based on borrowed copies'
-     * due dates. READY_FOR_PICKUP students have already been assigned
-     * a physical copy and therefore do not need an estimate.
+     * Recalculates queue positions and forecasts when each WAITING reservation
+     * could be allocated a copy. The forecast simulates each physical copy
+     * independently and assumes a future reader collects at the end of the
+     * pickup window, then borrows for the configured maximum duration.
+     *
+     * If a reader does not collect a READY_FOR_PICKUP copy,
+     * expireOverdueReservations() releases it at Hold_Until and immediately
+     * allocates it to the next WAITING reservation. That real event replaces
+     * the conservative forecast with the new actual allocation.
      */
     private void updateQueueEstimates(Integer bookId) {
 
-        List<Reservation> waiting =
-                reservationRepository.findWaitingQueue(bookId);
+        List<Reservation> waiting = reservationRepository.findWaitingQueue(bookId);
+        List<BookCopy> copies = bookCopyRepository.findAllByBookId(bookId);
 
-        List<Date> dueDates =
-                borrowingRepository.findExpectedReturnDatesByBookId(bookId);
+        // Queue positions apply only to WAITING readers. READY reservations
+        // have already received a copy and must not occupy a waiting position.
+        List<Reservation> activeQueue = reservationRepository.findActiveQueue(bookId);
+        int position = 1;
+        for (Reservation reservation : activeQueue) {
+            if ("WAITING".equalsIgnoreCase(reservation.getStatus())) {
+                reservation.setQueuePosition(position++);
+            } else {
+                reservation.setQueuePosition(null);
+            }
+        }
+        reservationRepository.saveAll(activeQueue);
+
+        List<Integer> copyIds = copies.stream()
+                .map(BookCopy::getCopyId)
+                .filter(Objects::nonNull)
+                .toList();
+
+        Map<Integer, Borrowing> activeLoansByCopy = new HashMap<>();
+        if (!copyIds.isEmpty()) {
+            borrowingRepository.findByCopyIdInAndStatusIn(
+                    copyIds, List.of("BORROWED", "OVERDUE"))
+                    .forEach(loan -> activeLoansByCopy.put(loan.getCopyId(), loan));
+        }
 
         LocalDateTime now = LocalDateTime.now();
+        LibrarySettings settings = librarySettingsService.getSettings();
+        int borrowingDays = settings.getMaxBorrowingDays();
+        int holdMinutes = settings.getReservationHoldMinutes();
 
-        for (int i = 0; i < waiting.size(); i++) {
+        // Each copy has its own next projected time at which it can be
+        // allocated. Sorting these times implements earliest-copy-first.
+        PriorityQueue<CopyForecast> availableCopies = new PriorityQueue<>(
+                Comparator.comparing(CopyForecast::availableAt)
+                        .thenComparing(CopyForecast::copyId));
 
-            Reservation reservation = waiting.get(i);
+        for (BookCopy copy : copies) {
+            String status = copy.getStatus() == null
+                    ? "" : copy.getStatus().trim().toLowerCase(Locale.ROOT);
 
-            LocalDateTime estimate = null;
-
-            if (i < dueDates.size() && dueDates.get(i) != null) {
-                estimate = dueDates.get(i).toLocalDate().atStartOfDay();
+            if ("available".equals(status)) {
+                availableCopies.add(new CopyForecast(copy.getCopyId(), now));
+                continue;
             }
 
-            reservation.setEstimatedAvailableAt(estimate);
-            reservationRepository.save(reservation);
+            if ("borrowed".equals(status)) {
+                Borrowing loan = activeLoansByCopy.get(copy.getCopyId());
+                if (loan != null && loan.getDueDate() != null) {
+                    LocalDateTime due = loan.getDueDate().atStartOfDay();
+                    availableCopies.add(new CopyForecast(
+                            copy.getCopyId(), due.isBefore(now) ? now : due));
+                }
+                // A copy marked Borrowed without a matching active loan is
+                // deliberately excluded rather than producing a false date.
+                continue;
+            }
+
+            if ("reserved".equals(status)) {
+                Optional<Reservation> ready =
+                        reservationRepository.findReadyReservationByCopyId(
+                                copy.getCopyId());
+                if (ready.isPresent() && ready.get().getHoldUntil() != null) {
+                    LocalDateTime holdUntil = ready.get().getHoldUntil();
+                    if (holdUntil.isBefore(now)) {
+                        // Expiration processing will release and reallocate it.
+                        availableCopies.add(new CopyForecast(copy.getCopyId(), now));
+                    } else {
+                        // Conservative branch: assume the current ready reader
+                        // collects at the end of the hold window and completes
+                        // a full borrowing cycle. If they do not collect, the
+                        // scheduled expiry releases the copy earlier.
+                        LocalDateTime nextFree = holdUntil.plusDays(borrowingDays);
+                        availableCopies.add(new CopyForecast(
+                                copy.getCopyId(), nextFree));
+                    }
+                }
+            }
+            // Lost/unknown statuses are intentionally not forecast as usable.
         }
 
-        List<Reservation> active =
-                reservationRepository.findActiveQueue(bookId);
+        for (Reservation reservation : waiting) {
+            CopyForecast forecast = availableCopies.poll();
+            if (forecast == null) {
+                reservation.setEstimatedAvailableAt(null);
+                continue;
+            }
 
-        int position = 1;
+            LocalDateTime readyAt = forecast.availableAt();
+            reservation.setEstimatedAvailableAt(readyAt);
 
-        for (Reservation reservation : active) {
-            reservation.setQueuePosition(position++);
-            reservationRepository.save(reservation);
+            // Assume this future reader collects at the end of their pickup
+            // window. If not collected, expiry frees the copy at holdUntil and
+            // the next reader is promoted immediately by the expiry workflow.
+            LocalDateTime nextFree = readyAt
+                    .plusMinutes(holdMinutes)
+                    .plusDays(borrowingDays);
+
+            availableCopies.add(new CopyForecast(
+                    forecast.copyId(), nextFree));
         }
+
+        reservationRepository.saveAll(waiting);
     }
+
+    private record CopyForecast(Integer copyId, LocalDateTime availableAt) {}
 
     private void releaseCopy(Integer copyId) {
 

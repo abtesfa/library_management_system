@@ -96,6 +96,17 @@ List<Reservation> findAllByBookId(Integer bookId);
 
     @Query("""
         SELECT r FROM Reservation r
+        WHERE r.bookId = :bookId
+        AND r.status = 'READY_FOR_PICKUP'
+        AND r.holdUntil IS NOT NULL
+        AND r.holdUntil <= :cutoff
+        """)
+    List<Reservation> findExpiredReadyReservationsByBookId(
+            @Param("bookId") Integer bookId,
+            @Param("cutoff") LocalDateTime cutoff);
+
+    @Query("""
+        SELECT r FROM Reservation r
         WHERE r.userId = :userId
         AND r.bookId = :bookId
         AND r.status IN ('WAITING', 'READY_FOR_PICKUP')

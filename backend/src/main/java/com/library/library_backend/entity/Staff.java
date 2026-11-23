@@ -27,6 +27,10 @@ public class Staff {
     @Column(nullable = false, length = 30)
     private String role;
 
+    @Lob
+    @Column(name = "profile_picture", columnDefinition = "LONGBLOB")
+    private byte[] profilePicture;
+
     @Column(name = "password_hash", length = 255)
     private String passwordHash;
 
@@ -154,4 +158,6 @@ public class Staff {
     public void setPermissions(Set<Permission> permissions) {
         this.permissions = permissions;
     }
+    public byte[] getProfilePicture() { return profilePicture; }
+    public void setProfilePicture(byte[] profilePicture) { this.profilePicture = profilePicture; }
 }

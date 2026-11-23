@@ -16,5 +16,7 @@ abstract class SettingsRepository {
     required int renewalLimit,
     required double finePerDay,
     required int reservationHoldMinutes,
+    required String schoolEmail,
+    required String schoolLocation,
   });
 }
