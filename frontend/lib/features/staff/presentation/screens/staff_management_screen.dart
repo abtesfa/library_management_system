@@ -35,32 +35,23 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
   String? _errorMessage;
 
   String _selectedRole = 'All Roles';
-
+    int _currentPage = 0;
+    static const int _pageSize = 10;
   final List<String> _positions = [
     'Chief Circulation Librarian',
     'Cataloging Specialist',
-    'Reference Librarian',
+    'Reference Librarian',      
     'Acquisitions Librarian',
     'Digital Resources Librarian',
     'Archivist',
   ];
 
-  final Map<String, String> _permissionLabels = {
-    'ADD_BOOK': 'Add Books',
-    'EDIT_BOOK': 'Edit Book Information',
-    'DELETE_BOOK': 'Delete Books',
-    'MANAGE_COPIES': 'Manage Physical Copies',
-    'BORROW_BOOK': 'Borrow / Issue Books',
-    'RETURN_BOOK': 'Return Books',
-    'RENEW_BOOK': 'Renew Borrowed Books',
-    'VIEW_MEMBERS': 'View Members',
-    'MANAGE_MEMBERS': 'Add and Edit Members',
-    'COLLECT_FINE': 'Collect Fines',
-    'WAIVE_FINE': 'Waive Fines',
-    'VIEW_REPORTS': 'View Reports',
-    'GENERATE_REPORTS': 'Generate Reports',
-    'CONFIGURE_SETTINGS': 'Configure LMS Settings',
-    'MANAGE_STAFF': 'Manage Staff Members',
+  final Map<String, Set<String>> _permissionGroups = {
+    'Add / Edit Books': {'ADD_BOOK', 'EDIT_BOOK'},
+    'Add / Edit Staff Members': {'MANAGE_STAFF'},
+    'Borrow / Return Books': {'BORROW_BOOK', 'RETURN_BOOK'},
+    'Configure LMS Settings': {'CONFIGURE_SETTINGS'},
+    'View Notifications': {'VIEW_NOTIFICATIONS'},
   };
 
   @override
@@ -90,10 +81,8 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
   String? _validateEmail(String? value) {
     final email = value?.trim() ?? '';
 
-    // Email and phone are both optional individually.
-    // At least one of them must be entered.
     if (email.isEmpty) {
-      return null;
+      return 'Email is required for staff sign-in.';
     }
 
     final emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
@@ -159,6 +148,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
       setState(() {
         _staff = staffList;
         _isLoading = false;
+          _currentPage = 0;
       });
     } catch (e) {
       if (!mounted) return;
@@ -323,6 +313,10 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
     final phoneController = TextEditingController(
       text: existing?.phoneNumber ?? '',
     );
+    final passwordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    bool obscurePassword = true;
+    bool obscureConfirmPassword = true;
 
     String selectedRole = existing == null
         ? 'LIBRARIAN'
@@ -338,8 +332,12 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
       selectedPosition = null;
     }
 
-    final selectedPermissions =
-        Set<String>.from(existing?.permissions ?? <String>{});
+    final selectedPermissions = Set<String>.from(
+      (existing?.permissions ?? <String>{}).where(
+        (permission) =>
+            _permissionGroups.values.any((group) => group.contains(permission)),
+      ),
+    );
 
     String selectedStatus = _normalizeStatus(existing?.status ?? 'ACTIVE');
 
@@ -413,8 +411,8 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
 
                         const SizedBox(height: 16),
 
-                        // EMAIL - OPTIONAL INDIVIDUALLY
-                        _dialogLabel('Email Address'),
+                        // EMAIL - REQUIRED FOR SIGN-IN
+                        _dialogLabel('Email Address', isRequired: true),
 
                         TextFormField(
                           controller: emailController,
@@ -460,6 +458,82 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                         ),
 
                         const SizedBox(height: 16),
+
+                        if (existing == null) ...[
+                          _dialogLabel('Password', isRequired: true),
+                          TextFormField(
+                            controller: passwordController,
+                            enabled: !isSaving,
+                            obscureText: obscurePassword,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Password is required.';
+                              }
+                              if (value.length < 8) {
+                                return 'Password must be at least 8 characters.';
+                              }
+                              return null;
+                            },
+                            decoration: _inputDecoration(
+                              'Set a password (8+ characters)',
+                              Icons.lock_outline,
+                            ).copyWith(
+                              suffixIcon: IconButton(
+                                tooltip: obscurePassword
+                                    ? 'Show password'
+                                    : 'Hide password',
+                                onPressed: () {
+                                  setDialogState(() {
+                                    obscurePassword = !obscurePassword;
+                                  });
+                                },
+                                icon: Icon(
+                                  obscurePassword
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          _dialogLabel('Confirm Password', isRequired: true),
+                          TextFormField(
+                            controller: confirmPasswordController,
+                            enabled: !isSaving,
+                            obscureText: obscureConfirmPassword,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please confirm the password.';
+                              }
+                              if (value != passwordController.text) {
+                                return 'Passwords do not match.';
+                              }
+                              return null;
+                            },
+                            decoration: _inputDecoration(
+                              'Re-enter the password',
+                              Icons.lock_outline,
+                            ).copyWith(
+                              suffixIcon: IconButton(
+                                tooltip: obscureConfirmPassword
+                                    ? 'Show password'
+                                    : 'Hide password',
+                                onPressed: () {
+                                  setDialogState(() {
+                                    obscureConfirmPassword =
+                                        !obscureConfirmPassword;
+                                  });
+                                },
+                                icon: Icon(
+                                  obscureConfirmPassword
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
 
                         // SYSTEM ROLE - REQUIRED
                         _dialogLabel(
@@ -564,7 +638,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                               ),
                             ),
                             child: Column(
-                              children: _permissionLabels.entries.map((entry) {
+                              children: _permissionGroups.entries.map((entry) {
                                 return CheckboxListTile(
                                   contentPadding: EdgeInsets.zero,
                                   dense: true,
@@ -572,24 +646,24 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                                   controlAffinity:
                                       ListTileControlAffinity.leading,
                                   title: Text(
-                                    entry.value,
+                                    entry.key,
                                     style: const TextStyle(
                                       fontSize: 13,
                                       color: dark,
                                     ),
                                   ),
-                                  value:
-                                      selectedPermissions.contains(entry.key),
+                                  value: entry.value
+                                      .every(selectedPermissions.contains),
                                   onChanged: isSaving
                                       ? null
                                       : (checked) {
                                           setDialogState(() {
                                             if (checked == true) {
                                               selectedPermissions
-                                                  .add(entry.key);
+                                                  .addAll(entry.value);
                                             } else {
                                               selectedPermissions
-                                                  .remove(entry.key);
+                                                  .removeAll(entry.value);
                                             }
                                           });
                                         },
@@ -667,19 +741,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                             return;
                           }
 
-                          // At least one contact method is required.
-                          final contactError = _validateContact(
-                            email: emailController.text,
-                            phone: phoneController.text,
-                          );
-
-                          if (contactError != null) {
-                            _showMessage(
-                              contactError,
-                              isError: true,
-                            );
-                            return;
-                          }
+                          
 
                           final newStaff = StaffMember(
                             id: existing?.id ?? '',
@@ -702,7 +764,10 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
 
                           try {
                             if (existing == null) {
-                              await _addStaffUseCase(newStaff);
+                              await _addStaffUseCase(
+                                newStaff,
+                                password: passwordController.text,
+                              );
                             } else {
                               await _updateStaffUseCase(
                                 existing.id,
@@ -769,6 +834,8 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
       nameController.dispose();
       emailController.dispose();
       phoneController.dispose();
+      passwordController.dispose();
+      confirmPasswordController.dispose();
     });
   }
 
@@ -1145,80 +1212,199 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
   // STAFF DIRECTORY
   // ------------------------------------------------------------
 
-  Widget _buildStaffDirectory(
-    List<StaffMember> filteredStaff,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.025),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Staff Directory',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                    color: dark,
-                  ),
-                ),
+Widget _buildStaffDirectory(List<StaffMember> filteredStaff) {
+  final int totalPages = (filteredStaff.length / _pageSize).ceil();
+
+  final int safePage = totalPages == 0
+      ? 0
+      : _currentPage.clamp(0, totalPages - 1);
+
+  final int startIndex = safePage * _pageSize;
+
+  final int endIndex =
+      (startIndex + _pageSize).clamp(0, filteredStaff.length);
+
+  final List<StaffMember> paginatedStaff =
+      filteredStaff.sublist(startIndex, endIndex);
+
+  return Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: borderColor),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.025),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 500;
+
+            final title = const Text(
+              'Staff Directory',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: dark,
               ),
-              Text(
-                '${filteredStaff.length} staff',
+            );
+
+            final count = Text(
+              '${filteredStaff.length} staff members',
+              style: const TextStyle(
+                fontSize: 12,
+                color: muted,
+                fontWeight: FontWeight.w600,
+              ),
+            );
+
+            if (compact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  title,
+                  const SizedBox(height: 5),
+                  count,
+                ],
+              );
+            }
+
+            return Row(
+              children: [
+                Expanded(child: title),
+                count,
+              ],
+            );
+          },
+        ),
+
+        const SizedBox(height: 16),
+
+        _buildSearchAndFilter(),
+
+        const SizedBox(height: 18),
+
+        if (filteredStaff.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(30),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.people_outline,
+                    size: 42,
+                    color: muted,
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    'No staff members found.',
+                    style: TextStyle(
+                      color: muted,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else ...[
+          _buildStaffTable(paginatedStaff),
+
+          const SizedBox(height: 18),
+
+          const Divider(height: 1),
+
+          const SizedBox(height: 14),
+
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 450;
+
+              final showingText = Text(
+                'Showing ${startIndex + 1}-$endIndex '
+                'of ${filteredStaff.length}',
                 style: const TextStyle(
                   fontSize: 12,
                   color: muted,
-                  fontWeight: FontWeight.w600,
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildSearchAndFilter(),
-          const SizedBox(height: 18),
-          _buildStaffTable(filteredStaff),
-          if (filteredStaff.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.people_outline,
-                      size: 36,
-                      color: muted,
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'No staff members found.',
-                      style: TextStyle(
-                        color: muted,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
+              );
 
+              final controls = Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OutlinedButton(
+                    onPressed: safePage > 0
+                        ? () {
+                            setState(() {
+                              _currentPage = safePage - 1;
+                            });
+                          }
+                        : null,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: primary,
+                      side: const BorderSide(color: borderColor),
+                    ),
+                    child: const Text('Previous'),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    '${safePage + 1} / $totalPages',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: dark,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  OutlinedButton(
+                    onPressed: safePage < totalPages - 1
+                        ? () {
+                            setState(() {
+                              _currentPage = safePage + 1;
+                            });
+                          }
+                        : null,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: primary,
+                      side: const BorderSide(color: borderColor),
+                    ),
+                    child: const Text('Next'),
+                  ),
+                ],
+              );
+
+              if (compact) {
+                return Column(
+                  children: [
+                    showingText,
+                    const SizedBox(height: 12),
+                    controls,
+                  ],
+                );
+              }
+
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  showingText,
+                  controls,
+                ],
+              );
+            },
+          ),
+        ],
+      ],
+    ),
+  );
+}
   // ------------------------------------------------------------
   // SEARCH AND ROLE FILTER
   // ------------------------------------------------------------
@@ -1230,7 +1416,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
 
         final searchField = TextField(
           controller: _searchController,
-          onChanged: (_) => setState(() {}),
+          onChanged: (_) => setState(() {_currentPage = 0;}),
           decoration: InputDecoration(
             hintText: 'Search by name, email or staff ID...',
             prefixIcon: const Icon(
@@ -1242,6 +1428,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                     tooltip: 'Clear search',
                     icon: const Icon(Icons.close),
                     onPressed: () {
+                      _currentPage = 0;
                       _searchController.clear();
                       setState(() {});
                     },
@@ -1323,6 +1510,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
             onChanged: (value) {
               setState(() {
                 _selectedRole = value ?? 'All Roles';
+                  _currentPage = 0;
               });
             },
           ),

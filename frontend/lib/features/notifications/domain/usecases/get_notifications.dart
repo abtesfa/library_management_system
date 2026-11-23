@@ -9,8 +9,9 @@ class GetNotifications {
   Future<List<LibraryNotification>> call({
     String? type,
     bool unread = false,
+    String? position,
   }) async {
-    var notifications = await repository.getNotifications(unread: unread);
+    var notifications = await repository.getNotifications(unread: unread, position: position);
 
     // Apply an optional type filter.
     if (type != null && type.isNotEmpty) {

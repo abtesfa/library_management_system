@@ -1,24 +1,25 @@
 package com.library.library_backend.Service;
 
-import com.library.library_backend.dto.BorrowBookRequest;
-import com.library.library_backend.dto.BorrowBookResponse;
-import com.library.library_backend.entity.Borrowing;
-import com.library.library_backend.entity.BookCopy;
-import com.library.library_backend.entity.LibrarySettings;
-import com.library.library_backend.entity.Reservation;
-import com.library.library_backend.entity.book;
-import com.library.library_backend.repository.BorrowingRepository;
-import com.library.library_backend.repository.BookCopyRepository;
-import com.library.library_backend.repository.BookRepository;
-import com.library.library_backend.repository.StudentRepository;
-import com.library.library_backend.repository.ReservationRepository;
-import com.library.library_backend.repository.LibrarySettingsRepository;
+import java.time.LocalDate;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.util.Optional;
+import com.library.library_backend.dto.BorrowBookRequest;
+import com.library.library_backend.dto.BorrowBookResponse;
+import com.library.library_backend.entity.BookCopy;
+import com.library.library_backend.entity.Borrowing;
+import com.library.library_backend.entity.LibrarySettings;
+import com.library.library_backend.entity.Reservation;
+import com.library.library_backend.entity.Student;
+import com.library.library_backend.entity.book;
+import com.library.library_backend.repository.BookCopyRepository;
+import com.library.library_backend.repository.BookRepository;
+import com.library.library_backend.repository.BorrowingRepository;
+import com.library.library_backend.repository.LibrarySettingsRepository;
+import com.library.library_backend.repository.ReservationRepository;
+import com.library.library_backend.repository.StudentRepository;
 
 @Service
 public class LibrarianBorrowingService {
@@ -69,14 +70,15 @@ public class LibrarianBorrowingService {
         }
 
         // 2. Find the student by Student ID.
-        // Account status is not checked here.
-        Integer userId = studentRepository
-                .findUserIdByStudentId(request.getStudentId().trim())
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Student ID does not exist."
-                        )
-                );
+        // Lock the student row so borrowing and reservation capacity checks serialize.
+        Student lockedStudent = studentRepository
+                .findByStudentIdForUpdate(request.getStudentId().trim())
+                .orElseThrow(() -> new IllegalArgumentException("Student ID does not exist."));
+        Integer userId = lockedStudent.getUserId();
+
+        if (!"ACTIVE".equalsIgnoreCase(lockedStudent.getStatus())) {
+            throw new IllegalArgumentException("This student account is not active.");
+        }
 
         // 3. Find the book by ISBN first, then by title.
         String query = request.getBookQuery().trim();
@@ -93,35 +95,32 @@ public class LibrarianBorrowingService {
         book selectedBook = bookResult.orElseThrow(() ->
                 new IllegalArgumentException("Book not found.")
         );
+        selectedBook = bookRepository.findByIdForUpdate(selectedBook.getBookId())
+                .orElseThrow(() -> new IllegalArgumentException("Book not found."));
+        reservationService.allocateAvailableCopies(selectedBook.getBookId());
 
         // 4. Find an available copy.
-        BookCopy availableCopy = bookCopyRepository
-                .findFirstByBookIdAndStatus(
-                        selectedBook.getBookId(),
-                        "Available"
-                )
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "No available copies of this book."
-                        )
-                );
-
-        // 4b. A student without their own reservation may only take
-        // a copy that is not held for someone else.
         Optional<Reservation> ownReservation = reservationRepository
                 .findActiveReservation(userId, selectedBook.getBookId());
 
-        if (ownReservation.isEmpty()) {
-            long free = bookCopyRepository.countByBookIdAndStatus(
-                    selectedBook.getBookId(), "Available")
-                    - reservationRepository.countActiveByBookId(
-                            selectedBook.getBookId());
+        BookCopy availableCopy;
+        if (ownReservation.isPresent()
+                && !"READY_FOR_PICKUP".equalsIgnoreCase(ownReservation.get().getStatus())) {
+            throw new IllegalArgumentException("Your reservation is still in the queue. Wait until you receive the ready-for-pickup notification.");
+        }
+        if (ownReservation.isPresent()
+                && "READY_FOR_PICKUP".equalsIgnoreCase(ownReservation.get().getStatus())
+                && ownReservation.get().getCopyId() != null) {
+            availableCopy = bookCopyRepository.findById(ownReservation.get().getCopyId())
+                    .orElseThrow(() -> new IllegalArgumentException("Reserved copy was not found."));
+        } else {
+            availableCopy = bookCopyRepository.findFirstByBookIdAndStatusOrderByCopyIdAsc(selectedBook.getBookId(), "Available")
+                    .orElseThrow(() -> new IllegalArgumentException("No unallocated available copies of this book."));
+        }
 
-            if (free <= 0) {
-                throw new IllegalArgumentException(
-                        "All available copies are reserved for other students."
-                );
-            }
+        // Students without their own reservation cannot bypass an existing queue.
+        if (ownReservation.isEmpty() && !reservationRepository.findWaitingQueue(selectedBook.getBookId()).isEmpty()) {
+            throw new IllegalArgumentException("This book has students waiting in the reservation queue. Please reserve it.");
         }
 
         // 5. Read library settings.
@@ -143,14 +142,23 @@ public class LibrarianBorrowingService {
             );
         }
 
-        // 7. Check the daily borrowing limit.
-        long borrowedToday = borrowingRepository
-                .countBooksBorrowedOnDate(userId, borrowDate);
+        // 7. Enforce the per-student capacity. Active loans include
+        // overdue loans. Active reservations also consume capacity.
+        // When this loan fulfils the student's own reservation, that
+        // reservation is converted into a loan and must not be counted twice.
+        long currentlyBorrowed = borrowingRepository.countCurrentlyBorrowed(userId);
+        long activeReservations = reservationRepository.countActiveByUserId(userId);
+        long capacityInUse = currentlyBorrowed + activeReservations;
 
-        if (borrowedToday >= settings.getMaxBooksPerDay()) {
+        boolean exceedsCapacity = ownReservation.isPresent()
+                ? capacityInUse > settings.getMaxBooksPerStudent()
+                : capacityInUse >= settings.getMaxBooksPerStudent();
+
+        if (exceedsCapacity) {
             throw new IllegalArgumentException(
-                    "Student has reached the daily borrowing limit of "
-                            + settings.getMaxBooksPerDay() + " books."
+                    "Student has reached the maximum borrowing capacity of "
+                            + settings.getMaxBooksPerStudent()
+                            + " books, including active reservations."
             );
         }
 
@@ -166,6 +174,7 @@ public class LibrarianBorrowingService {
         borrowing.setCopyId(availableCopy.getCopyId());
         borrowing.setBorrowDate(borrowDate);
         borrowing.setDueDate(dueDate);
+        borrowing.setOriginalDueDate(dueDate);
         borrowing.setReturnDate(null);
         borrowing.setStatus("BORROWED");
         borrowing.setRenewalCount(0);
@@ -176,8 +185,7 @@ public class LibrarianBorrowingService {
         // 9b. The student's reservation has now been fulfilled.
         if (ownReservation.isPresent()) {
             Reservation reservation = ownReservation.get();
-            reservation.setStatus("FULFILLED");
-            reservationRepository.save(reservation);
+            reservationService.markFulfilled(reservation);
         }
 
         // 10. Update the book copy status.

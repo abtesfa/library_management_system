@@ -16,6 +16,7 @@ class BorrowRecordModel extends BorrowRecord {
     required super.fineAmount,
     required super.daysLeft,
     required super.renewalCount,
+    required super.renewalsRemaining,
   });
 
   factory BorrowRecordModel.fromJson(
@@ -56,6 +57,7 @@ class BorrowRecordModel extends BorrowRecord {
       fineAmount: 0.0,
       daysLeft: daysRemaining,
       renewalCount: (json['renewalCount'] as num?)?.toInt() ?? 0,
+      renewalsRemaining: (json['renewalsRemaining'] as num?)?.toInt() ?? 0,
     );
   }
 }

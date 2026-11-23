@@ -1,13 +1,21 @@
+import '../../features/auth/data/datasources/auth_remote_data_source.dart';
+import '../../features/auth/data/repositories/auth_repository_impl.dart';
+import '../../features/auth/domain/repositories/auth_repository.dart';
+import '../../features/auth/domain/usecases/change_password.dart';
+import '../../features/auth/domain/usecases/login.dart';
+import '../../features/auth/domain/usecases/update_profile_photo.dart';
 import '../../features/books/data/datasources/book_remote_data_source.dart';
-import '../../features/books/data/datasources/google_books_remote_data_source.dart';
+import '../../features/books/data/datasources/open_library_remote_data_source.dart';
 import '../../features/books/data/repositories/book_repository_impl.dart';
 import '../../features/books/domain/repositories/book_repository.dart';
 import '../../features/books/domain/usecases/create_book.dart';
+import '../../features/books/domain/usecases/delete_book.dart';
 import '../../features/books/domain/usecases/find_book.dart';
 import '../../features/books/domain/usecases/get_all_books.dart';
 import '../../features/books/domain/usecases/get_available_books.dart';
 import '../../features/books/domain/usecases/get_categories.dart';
 import '../../features/books/domain/usecases/lookup_book_by_isbn.dart';
+import '../../features/books/domain/usecases/update_book.dart';
 import '../../features/borrowing/data/datasources/borrowing_remote_data_source.dart';
 import '../../features/borrowing/data/repositories/borrowing_repository_impl.dart';
 import '../../features/borrowing/domain/repositories/borrowing_repository.dart';
@@ -59,8 +67,9 @@ class Injector {
   // Data sources
   // ---------------------------------------------------------------------------
   late final BookRemoteDataSource _bookRemote = BookRemoteDataSource();
-  late final GoogleBooksRemoteDataSource _googleBooksRemote =
-      GoogleBooksRemoteDataSource();
+  late final AuthRemoteDataSource _authRemote = AuthRemoteDataSource();
+  late final OpenLibraryRemoteDataSource _openLibraryRemote =
+      OpenLibraryRemoteDataSource();
   late final BorrowingRemoteDataSource _borrowingRemote =
       BorrowingRemoteDataSource();
   late final ReservationRemoteDataSource _reservationRemote =
@@ -77,7 +86,8 @@ class Injector {
   // Repositories
   // ---------------------------------------------------------------------------
   late final BookRepository _bookRepository =
-      BookRepositoryImpl(_bookRemote, _googleBooksRemote);
+      BookRepositoryImpl(_bookRemote, _openLibraryRemote);
+  late final AuthRepository _authRepository = AuthRepositoryImpl(_authRemote);
   late final BorrowingRepository _borrowingRepository =
       BorrowingRepositoryImpl(_borrowingRemote);
   late final ReservationRepository _reservationRepository =
@@ -98,10 +108,16 @@ class Injector {
   late final GetAvailableBooks getAvailableBooks =
       GetAvailableBooks(_bookRepository);
   late final CreateBook createBook = CreateBook(_bookRepository);
+  late final UpdateBook updateBook = UpdateBook(_bookRepository);
+  late final DeleteBook deleteBook = DeleteBook(_bookRepository);
   late final GetCategories getCategories = GetCategories(_bookRepository);
   late final LookupBookByIsbn lookupBookByIsbn =
       LookupBookByIsbn(_bookRepository);
   final FindBook findBook = const FindBook();
+  late final Login login = Login(_authRepository);
+  late final ChangePassword changePassword = ChangePassword(_authRepository);
+  late final UpdateProfilePhoto updateProfilePhoto =
+      UpdateProfilePhoto(_authRepository);
 
   // ---------------------------------------------------------------------------
   // Use cases: borrowing

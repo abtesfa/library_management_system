@@ -35,6 +35,9 @@ private BookCondition bookCondition = BookCondition.GOOD;
     @Column(name = "Due_Date", nullable = false)
     private LocalDate dueDate;
 
+    @Column(name = "Original_Due_Date")
+    private LocalDate originalDueDate;
+
     @Column(name = "Return_Date")
     private LocalDate returnDate;
 
@@ -92,6 +95,9 @@ public void setBookCondition(String condition) {
     public void setBorrowDate(LocalDate borrowDate) {
         this.borrowDate = borrowDate;
     }
+
+    public LocalDate getOriginalDueDate() { return originalDueDate; }
+    public void setOriginalDueDate(LocalDate originalDueDate) { this.originalDueDate = originalDueDate; }
 
     public LocalDate getDueDate() {
         return dueDate;

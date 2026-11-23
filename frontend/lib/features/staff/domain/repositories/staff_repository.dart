@@ -5,7 +5,10 @@ abstract class StaffRepository {
   Future<List<StaffMember>> getAllStaff();
 
   /// Adds a new staff member.
-  Future<StaffMember> addStaff(StaffMember staff);
+  Future<StaffMember> addStaff(
+    StaffMember staff, {
+    required String password,
+  });
 
   /// Updates an existing staff member.
   Future<StaffMember> updateStaff(String id, StaffMember staff);

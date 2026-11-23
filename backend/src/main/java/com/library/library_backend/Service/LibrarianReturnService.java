@@ -25,17 +25,20 @@ public class LibrarianReturnService {
     private final BookCopyRepository bookCopyRepository;
     private final BookRepository bookRepository;
     private final LibrarySettingsRepository settingsRepository;
+    private final ReservationService reservationService;
 
     public LibrarianReturnService(
             BorrowingRepository borrowingRepository,
             BookCopyRepository bookCopyRepository,
             BookRepository bookRepository,
-            LibrarySettingsRepository settingsRepository
+            LibrarySettingsRepository settingsRepository,
+            ReservationService reservationService
     ) {
         this.borrowingRepository = borrowingRepository;
         this.bookCopyRepository = bookCopyRepository;
         this.bookRepository = bookRepository;
         this.settingsRepository = settingsRepository;
+        this.reservationService = reservationService;
     }
     @Transactional(readOnly = true)
 public ActiveBorrowingResponse findActiveBorrowing(
@@ -167,6 +170,7 @@ public ActiveBorrowingResponse findActiveBorrowing(
         }
 
         bookCopyRepository.save(copy);
+        reservationService.allocateAvailableCopies(selectedBook.getBookId());
 
         return new ReturnBookResponse(
                 borrowing.getBorrowingId(),

@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import '../../../../core/config/api_config.dart';
 
 class SettingsRemoteDataSource {
-  static const String baseUrl = '${ApiConfig.baseUrl}/settings';
+  static final String baseUrl = '${ApiConfig.baseUrl}/settings';
 
   // GET: Load settings from Spring Boot
   Future<Map<String, dynamic>> getSettings() async {
@@ -28,7 +28,7 @@ class SettingsRemoteDataSource {
   // PUT: Update settings in Spring Boot
   Future<Map<String, dynamic>> updateSettings({
     required String libraryName,
-    required int maxBooksPerDay,
+    required int maxBooksPerStudent,
     required int maxBorrowingDays,
     required int renewalLimit,
     required double finePerDay,
@@ -41,7 +41,7 @@ class SettingsRemoteDataSource {
       },
       body: jsonEncode({
         'libraryName': libraryName,
-        'maxBooksPerDay': maxBooksPerDay,
+        'maxBooksPerStudent': maxBooksPerStudent,
         'maxBorrowingDays': maxBorrowingDays,
         'renewalLimit': renewalLimit,
         'finePerDay': finePerDay,

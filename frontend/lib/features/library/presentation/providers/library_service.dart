@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 import '../../../../core/di/injector.dart';
@@ -30,8 +29,7 @@ class LibraryService extends ChangeNotifier {
   final FindBook _findBook = injector.findBook;
   final GetSystemSettings _getSystemSettings = injector.getSystemSettings;
   final BorrowBook _borrowBook = injector.borrowBook;
-  final FindActiveBorrowing _findActiveBorrowing =
-      injector.findActiveBorrowing;
+  final FindActiveBorrowing _findActiveBorrowing = injector.findActiveBorrowing;
   final ReturnBook _returnBook = injector.returnBook;
   final CalculateOverdueDays _calculateOverdueDays =
       injector.calculateOverdueDays;
@@ -51,6 +49,7 @@ class LibraryService extends ChangeNotifier {
   bool _isLoadingSettings = false;
   bool _isProcessingBorrow = false;
   bool _isProcessingReturn = false;
+  int _borrowingsRevision = 0;
 
   // Error messages
   String? _booksError;
@@ -82,14 +81,15 @@ class LibraryService extends ChangeNotifier {
 
   bool get isProcessingReturn => _isProcessingReturn;
 
+  int get borrowingsRevision => _borrowingsRevision;
+
   String? get booksError => _booksError;
 
   String? get settingsError => _settingsError;
 
   String? get operationError => _operationError;
 
-  Map<String, dynamic>? get lastReturnResponse =>
-      _lastReturnResponse;
+  Map<String, dynamic>? get lastReturnResponse => _lastReturnResponse;
 
   // ---------------------------------------------------------------------------
   // System Settings
@@ -167,9 +167,8 @@ class LibraryService extends ChangeNotifier {
       return false;
     }
 
-    final bookQuery = book.isbn.trim().isNotEmpty
-        ? book.isbn.trim()
-        : book.title.trim();
+    final bookQuery =
+        book.isbn.trim().isNotEmpty ? book.isbn.trim() : book.title.trim();
 
     _isProcessingBorrow = true;
     notifyListeners();
@@ -181,6 +180,8 @@ class LibraryService extends ChangeNotifier {
         borrowDate: borrowDate ?? DateTime.now(),
       );
 
+      _borrowingsRevision++;
+      notifyListeners();
       await loadBooksFromApi();
       return true;
     } on ApiException catch (error) {
@@ -212,8 +213,7 @@ class LibraryService extends ChangeNotifier {
     final query = bookQuery.trim();
 
     if (id.isEmpty || query.isEmpty) {
-      _operationError =
-          'Enter a student ID and book ISBN or title.';
+      _operationError = 'Enter a student ID and book ISBN or title.';
       notifyListeners();
       return null;
     }
@@ -237,8 +237,7 @@ class LibraryService extends ChangeNotifier {
       notifyListeners();
       return null;
     } catch (error) {
-      _operationError =
-          'Unable to search active borrowing: $error';
+      _operationError = 'Unable to search active borrowing: $error';
       notifyListeners();
       return null;
     }
@@ -283,9 +282,7 @@ class LibraryService extends ChangeNotifier {
     _operationError = null;
     _lastReturnResponse = null;
 
-    final cachedRecord = _borrowRecords
-        .cast<BorrowRecord?>()
-        .firstWhere(
+    final cachedRecord = _borrowRecords.cast<BorrowRecord?>().firstWhere(
           (record) => record?.id == recordId,
           orElse: () => null,
         );
@@ -293,11 +290,9 @@ class LibraryService extends ChangeNotifier {
     final resolvedStudentId =
         (studentId ?? cachedRecord?.studentId ?? '').trim();
 
-    final resolvedBookQuery =
-        (bookQuery ?? cachedRecord?.isbn ?? '').trim();
+    final resolvedBookQuery = (bookQuery ?? cachedRecord?.isbn ?? '').trim();
 
-    if (resolvedStudentId.isEmpty ||
-        resolvedBookQuery.isEmpty) {
+    if (resolvedStudentId.isEmpty || resolvedBookQuery.isEmpty) {
       _operationError =
           'Student ID and book ISBN are required to return this book.';
       notifyListeners();

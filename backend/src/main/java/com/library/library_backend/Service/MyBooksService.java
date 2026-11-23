@@ -17,12 +17,14 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 @Service
 public class MyBooksService {
 
-    /** A loan can be renewed once, even if the settings allow more. */
-    private static final int MAX_RENEWALS = 1;
 
     private final MyBooksRepository myBooksRepository;
     private final BorrowingRepository borrowingRepository;
@@ -42,6 +44,8 @@ public class MyBooksService {
 
         List<Object[]> rows =
                 myBooksRepository.findCurrentBorrowings(userId);
+        int renewalLimit = settingsRepository.findById(1)
+                .map(LibrarySettings::getRenewalLimit).orElse(0);
 
         return rows.stream()
                 .map(row -> new MyBookResponse(
@@ -53,9 +57,34 @@ public class MyBooksService {
                         toLocalDate(row[5]),
                         toStringValue(row[6]),
                         toInteger(row[7]),
+                        Math.max(0, renewalLimit - toInteger(row[7])),
                         toStringValue(row[8])
                 ))
                 .toList();
+    }
+
+
+    public List<Map<String, Object>> getBorrowingHistory(Integer userId) {
+        return myBooksRepository.findBorrowingHistory(userId).stream().map(row -> {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("borrowingId", row[0]); item.put("bookTitle", row[1]); item.put("isbn", row[2]);
+            item.put("borrowDate", row[3]); item.put("originalDueDate", row[4]); item.put("finalDueDate", row[5]); item.put("returnDate", row[6]);
+            item.put("status", row[7]); item.put("renewalCount", row[8]); item.put("location", row[9]); item.put("fineAmount", row[10]);
+            return item;
+        }).toList();
+    }
+
+
+    public Page<Map<String, Object>> getBorrowingHistoryPage(Integer userId, Pageable pageable) {
+        return myBooksRepository.findBorrowingHistoryPage(userId, pageable).map(this::historyRow);
+    }
+
+    private Map<String, Object> historyRow(Object[] row) {
+        Map<String, Object> item = new LinkedHashMap<>();
+        item.put("borrowingId", row[0]); item.put("bookTitle", row[1]); item.put("isbn", row[2]);
+        item.put("borrowDate", row[3]); item.put("originalDueDate", row[4]); item.put("finalDueDate", row[5]); item.put("returnDate", row[6]);
+        item.put("status", row[7]); item.put("renewalCount", row[8]); item.put("location", row[9]); item.put("fineAmount", row[10]);
+        return item;
     }
 
     /**
@@ -101,7 +130,7 @@ public class MyBooksService {
                         "Library settings record was not found."
                 ));
 
-        int maxRenewals = Math.min(MAX_RENEWALS, settings.getRenewalLimit());
+        int maxRenewals = settings.getRenewalLimit();
 
         if (maxRenewals == 0) {
             throw new ResponseStatusException(
@@ -114,11 +143,15 @@ public class MyBooksService {
                 ? 0
                 : borrowing.getRenewalCount();
 
+        if (myBooksRepository.hasActiveReservationForBook(userId, borrowing.getCopyId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This book has students waiting in the reservation queue, so it cannot be renewed.");
+        }
+
         if (renewals >= maxRenewals) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "This loan has already been renewed. "
-                            + "Only one renewal is allowed."
+                            + "The configured renewal limit has been reached."
             );
         }
 

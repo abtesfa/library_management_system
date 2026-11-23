@@ -1,10 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/di/injector.dart';
 import '../../domain/entities/user.dart';
 
 class SignInDialog extends StatefulWidget {
-  final Function(UserRole role) onSignIn;
+  final ValueChanged<UserAccount> onSignIn;
   final UserRole initialRole;
 
   const SignInDialog({
@@ -19,10 +22,12 @@ class SignInDialog extends StatefulWidget {
 
 class _SignInDialogState extends State<SignInDialog> {
   late UserRole _selectedRole;
-  late TextEditingController _emailController;
+  late TextEditingController _identifierController;
   late TextEditingController _passwordController;
 
   bool _obscurePassword = true;
+  bool _isSigningIn = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -30,20 +35,13 @@ class _SignInDialogState extends State<SignInDialog> {
 
     _selectedRole = widget.initialRole;
 
-    final account = HardcodedCredentials.getForRole(_selectedRole);
-
-    _emailController = TextEditingController(
-      text: account.email,
-    );
-
-    _passwordController = TextEditingController(
-      text: account.password,
-    );
+    _identifierController = TextEditingController();
+    _passwordController = TextEditingController();
   }
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -51,27 +49,52 @@ class _SignInDialogState extends State<SignInDialog> {
   void _onRoleChanged(UserRole role) {
     setState(() {
       _selectedRole = role;
-
-      final account = HardcodedCredentials.getForRole(role);
-
-      // Load the demo credentials for the selected role.
-      _emailController.text = account.email;
-      _passwordController.text = account.password;
+      _errorMessage = null;
     });
   }
 
-  void _submit() {
-    // Always use the role selected in the role tabs.
-    final UserRole targetRole = _selectedRole;
+  Future<void> _submit() async {
+    final identifier = _identifierController.text.trim();
+    final password = _passwordController.text;
 
-    // Close the dialog and open the selected portal.
-    Navigator.of(context).pop();
-    widget.onSignIn(targetRole);
+    if (identifier.isEmpty || password.isEmpty) {
+      setState(() => _errorMessage = 'Enter your username/email and password.');
+      return;
+    }
+
+    setState(() {
+      _isSigningIn = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final account = await injector.login(
+        identifier: identifier,
+        password: password,
+        role: _selectedRole,
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      widget.onSignIn(account);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isSigningIn = false;
+        _errorMessage = error is TimeoutException
+            ? 'Sign-in timed out. The server took too long to respond. Please try again.'
+            : error.toString();
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final activeAcc = HardcodedCredentials.getForRole(_selectedRole);
+    final roleLabel = switch (_selectedRole) {
+      UserRole.admin => 'Administrator',
+      UserRole.librarian => 'Librarian',
+      UserRole.student => 'Student',
+    };
 
     return Dialog(
       shape: RoundedRectangleBorder(
@@ -178,9 +201,9 @@ class _SignInDialogState extends State<SignInDialog> {
                         ),
                         const SizedBox(width: 8),
                         _buildRoleTab(
-                          role: UserRole.reader,
-                          label: 'Reader',
-                          subtitle: 'Student User',
+                          role: UserRole.student,
+                          label: 'Student',
+                          subtitle: 'Student Account',
                           icon: Icons.person,
                           activeColor: const Color(0xFFF25635),
                         ),
@@ -202,9 +225,12 @@ class _SignInDialogState extends State<SignInDialog> {
                     const SizedBox(height: 8),
 
                     TextField(
-                      controller: _emailController,
+                      controller: _identifierController,
+                      enabled: !_isSigningIn,
                       decoration: InputDecoration(
-                        labelText: 'Username or Email',
+                        labelText: _selectedRole == UserRole.student
+                            ? 'Student ID or Email'
+                            : 'Work Email',
                         prefixIcon: const Icon(
                           Icons.email_outlined,
                           size: 20,
@@ -225,6 +251,7 @@ class _SignInDialogState extends State<SignInDialog> {
                     TextField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
+                      enabled: !_isSigningIn,
                       decoration: InputDecoration(
                         labelText: 'Password',
                         prefixIcon: const Icon(
@@ -257,12 +284,23 @@ class _SignInDialogState extends State<SignInDialog> {
 
                     const SizedBox(height: 20),
 
+                    if (_errorMessage != null) ...[
+                      Text(
+                        _errorMessage!,
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
                     // Main sign-in button
                     SizedBox(
                       width: double.infinity,
                       height: 44,
                       child: ElevatedButton(
-                        onPressed: _submit,
+                        onPressed: _isSigningIn ? null : _submit,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
@@ -272,8 +310,9 @@ class _SignInDialogState extends State<SignInDialog> {
                           elevation: 1,
                         ),
                         child: Text(
-                          'Sign In to '
-                          '${activeAcc.roleDisplayName} Dashboard',
+                          _isSigningIn
+                              ? 'Signing in...'
+                              : 'Sign In to $roleLabel Dashboard',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,

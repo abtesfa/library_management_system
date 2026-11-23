@@ -6,8 +6,11 @@ import '../../../library/presentation/providers/library_service.dart';
 import '../../../../core/di/injector.dart';
 import '../../../../core/error/api_exception.dart';
 import '../../domain/usecases/create_book.dart';
-import '../../domain/usecases/get_categories.dart';
+import '../../domain/usecases/delete_book.dart';
+import '../../domain/usecases/get_categories.dart';     
+import '../../domain/usecases/update_book.dart';
 import '../widgets/add_book_dialog.dart';
+import '../widgets/edit_book_dialog.dart';
 
 class AdminInventoryScreen extends StatefulWidget {
   const AdminInventoryScreen({super.key});
@@ -18,11 +21,15 @@ class AdminInventoryScreen extends StatefulWidget {
 
 class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
   final CreateBook _createBookUseCase = injector.createBook;
+  final UpdateBook _updateBookUseCase = injector.updateBook;
+  final DeleteBook _deleteBookUseCase = injector.deleteBook;
   final GetCategories _getCategoriesUseCase = injector.getCategories;
   final TextEditingController _searchController = TextEditingController();
 
   String _searchQuery = '';
   String _selectedInventoryFilter = 'all';
+  int _currentPage = 0;
+  static const int _pageSize = 10;
 
   static const Color primaryBlue = Color(0xFFF25635);
   static const Color darkBlue = Color(0xFFF25635);
@@ -41,31 +48,33 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
   // =========================================================
 
   void _performSearch() {
-    setState(() {
-      _searchQuery = _searchController.text.trim();
-    });
+  setState(() {
+    _searchQuery = _searchController.text.trim();
+    _currentPage = 0;
+  });
 
-    FocusScope.of(context).unfocus();
-  }
+  FocusScope.of(context).unfocus();
+}
 
-  void _clearSearch() {
-    setState(() {
+void _clearSearch() {
+  setState(() {
+    _searchController.clear();
+    _searchQuery = '';
+    _currentPage = 0;
+  });
+}
+
+void _selectInventoryFilter(String filter) {
+  setState(() {
+    _selectedInventoryFilter = filter;
+    _currentPage = 0;
+
+    if (filter == 'all') {
       _searchController.clear();
       _searchQuery = '';
-    });
-  }
-
-  void _selectInventoryFilter(String filter) {
-    setState(() {
-      _selectedInventoryFilter = filter;
-
-      if (filter == 'all') {
-        _searchController.clear();
-        _searchQuery = '';
-      }
-    });
-  }
-
+    }
+  });
+}
   // =========================================================
   // ADD NEW BOOK DIALOG
   // =========================================================
@@ -151,557 +160,828 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
     }
   }
 
+  Future<void> _editBook(Book book) async {
+    try {
+      final categories = await _getCategoriesUseCase();
+
+      if (!mounted) return;
+      if (categories.isEmpty) {
+        _showInventoryMessage(
+          'No categories found. Please add a category first.',
+          color: Colors.orange,
+        );
+        return;
+      }
+
+      final updated = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => EditBookDialog(
+          book: book,
+          categories: categories,
+          updateBook: _updateBookUseCase,
+        ),
+      );
+
+      if (updated != true || !mounted) return;
+
+      try {
+        await context.read<LibraryService>().loadBooksFromApi();
+        if (!mounted) return;
+        _showInventoryMessage('Book updated successfully.');
+      } catch (error) {
+        if (!mounted) return;
+        _showInventoryMessage(
+          'Book updated, but the inventory could not refresh: $error',
+          color: Colors.orange,
+        );
+      }
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      _showInventoryMessage(error.message, color: Colors.red);
+    } catch (error) {
+      if (!mounted) return;
+      _showInventoryMessage('Could not edit book: $error', color: Colors.red);
+    }
+  }
+
+  Future<void> _deleteBook(Book book) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete book permanently?'),
+        content: Text(
+          'Deleting "${book.title}" will also permanently delete its physical '
+          'copies, reservations, and borrowing history. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete permanently'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await _deleteBookUseCase(book.id);
+      if (!mounted) return;
+
+      try {
+        await context.read<LibraryService>().loadBooksFromApi();
+        if (!mounted) return;
+        _showInventoryMessage('Book deleted successfully.');
+      } catch (error) {
+        if (!mounted) return;
+        _showInventoryMessage(
+          'Book deleted, but the inventory could not refresh: $error',
+          color: Colors.orange,
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      _showInventoryMessage('Could not delete book: $error', color: Colors.red);
+    }
+  }
+
+  void _showInventoryMessage(String message, {Color color = Colors.green}) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: color,
+        ),
+      );
+  }
+
   // =========================================================
   // MAIN INVENTORY SCREEN
   // =========================================================
 
-  @override
-  Widget build(BuildContext context) {
-    final libraryService = context.watch<LibraryService>();
-    final List<Book> books = libraryService.books;
+ 
+@override
+Widget build(BuildContext context) {
+  final libraryService = context.watch<LibraryService>();
+  final List<Book> books = libraryService.books;
 
-    // SEARCH + SELECTED CARD FILTER
-    final List<Book> filteredBooks = books.where((book) {
-      final query = _searchQuery.toLowerCase();
+  // =========================================================
+  // SEARCH + SELECTED CARD FILTER
+  // =========================================================
 
-      final matchesSearch = book.title.toLowerCase().contains(query) ||
-          book.author.toLowerCase().contains(query) ||
-          book.isbn.toLowerCase().contains(query) ||
-          book.category.toLowerCase().contains(query);
+  final List<Book> filteredBooks = books.where((book) {
+    final query = _searchQuery.toLowerCase();
 
-      bool matchesFilter = true;
+    final matchesSearch =
+        book.title.toLowerCase().contains(query) ||
+        book.author.toLowerCase().contains(query) ||
+        book.isbn.toLowerCase().contains(query) ||
+        book.category.toLowerCase().contains(query);
 
-      if (_selectedInventoryFilter == 'available') {
-        matchesFilter = book.availableCopies > 0;
-      } else if (_selectedInventoryFilter == 'onLoan') {
-        matchesFilter =
-            book.totalCopies > book.availableCopies + book.reservedCopies;
-      }
+    bool matchesFilter = true;
 
-      return matchesSearch && matchesFilter;
-    }).toList();
+    if (_selectedInventoryFilter == 'available') {
+      final hasCopiesOnLoan =
+          book.totalCopies > book.availableCopies + book.reservedCopies;
 
-    // INVENTORY STATISTICS
-    final int totalBooks = books.length;
+      matchesFilter =
+          book.availableCopies > 0 && !hasCopiesOnLoan;
+    } else if (_selectedInventoryFilter == 'onLoan') {
+      matchesFilter =
+          book.totalCopies > book.availableCopies + book.reservedCopies;
+    }
 
-    final int totalCopies = books.fold(
-      0,
-      (sum, book) => sum + book.totalCopies,
-    );
+    return matchesSearch && matchesFilter;
+  }).toList();
 
-    final int availableCopies = books.fold(
-      0,
-      (sum, book) => sum + book.availableCopies,
-    );
+  // =========================================================
+  // PAGINATION
+  // =========================================================
 
-    final int reservedCopies = books.fold(
-      0,
-      (sum, book) => sum + book.reservedCopies,
-    );
+  final int totalPages =
+      (filteredBooks.length / _pageSize).ceil();
 
-    final int onLoan = totalCopies - availableCopies - reservedCopies;
+  final int safePage = totalPages == 0
+      ? 0
+      : _currentPage.clamp(0, totalPages - 1).toInt();
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // HEADER
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final bool compact = constraints.maxWidth < 750;
+  final int startIndex = safePage * _pageSize;
 
-              final headerContent = Row(
+  final int endIndex =
+      (startIndex + _pageSize).clamp(0, filteredBooks.length).toInt();
+
+  final List<Book> paginatedBooks =
+      filteredBooks.sublist(startIndex, endIndex);
+
+  // =========================================================
+  // INVENTORY STATISTICS
+  // =========================================================
+
+  final int totalBooks = books.length;
+
+  final int totalCopies = books.fold(
+    0,
+    (sum, book) => sum + book.totalCopies,
+  );
+
+  final int availableCopies = books.fold(
+    0,
+    (sum, book) => sum + book.availableCopies,
+  );
+
+  final int reservedCopies = books.fold(
+    0,
+    (sum, book) => sum + book.reservedCopies,
+  );
+
+  final int onLoan = totalCopies - availableCopies - reservedCopies;
+
+  // =========================================================
+  // MAIN SCREEN
+  // =========================================================
+
+  return SingleChildScrollView(
+    padding: const EdgeInsets.all(24),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+
+        // =====================================================
+        // HEADER
+        // =====================================================
+
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final bool compact = constraints.maxWidth < 750;
+
+            final headerContent = Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFBE2D9),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.menu_book,
+                    color: darkBlue,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Book Inventory',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: textDark,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Manage book titles, authors, categories, physical copies, shelf locations, and availability status.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+
+            final addButton = _HoverActionButton(
+              label: 'Add New Book',
+              icon: Icons.add,
+              onPressed: _showAddBookDialog,
+            );
+
+            if (compact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFBE2D9),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.menu_book,
-                      color: darkBlue,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Book Inventory',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: textDark,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Manage book titles, authors, categories, physical copies, shelf locations, and availability status.',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  headerContent,
+                  const SizedBox(height: 16),
+                  addButton,
                 ],
               );
+            }
 
-              final addButton = _HoverActionButton(
-                label: 'Add New Book',
-                icon: Icons.add,
-                onPressed: _showAddBookDialog,
+            return Row(
+              children: [
+                Expanded(child: headerContent),
+                const SizedBox(width: 12),
+                addButton,
+              ],
+            );
+          },
+        ),
+
+        const SizedBox(height: 20),
+
+        // =====================================================
+        // SEARCH BAR
+        // =====================================================
+
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: borderColor),
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final bool compact = constraints.maxWidth < 500;
+
+              final searchField = TextField(
+                controller: _searchController,
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value.trim();
+                    _currentPage = 0;
+                  });
+                },
+                onSubmitted: (_) => _performSearch(),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    size: 20,
+                    color: Color(0xFFAAA898),
+                  ),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(
+                            Icons.close,
+                            color: textMuted,
+                          ),
+                          tooltip: 'Clear search',
+                          onPressed: _clearSearch,
+                        )
+                      : null,
+                  hintText:
+                      'Search by title, author, ISBN, category...',
+                  border: InputBorder.none,
+                  isDense: true,
+                ),
+              );
+
+              final searchButton = _HoverActionButton(
+                label: 'Search',
+                icon: Icons.search,
+                onPressed: _performSearch,
               );
 
               if (compact) {
                 return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    headerContent,
-                    const SizedBox(height: 16),
-                    addButton,
-                  ],
-                );
-              }
-
-              return Row(
-                children: [
-                  Expanded(child: headerContent),
-                  const SizedBox(width: 12),
-                  addButton,
-                ],
-              );
-            },
-          ),
-
-          const SizedBox(height: 20),
-
-          // SEARCH BAR
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: borderColor),
-            ),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final bool compact = constraints.maxWidth < 500;
-
-                final searchField = TextField(
-                  controller: _searchController,
-
-                  // IMMEDIATE SEARCH WHILE TYPING
-                  onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value.trim();
-                    });
-                  },
-
-                  onSubmitted: (_) => _performSearch(),
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(
-                      Icons.search,
-                      size: 20,
-                      color: Color(0xFFAAA898),
+                    searchField,
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: searchButton,
                     ),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(
-                              Icons.close,
-                              color: textMuted,
-                            ),
-                            tooltip: 'Clear search',
-                            onPressed: _clearSearch,
-                          )
-                        : null,
-                    hintText: 'Search by title, author, ISBN, category...',
-                    border: InputBorder.none,
-                    isDense: true,
-                  ),
-                );
-
-                final searchButton = _HoverActionButton(
-                  label: 'Search',
-                  icon: Icons.search,
-                  onPressed: _performSearch,
-                );
-
-                if (compact) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      searchField,
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: searchButton,
-                      ),
-                    ],
-                  );
-                }
-
-                return Row(
-                  children: [
-                    Expanded(child: searchField),
-                    const SizedBox(width: 12),
-                    searchButton,
                   ],
-                );
-              },
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // INTERACTIVE STATISTICS CARDS
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final bool isNarrow = constraints.maxWidth < 900;
-
-              final cards = [
-                _buildStatCard(
-                  title: 'Total Books',
-                  count: totalBooks.toString(),
-                  subtitle: 'titles in collection',
-                  icon: Icons.book,
-                  color: const Color(0xFFF25635),
-                  bg: const Color(0xFFFBE2D9),
-                  selected: _selectedInventoryFilter == 'all',
-                  onTap: () => _selectInventoryFilter('all'),
-                ),
-                _buildStatCard(
-                  title: 'Total Copies Available',
-                  count: availableCopies.toString(),
-                  subtitle: 'available for loan',
-                  icon: Icons.check_circle_outline,
-                  color: const Color(0xFF10B981),
-                  bg: const Color(0xFFECFDF5),
-                  selected: _selectedInventoryFilter == 'available',
-                  onTap: () => _selectInventoryFilter('available'),
-                ),
-                _buildStatCard(
-                  title: 'On Loan',
-                  count: onLoan.toString(),
-                  subtitle: 'not currently available',
-                  icon: Icons.description_outlined,
-                  color: const Color(0xFFF59E0B),
-                  bg: const Color(0xFFFEF3C7),
-                  selected: _selectedInventoryFilter == 'onLoan',
-                  onTap: () => _selectInventoryFilter('onLoan'),
-                ),
-              ];
-
-              if (isNarrow) {
-                return GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 2.5,
-                  children: cards,
                 );
               }
 
               return Row(
                 children: [
-                  for (int i = 0; i < cards.length; i++) ...[
-                    Expanded(child: cards[i]),
-                    if (i != cards.length - 1) const SizedBox(width: 12),
-                  ],
+                  Expanded(child: searchField),
+                  const SizedBox(width: 12),
+                  searchButton,
                 ],
               );
             },
           ),
+        ),
 
-          const SizedBox(height: 12),
+        const SizedBox(height: 20),
 
-          // ACTIVE FILTER INDICATOR
-          if (_selectedInventoryFilter != 'all')
-            Row(
+        // =====================================================
+        // INTERACTIVE STATISTICS CARDS
+        // =====================================================
+
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final bool isNarrow = constraints.maxWidth < 900;
+
+            final cards = [
+              _buildStatCard(
+                title: 'Total Books',
+                count: totalBooks.toString(),
+                subtitle: 'titles in collection',
+                icon: Icons.book,
+                color: const Color(0xFFF25635),
+                bg: const Color(0xFFFBE2D9),
+                selected: _selectedInventoryFilter == 'all',
+                onTap: () => _selectInventoryFilter('all'),
+              ),
+              _buildStatCard(
+                title: 'Total Copies Available',
+                count: availableCopies.toString(),
+                subtitle: 'available for loan',
+                icon: Icons.check_circle_outline,
+                color: const Color(0xFF10B981),
+                bg: const Color(0xFFECFDF5),
+                selected: _selectedInventoryFilter == 'available',
+                onTap: () => _selectInventoryFilter('available'),
+              ),
+              _buildStatCard(
+                title: 'On Loan',
+                count: onLoan.toString(),
+                subtitle: 'not currently available',
+                icon: Icons.description_outlined,
+                color: const Color(0xFFF59E0B),
+                bg: const Color(0xFFFEF3C7),
+                selected: _selectedInventoryFilter == 'onLoan',
+                onTap: () => _selectInventoryFilter('onLoan'),
+              ),
+            ];
+
+            if (isNarrow) {
+              return GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 2.5,
+                children: cards,
+              );
+            }
+
+            return Row(
               children: [
-                const Icon(
-                  Icons.filter_alt,
-                  color: primaryBlue,
-                  size: 17,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  _selectedInventoryFilter == 'available'
-                      ? 'Showing books with available copies'
-                      : 'Showing books currently on loan',
-                  style: const TextStyle(
-                    color: primaryBlue,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: () => _selectInventoryFilter('all'),
-                  child: const Text('Clear filter'),
-                ),
+                for (int i = 0; i < cards.length; i++) ...[
+                  Expanded(child: cards[i]),
+                  if (i != cards.length - 1)
+                    const SizedBox(width: 12),
+                ],
               ],
-            ),
+            );
+          },
+        ),
 
-          const SizedBox(height: 12),
+        const SizedBox(height: 12),
 
-          // INVENTORY TABLE
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: borderColor),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Book Inventory List',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: textDark,
-                          ),
+        // =====================================================
+        // INVENTORY TABLE
+        // =====================================================
+
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: borderColor),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+
+              // TABLE HEADER
+
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Book Inventory List',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: textDark,
                         ),
                       ),
+                    ),
+                    Text(
+                      'Showing ${filteredBooks.isEmpty ? 0 : startIndex + 1}-$endIndex '
+                      'of ${filteredBooks.length}',
+                      style: const TextStyle(
+                        color: textMuted,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Divider(height: 1),
+
+              // LOADING
+
+              if (libraryService.isLoadingBooks)
+                const Padding(
+                  padding: EdgeInsets.all(40),
+                  child: Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+
+              // ERROR
+
+              else if (libraryService.booksError != null)
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        color: Colors.red,
+                        size: 40,
+                      ),
+                      const SizedBox(height: 12),
                       Text(
-                        'Showing ${filteredBooks.length} of ${books.length}',
+                        'Could not load books: ${libraryService.booksError}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          libraryService.loadBooksFromApi();
+                        },
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Try Again'),
+                      ),
+                    ],
+                  ),
+                )
+
+              // EMPTY RESULT
+
+              else if (filteredBooks.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(40),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.menu_book_outlined,
+                        size: 48,
+                        color: Color(0xFFAAA898),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        books.isEmpty
+                            ? 'No books found in the database.'
+                            : 'No books match the selected filter or search.',
+                        textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: textMuted,
-                          fontSize: 12,
+                          fontSize: 14,
+                        ),
+                      ),
+                      if (_searchQuery.isNotEmpty ||
+                          _selectedInventoryFilter != 'all') ...[
+                        const SizedBox(height: 12),
+                        TextButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _searchController.clear();
+                              _searchQuery = '';
+                              _selectedInventoryFilter = 'all';
+                              _currentPage = 0;
+                            });
+                          },
+                          icon: const Icon(Icons.clear),
+                          label: const Text('Clear Filters'),
+                        ),
+                      ],
+                    ],
+                  ),
+                )
+
+              // BOOK DATA TABLE
+
+              else
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    headingRowColor: WidgetStateProperty.all(
+                      const Color(0xFFFBF1E4),
+                    ),
+                    columns: const [
+                      DataColumn(
+                        label: Text(
+                          'Cover',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Title',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Author',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'ISBN',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Category',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Total',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Available',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Status',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Location',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Actions',
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
-                  ),
-                ),
-                const Divider(height: 1),
-                if (libraryService.isLoadingBooks)
-                  const Padding(
-                    padding: EdgeInsets.all(40),
-                    child: Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                  )
-                else if (libraryService.booksError != null)
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          color: Colors.red,
-                          size: 40,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Could not load books: ${libraryService.booksError}',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                        const SizedBox(height: 12),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            libraryService.loadBooksFromApi();
-                          },
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Try Again'),
-                        ),
-                      ],
-                    ),
-                  )
-                else if (filteredBooks.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(40),
-                    child: Column(
-                      children: [
-                        const Icon(
-                          Icons.menu_book_outlined,
-                          size: 48,
-                          color: Color(0xFFAAA898),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          books.isEmpty
-                              ? 'No books found in the database.'
-                              : 'No books match the selected filter or search.',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: textMuted,
-                            fontSize: 14,
-                          ),
-                        ),
-                        if (_searchQuery.isNotEmpty ||
-                            _selectedInventoryFilter != 'all') ...[
-                          const SizedBox(height: 12),
-                          TextButton.icon(
-                            onPressed: () {
-                              setState(() {
-                                _searchController.clear();
-                                _searchQuery = '';
-                                _selectedInventoryFilter = 'all';
-                              });
-                            },
-                            icon: const Icon(Icons.clear),
-                            label: const Text('Clear Filters'),
-                          ),
-                        ],
-                      ],
-                    ),
-                  )
-                else
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DataTable(
-                      headingRowColor: WidgetStateProperty.all(
-                        const Color(0xFFFBF1E4),
-                      ),
-                      columns: const [
-                        DataColumn(
-                          label: Text(
-                            'Title',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            'Author',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            'ISBN',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            'Category',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            'Total',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            'Available',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            'Status',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            'Location',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                      rows: filteredBooks.map((book) {
-                        final bool isAvailable = book.availableCopies > 0;
+                    rows: paginatedBooks.map((book) {
+                      final bool isAvailable =
+                          book.availableCopies > 0;
 
-                        final String status =
-                            isAvailable ? 'Available' : 'Unavailable';
+                      final String status =
+                          isAvailable ? 'Available' : 'Unavailable';
 
-                        return DataRow(
-                          cells: [
-                            DataCell(
-                              Text(
-                                book.title,
-                                style: const TextStyle(
-                                  color: primaryBlue,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                      return DataRow(
+                        cells: [
+                          DataCell(
+                            _buildCoverThumbnail(book.coverImage),
+                          ),
+                          DataCell(
+                            Text(
+                              book.title,
+                              style: const TextStyle(
+                                color: primaryBlue,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                            DataCell(Text(book.author)),
-                            DataCell(
-                              Text(
-                                book.isbn,
-                                style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                ),
+                          ),
+                          DataCell(Text(book.author)),
+                          DataCell(
+                            Text(
+                              book.isbn,
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
                               ),
                             ),
-                            DataCell(Text(book.category)),
-                            DataCell(
-                              Text(book.totalCopies.toString()),
-                            ),
-                            DataCell(
-                              Text(book.availableCopies.toString()),
-                            ),
-                            DataCell(
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
+                          ),
+                          DataCell(Text(book.category)),
+                          DataCell(
+                            Text(book.totalCopies.toString()),
+                          ),
+                          DataCell(
+                            Text(book.availableCopies.toString()),
+                          ),
+                          DataCell(
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isAvailable
+                                    ? const Color(0xFFDCFCE7)
+                                    : const Color(0xFFFEE2E2),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                status,
+                                style: TextStyle(
                                   color: isAvailable
-                                      ? const Color(0xFFDCFCE7)
-                                      : const Color(0xFFFEE2E2),
-                                  borderRadius: BorderRadius.circular(12),
+                                      ? const Color(0xFF166534)
+                                      : const Color(0xFFB91C1C),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                                child: Text(
-                                  status,
-                                  style: TextStyle(
-                                    color: isAvailable
-                                        ? const Color(0xFF166534)
-                                        : const Color(0xFFB91C1C),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          DataCell(Text(book.location)),
+                          DataCell(
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  tooltip: 'Edit book',
+                                  onPressed: () => _editBook(book),
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    color: primaryBlue,
                                   ),
                                 ),
-                              ),
+                                IconButton(
+                                  tooltip: 'Delete book',
+                                  onPressed: () => _deleteBook(book),
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.red,
+                                  ),
+                                ),
+                              ],
                             ),
-                            DataCell(Text(book.location)),
-                          ],
-                        );
-                      }).toList(),
-                    ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
                   ),
-              ],
-            ),
+                ),
+
+              // =================================================
+              // PAGINATION CONTROLS
+              // =================================================
+
+              if (!libraryService.isLoadingBooks &&
+                  libraryService.booksError == null &&
+                  filteredBooks.isNotEmpty &&
+                  totalPages > 1)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 18,
+                  ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final bool compact = constraints.maxWidth < 450;
+
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Page ${safePage + 1} of $totalPages',
+                            style: const TextStyle(
+                              color: textMuted,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: safePage > 0
+                                    ? () {
+                                        setState(() {
+                                          _currentPage = safePage - 1;
+                                        });
+                                      }
+                                    : null,
+                                icon: const Icon(Icons.chevron_left),
+                                label: Text(
+                                  compact ? 'Prev' : 'Previous',
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ElevatedButton.icon(
+                                onPressed: safePage < totalPages - 1
+                                    ? () {
+                                        setState(() {
+                                          _currentPage = safePage + 1;
+                                        });
+                                      }
+                                    : null,
+                                icon: const Icon(Icons.chevron_right),
+                                label: const Text('Next'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: primaryBlue,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+            ],
           ),
-        ],
+        ),
+      ],
+    ),
+  );
+}
+
+
+  Widget _buildCoverThumbnail(String? coverImage) {
+    const width = 40.0;
+    const height = 56.0;
+    final imageUrl = coverImage?.trim();
+
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return _coverPlaceholder(width, height);
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: Image.network(
+        imageUrl,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _coverPlaceholder(width, height),
+      ),
+    );
+  }
+
+  Widget _coverPlaceholder(double width, double height) {
+    return Container(
+      width: width,
+      height: height,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: const Icon(
+        Icons.menu_book_outlined,
+        color: textMuted,
+        size: 20,
       ),
     );
   }

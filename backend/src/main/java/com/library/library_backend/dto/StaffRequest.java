@@ -11,6 +11,7 @@ public class StaffRequest {
     private String role;
     private String position;
     private String status;
+    private String password;
     private Set<String> permissions;
 
     public StaffRequest() {
@@ -62,6 +63,14 @@ public class StaffRequest {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
     }
 
     public Set<String> getPermissions() {

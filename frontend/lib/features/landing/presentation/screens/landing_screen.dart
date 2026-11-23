@@ -1,15 +1,16 @@
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../auth/domain/entities/user.dart';
 import '../../../books/domain/entities/book.dart';
 import '../../../auth/presentation/widgets/sign_in_dialog.dart';
-import '../../../../core/config/app_images.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/config/api_config.dart';
 import '../../../library/presentation/providers/library_service.dart';
 
 class LandingScreen extends StatefulWidget {
-  final Function(UserRole role) onEnterPortal;
+  final ValueChanged<UserAccount> onEnterPortal;
 
   const LandingScreen({
     super.key,
@@ -26,7 +27,6 @@ class _LandingScreenState extends State<LandingScreen>
 
   String _searchQuery = '';
 
-  // Continuous floating animation for the large hero image.
   late final AnimationController _heroFloatController;
   late final Animation<double> _heroFloatAnimation;
 
@@ -50,7 +50,64 @@ class _LandingScreenState extends State<LandingScreen>
     );
   }
 
+  // =========================================================
+  // LIBRARY LOGO URL
+  // =========================================================
+
+  String? _getLogoUrl(String? logoUrl) {
+    final url = logoUrl?.trim() ?? '';
+
+    if (url.isEmpty) return null;
+
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+
+    final apiUri = Uri.parse(ApiConfig.baseUrl);
+
+    return apiUri.replace(
+      path: url.startsWith('/') ? url : '/$url',
+      query: null,
+      fragment: null,
+    ).toString();
+  }
+
+  // =========================================================
+  // LIBRARY LOGO WIDGET
+  // =========================================================
+
+  Widget _buildLibraryLogo(
+    String? logoUrl, {
+    double size = 38,
+  }) {
+    final imageUrl = _getLogoUrl(logoUrl);
+
+    Widget fallback() {
+      return Icon(
+        Icons.menu_book,
+        color: Colors.white,
+        size: size * 0.65,
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: imageUrl == null
+          ? fallback()
+          : Image.network(
+              imageUrl,
+              width: size,
+              height: size,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) => fallback(),
+            ),
+    );
+  }
+
+  // =========================================================
   // SIGN IN
+  // =========================================================
+
   void _openSignIn(
     BuildContext context, [
     UserRole role = UserRole.admin,
@@ -64,14 +121,16 @@ class _LandingScreenState extends State<LandingScreen>
     );
   }
 
+  // =========================================================
   // SEARCH BOOKS
+  // =========================================================
+
   void _searchBooks(String query) {
     setState(() {
       _searchQuery = query.trim();
     });
   }
 
-  // CLEAR SEARCH
   void _clearSearch() {
     _searchController.clear();
 
@@ -87,14 +146,19 @@ class _LandingScreenState extends State<LandingScreen>
     super.dispose();
   }
 
+  // =========================================================
+  // MAIN BUILD
+  // =========================================================
+
   @override
   Widget build(BuildContext context) {
     final libraryService = context.watch<LibraryService>();
 
+    final settings = libraryService.settings;
+
     final allBooks = libraryService.books;
 
     // Remove duplicate books using ISBN.
-    // If ISBN is missing, use the title instead.
     final Map<String, Book> uniqueBooks = {};
 
     for (final book in allBooks) {
@@ -108,10 +172,8 @@ class _LandingScreenState extends State<LandingScreen>
 
     final distinctBooks = uniqueBooks.values.toList();
 
-    // Display the first six unique books.
     final featuredBooks = distinctBooks.take(6).toList();
 
-    // Search through unique books only.
     final searchResults = _searchQuery.isEmpty
         ? <Book>[]
         : distinctBooks.where((book) {
@@ -125,7 +187,10 @@ class _LandingScreenState extends State<LandingScreen>
     return Scaffold(
       backgroundColor: const Color(0xFFFBF1E4),
 
+      // =====================================================
       // APP BAR
+      // =====================================================
+
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(64),
         child: Container(
@@ -137,24 +202,33 @@ class _LandingScreenState extends State<LandingScreen>
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(7),
+                    width: 42,
+                    height: 42,
+                    padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(
-                      Icons.menu_book,
-                      color: Colors.white,
-                      size: 22,
+                    child: _buildLibraryLogo(
+                      settings.logoUrl,
+                      size: 30,
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text(
-                    'Library Management System',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth:
+                          MediaQuery.sizeOf(context).width < 600 ? 140 : 280,
+                    ),
+                    child: Text(
+                      settings.libraryName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -185,13 +259,16 @@ class _LandingScreenState extends State<LandingScreen>
         ),
       ),
 
+      // =====================================================
       // PAGE BODY
+      // =====================================================
+
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // ==========================================
+            // =================================================
             // 1. HERO SECTION
-            // ==========================================
+            // =================================================
 
             Container(
               margin: const EdgeInsets.all(24),
@@ -213,8 +290,6 @@ class _LandingScreenState extends State<LandingScreen>
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // LEFT SIDE: HERO TEXT AND SEARCH
-
                   Expanded(
                     flex: 3,
                     child: Column(
@@ -252,9 +327,7 @@ class _LandingScreenState extends State<LandingScreen>
                             ],
                           ),
                         ),
-
                         const SizedBox(height: 16),
-
                         RichText(
                           text: const TextSpan(
                             style: TextStyle(
@@ -274,9 +347,7 @@ class _LandingScreenState extends State<LandingScreen>
                             ],
                           ),
                         ),
-
                         const SizedBox(height: 12),
-
                         const Text(
                           'Explore our library collection, find books you enjoy, '
                           'and borrow the ones you need for your studies or personal reading.',
@@ -286,10 +357,9 @@ class _LandingScreenState extends State<LandingScreen>
                             height: 1.5,
                           ),
                         ),
-
                         const SizedBox(height: 24),
 
-                        // PUBLIC BOOK SEARCH
+                        // BOOK SEARCH
 
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -477,16 +547,12 @@ class _LandingScreenState extends State<LandingScreen>
 
                   const SizedBox(width: 32),
 
-                  // ==========================================
-                  // RIGHT SIDE: CONTINUOUSLY ANIMATED IMAGE
-                  // ==========================================
+                  // HERO IMAGE
 
                   Expanded(
                     flex: 2,
                     child: AnimatedBuilder(
                       animation: _heroFloatAnimation,
-
-                      // The image is created once and reused.
                       child: Container(
                         height: 300,
                         decoration: BoxDecoration(
@@ -515,26 +581,30 @@ class _LandingScreenState extends State<LandingScreen>
                           ),
                           alignment: Alignment.bottomLeft,
                           padding: const EdgeInsets.all(24),
-                          child: const Column(
+                          child: Column(
                             mainAxisAlignment: MainAxisAlignment.end,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.auto_stories,
                                 size: 38,
                                 color: Colors.white,
                               ),
-                              SizedBox(height: 12),
+                              const SizedBox(height: 12),
                               Text(
-                                '1,200+ Books',
-                                style: TextStyle(
+                                libraryService.isLoadingBooks
+                                    ? 'Loading books...'
+                                    : libraryService.booksError == null
+                                        ? '${distinctBooks.length} Books'
+                                        : 'Books unavailable',
+                                style: const TextStyle(
                                   fontSize: 28,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
                               ),
-                              SizedBox(height: 6),
-                              Text(
+                              const SizedBox(height: 6),
+                              const Text(
                                 'Discover a world of knowledge',
                                 style: TextStyle(
                                   fontSize: 14,
@@ -545,9 +615,6 @@ class _LandingScreenState extends State<LandingScreen>
                           ),
                         ),
                       ),
-
-                      // MOVE THE IMAGE UP AND DOWN CONTINUOUSLY.
-
                       builder: (context, child) {
                         return Transform.translate(
                           offset: Offset(
@@ -563,9 +630,9 @@ class _LandingScreenState extends State<LandingScreen>
               ),
             ),
 
-            // ==========================================
+            // =================================================
             // 2. FEATURE CARDS
-            // ==========================================
+            // =================================================
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -594,9 +661,9 @@ class _LandingScreenState extends State<LandingScreen>
 
             const SizedBox(height: 24),
 
-            // ==========================================
+            // =================================================
             // 3. FEATURED BOOKS
-            // ==========================================
+            // =================================================
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -634,7 +701,7 @@ class _LandingScreenState extends State<LandingScreen>
                         TextButton.icon(
                           onPressed: () => _openSignIn(
                             context,
-                            UserRole.reader,
+                            UserRole.student,
                           ),
                           icon: const Text(
                             'View All Books',
@@ -652,10 +719,7 @@ class _LandingScreenState extends State<LandingScreen>
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 16),
-
-                    // LOADING, ERROR, EMPTY OR BOOK LIST
 
                     if (libraryService.isLoadingBooks)
                       const SizedBox(
@@ -728,9 +792,9 @@ class _LandingScreenState extends State<LandingScreen>
 
             const SizedBox(height: 24),
 
-            // ==========================================
+            // =================================================
             // 4. HOW IT WORKS
-            // ==========================================
+            // =================================================
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -767,9 +831,9 @@ class _LandingScreenState extends State<LandingScreen>
                       children: [
                         _buildStep(
                           '1',
-                          'Create an Account',
-                          'Sign up as a member and get access to '
-                              'library services.',
+                          'Sign In to Your Account',
+                          'Enter your assigned Student ID and password to '
+                              'securely access library services.',
                         ),
                         const SizedBox(width: 16),
                         _buildStep(
@@ -794,9 +858,9 @@ class _LandingScreenState extends State<LandingScreen>
 
             const SizedBox(height: 32),
 
-            // ==========================================
+            // =================================================
             // 5. FOOTER
-            // ==========================================
+            // =================================================
 
             _buildLandingFooter(context),
           ],
@@ -805,11 +869,16 @@ class _LandingScreenState extends State<LandingScreen>
     );
   }
 
-  // ==========================================
+  // =========================================================
   // FOOTER
-  // ==========================================
+  // =========================================================
 
   Widget _buildLandingFooter(BuildContext context) {
+    final settings = context.watch<LibraryService>().settings;
+
+    final libraryName = settings.libraryName;
+    final logoUrl = settings.logoUrl;
+
     return Container(
       width: double.infinity,
       color: AppColors.primary,
@@ -819,7 +888,7 @@ class _LandingScreenState extends State<LandingScreen>
         children: [
           LayoutBuilder(
             builder: (context, constraints) {
-              final brand = _footerBrand();
+              final brand = _footerBrand(libraryName, logoUrl);
               final links = _footerLinks(context);
               final contact = _footerContact();
 
@@ -854,19 +923,19 @@ class _LandingScreenState extends State<LandingScreen>
             color: Colors.white.withValues(alpha: 0.18),
           ),
           const SizedBox(height: 16),
-          const Wrap(
+          Wrap(
             alignment: WrapAlignment.spaceBetween,
             runSpacing: 8,
             children: [
               Text(
-                '© 2026 Library Management System. All rights reserved.',
-                style: TextStyle(
+                '© 2026 $libraryName. All rights reserved.',
+                style: const TextStyle(
                   color: Color(0xFFF6B7A5),
                   fontSize: 12,
                 ),
               ),
-              Text(
-                'Better Readers · Stronger Communities · Brighter Futures',
+              const Text(
+                'Better Students · Stronger Communities · Brighter Futures',
                 style: TextStyle(
                   color: Color(0xFFF6B7A5),
                   fontSize: 12,
@@ -879,31 +948,36 @@ class _LandingScreenState extends State<LandingScreen>
     );
   }
 
+  // =========================================================
   // FOOTER BRAND
+  // =========================================================
 
-  Widget _footerBrand() {
+  Widget _footerBrand(String libraryName, String? logoUrl) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(9),
+              width: 44,
+              height: 44,
+              padding: const EdgeInsets.all(7),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(
-                Icons.menu_book,
-                color: Colors.white,
-                size: 26,
+              child: _buildLibraryLogo(
+                logoUrl,
+                size: 30,
               ),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Text(
-                'Library Management System',
-                style: TextStyle(
+                libraryName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
@@ -926,7 +1000,9 @@ class _LandingScreenState extends State<LandingScreen>
     );
   }
 
+  // =========================================================
   // FOOTER LINKS
+  // =========================================================
 
   Widget _footerLinks(BuildContext context) {
     final services = [
@@ -1004,7 +1080,9 @@ class _LandingScreenState extends State<LandingScreen>
     );
   }
 
+  // =========================================================
   // FOOTER CONTACT
+  // =========================================================
 
   Widget _footerContact() {
     return const Column(
@@ -1031,7 +1109,7 @@ class _LandingScreenState extends State<LandingScreen>
             SizedBox(width: 10),
             Expanded(
               child: Text(
-                'centralacademy@example.com',
+                'centralacademy@library.com',
                 style: TextStyle(
                   color: Color(0xFFF6B7A5),
                   fontSize: 13,
@@ -1066,9 +1144,9 @@ class _LandingScreenState extends State<LandingScreen>
     );
   }
 
-  // ==========================================
-  // FEATURE CARDS (with hover animation)
-  // ==========================================
+  // =========================================================
+  // FEATURE CARDS
+  // =========================================================
 
   Widget _buildFeatureCard({
     required IconData icon,
@@ -1132,31 +1210,19 @@ class _LandingScreenState extends State<LandingScreen>
     );
   }
 
-  // ==========================================
-  // FEATURED BOOK CARD WITH HOVER ANIMATION
-  // ==========================================
+  // =========================================================
+  // FEATURED BOOK CARD
+  // =========================================================
 
   Widget _buildBookCard(BuildContext context, Book book) {
     final isAvailable = book.availableCopies > 0;
-    final title = book.title.toLowerCase();
 
-    final String? coverUrl = title.contains('clean code')
-        ? AppImages.cleanCode
-        : title.contains('atomic habits')
-            ? AppImages.atomicHabits
-            : title.contains('martian')
-                ? AppImages.theMartian
-                : title.contains('design patterns')
-                    ? AppImages.designPatterns
-                    : title.contains('think like a monk')
-                        ? AppImages.thinkLikeAMonk
-                        : title.contains('dune')
-                            ? AppImages.dune
-                            : title.contains('sapiens')
-                                ? AppImages.sapiens
-                                : null;
+    final isbn = book.isbn.replaceAll(RegExp(r'[-\s]'), '').trim();
 
-    // Hover state for each individual book card.
+    final String? coverUrl = isbn.isNotEmpty
+        ? 'https://covers.openlibrary.org/b/isbn/$isbn-M.jpg?default=false'
+        : null;
+
     bool isHovered = false;
 
     return StatefulBuilder(
@@ -1176,19 +1242,14 @@ class _LandingScreenState extends State<LandingScreen>
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOut,
-
-            // Move the card upward and enlarge it on hover.
             transform: Matrix4.translationValues(
               0,
               isHovered ? -7 : 0,
               0,
             )..scale(isHovered ? 1.025 : 1.0),
-
             transformAlignment: Alignment.center,
-
             width: 190,
             padding: const EdgeInsets.all(12),
-
             decoration: BoxDecoration(
               color: const Color(0xFFFBF1E4),
               borderRadius: BorderRadius.circular(14),
@@ -1207,12 +1268,9 @@ class _LandingScreenState extends State<LandingScreen>
                 ),
               ],
             ),
-
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // BOOK COVER
-
                 SizedBox(
                   width: double.infinity,
                   height: 140,
@@ -1229,11 +1287,7 @@ class _LandingScreenState extends State<LandingScreen>
                         : _buildCoverPlaceholder(book.title),
                   ),
                 ),
-
                 const SizedBox(height: 8),
-
-                // BOOK TITLE
-
                 Text(
                   book.title,
                   maxLines: 1,
@@ -1244,9 +1298,6 @@ class _LandingScreenState extends State<LandingScreen>
                     color: Color(0xFF171717),
                   ),
                 ),
-
-                // BOOK AUTHOR
-
                 Text(
                   book.author,
                   maxLines: 1,
@@ -1256,11 +1307,7 @@ class _LandingScreenState extends State<LandingScreen>
                     color: Color(0xFF666666),
                   ),
                 ),
-
                 const Spacer(),
-
-                // AVAILABILITY AND RESERVE BUTTON
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -1294,7 +1341,7 @@ class _LandingScreenState extends State<LandingScreen>
                     InkWell(
                       onTap: () => _openSignIn(
                         context,
-                        UserRole.reader,
+                        UserRole.student,
                       ),
                       child: const Text(
                         'Reserve',
@@ -1315,9 +1362,9 @@ class _LandingScreenState extends State<LandingScreen>
     );
   }
 
-  // ==========================================
+  // =========================================================
   // BOOK COVER FALLBACK
-  // ==========================================
+  // =========================================================
 
   Widget _buildCoverPlaceholder(String title) {
     return Container(
@@ -1349,9 +1396,9 @@ class _LandingScreenState extends State<LandingScreen>
     );
   }
 
-  // ==========================================
-  // HOW IT WORKS STEPS
-  // ==========================================
+  // =========================================================
+  // HOW IT WORKS
+  // =========================================================
 
   Widget _buildStep(
     String number,
@@ -1399,8 +1446,7 @@ class _LandingScreenState extends State<LandingScreen>
 }
 
 // =============================================================
-// HOVER ANIMATION (lift + shadow + blue border)
-// Used by the Browse Books and Search & Discover feature cards.
+// HOVER ANIMATION
 // =============================================================
 
 class _HoverLift extends StatefulWidget {

@@ -3,6 +3,7 @@ package com.library.library_backend.Service;
 
 import com.library.library_backend.entity.LibrarySettings;
 import com.library.library_backend.repository.LibrarySettingsRepository;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,8 +19,9 @@ public class LibrarySettingsService {
         this.repository = repository;
     }
 
-    // Get the library settings
+    // Get library settings
     public LibrarySettings getSettings() {
+
         List<LibrarySettings> settings = repository.findAll();
 
         if (settings.isEmpty()) {
@@ -31,7 +33,7 @@ public class LibrarySettingsService {
         return settings.get(0);
     }
 
-    // Update the library settings
+    // Update ordinary library settings
     @Transactional
     public LibrarySettings updateSettings(LibrarySettings updatedSettings) {
 
@@ -44,10 +46,10 @@ public class LibrarySettingsService {
             );
         }
 
-        if (updatedSettings.getMaxBooksPerDay() == null ||
-                updatedSettings.getMaxBooksPerDay() < 1) {
+        if (updatedSettings.getMaxBooksPerStudent() == null ||
+                updatedSettings.getMaxBooksPerStudent() < 1) {
             throw new IllegalArgumentException(
-                "Maximum books per day must be at least 1."
+                "Maximum books per student must be at least 1."
             );
         }
 
@@ -75,7 +77,9 @@ public class LibrarySettingsService {
 
         Integer reservationHoldMinutes =
             updatedSettings.getReservationHoldMinutes();
-        if (reservationHoldMinutes == null || reservationHoldMinutes < 1) {
+
+        if (reservationHoldMinutes == null ||
+                reservationHoldMinutes < 1) {
             throw new IllegalArgumentException(
                 "Reservation pickup time limit must be at least one minute."
             );
@@ -85,8 +89,8 @@ public class LibrarySettingsService {
             updatedSettings.getLibraryName().trim()
         );
 
-        existingSettings.setMaxBooksPerDay(
-            updatedSettings.getMaxBooksPerDay()
+        existingSettings.setMaxBooksPerStudent(
+            updatedSettings.getMaxBooksPerStudent()
         );
 
         existingSettings.setMaxBorrowingDays(
@@ -98,18 +102,43 @@ public class LibrarySettingsService {
         );
 
         existingSettings.setFinePerDay(fine);
-        existingSettings.setReservationHoldMinutes(reservationHoldMinutes);
+
+        existingSettings.setReservationHoldMinutes(
+            reservationHoldMinutes
+        );
+
+        // Preserve the existing logo URL.
+        return repository.save(existingSettings);
+    }
+
+    // Update library logo separately
+    @Transactional
+    public LibrarySettings updateLogo(String logoUrl) {
+
+        if (logoUrl == null || logoUrl.isBlank()) {
+            throw new IllegalArgumentException(
+                "Logo URL cannot be empty."
+            );
+        }
+
+        LibrarySettings existingSettings = getSettings();
+
+        existingSettings.setLogoUrl(logoUrl);
 
         return repository.save(existingSettings);
     }
 
+    // Get reservation hold time
     public int getReservationHoldMinutes() {
+
         Integer minutes = getSettings().getReservationHoldMinutes();
+
         if (minutes == null || minutes < 1) {
             throw new IllegalStateException(
                 "Reservation pickup time limit is not configured correctly."
             );
         }
+
         return minutes;
     }
 }

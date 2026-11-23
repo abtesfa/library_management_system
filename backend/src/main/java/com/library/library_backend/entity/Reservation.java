@@ -34,6 +34,9 @@ public class Reservation {
     @Column(name = "Hold_Until")
     private LocalDateTime holdUntil;
 
+    @Column(name = "Copy_ID")
+    private Integer copyId;
+
     @Transient
     private Integer pickupHoldMinutes;
 
@@ -103,6 +106,9 @@ public class Reservation {
     public void setHoldUntil(LocalDateTime holdUntil) {
         this.holdUntil = holdUntil;
     }
+
+    public Integer getCopyId() { return copyId; }
+    public void setCopyId(Integer copyId) { this.copyId = copyId; }
 
     public Integer getPickupHoldMinutes() {
         return pickupHoldMinutes;

@@ -7,6 +7,7 @@ import com.library.library_backend.entity.Permission;
 import com.library.library_backend.entity.Staff;
 import com.library.library_backend.repository.PermissionRepository;
 import com.library.library_backend.repository.StaffRepository;
+import com.library.library_backend.security.PasswordHashService;
 
 import jakarta.transaction.Transactional;
 
@@ -15,6 +16,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.stream.Collectors;
@@ -22,14 +25,27 @@ import java.util.stream.Collectors;
 @Service
 public class StaffService {
 
+    private static final Map<String, String> PERMISSION_DESCRIPTIONS = Map.of(
+            "ADD_BOOK", "Add books to the inventory",
+            "EDIT_BOOK", "Edit book information",
+            "DELETE_BOOK", "Delete books from the inventory",
+            "BORROW_BOOK", "Issue books to students",
+            "RETURN_BOOK", "Process returned books",
+            "CONFIGURE_SETTINGS", "Configure library settings",
+            "MANAGE_STAFF", "Manage staff accounts",
+            "VIEW_NOTIFICATIONS", "View librarian notifications");
+
     private final StaffRepository staffRepository;
     private final PermissionRepository permissionRepository;
+    private final PasswordHashService passwordHashService;
 
     public StaffService(
             StaffRepository staffRepository,
-            PermissionRepository permissionRepository) {
+            PermissionRepository permissionRepository,
+            PasswordHashService passwordHashService) {
         this.staffRepository = staffRepository;
         this.permissionRepository = permissionRepository;
+        this.passwordHashService = passwordHashService;
     }
 
     // Get all staff members
@@ -55,7 +71,14 @@ public class StaffService {
 
         validateStaffRequest(request);
 
-        if (staffRepository.existsByEmail(request.getEmail())) {
+        if (request.getPassword() == null
+                || request.getPassword().length() < 8) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password must be at least 8 characters");
+        }
+
+        if (staffRepository.existsByEmail(request.getEmail().trim().toLowerCase())) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "Email already exists");
         }
@@ -65,7 +88,9 @@ public class StaffService {
         staff.setFullName(request.getFullName().trim());
         staff.setEmail(request.getEmail().trim().toLowerCase());
         staff.setPhoneNumber(request.getPhoneNumber());
+        staff.setPasswordHash(passwordHashService.hash(request.getPassword()));
         staff.setStatus("ACTIVE");
+        staff.setMustChangePassword(true);
         staff.setTokenVersion(0);
 
         applyRoleAndPermissions(staff, request);
@@ -87,7 +112,7 @@ public class StaffService {
 
         String newEmail = request.getEmail().trim().toLowerCase();
 
-        staffRepository.findByEmail(newEmail).ifPresent(existing -> {
+        staffRepository.findByEmailIgnoreCase(newEmail).ifPresent(existing -> {
             if (!existing.getStaffId().equals(id)) {
                 throw new ResponseStatusException(
                         HttpStatus.CONFLICT, "Email already exists");
@@ -160,14 +185,10 @@ public class StaffService {
             return;
         }
 
-        if (request.getPosition() == null
-                || request.getPosition().isBlank()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Librarian position is required");
-        }
-
-        staff.setPosition(request.getPosition().trim());
+        staff.setPosition(request.getPosition() == null
+                || request.getPosition().isBlank()
+                        ? null
+                        : request.getPosition().trim());
 
         Set<String> requestedCodes = request.getPermissions() == null
                 ? new HashSet<>()
@@ -175,12 +196,25 @@ public class StaffService {
 
         Set<Permission> permissions = new HashSet<>();
 
-        for (String code : requestedCodes) {
+        for (String requestedCode : requestedCodes) {
+            String code = requestedCode == null
+                    ? ""
+                    : requestedCode.trim().toUpperCase(Locale.ROOT);
+            String description = PERMISSION_DESCRIPTIONS.get(code);
+            if (description == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Unknown permission: " + requestedCode);
+            }
+
             Permission permission = permissionRepository
                     .findByPermissionCode(code)
-                    .orElseThrow(() -> new ResponseStatusException(
-                            HttpStatus.BAD_REQUEST,
-                            "Unknown permission: " + code));
+                    .orElseGet(() -> {
+                        Permission newPermission = new Permission();
+                        newPermission.setPermissionCode(code);
+                        newPermission.setDescription(description);
+                        return permissionRepository.save(newPermission);
+                    });
 
             permissions.add(permission);
         }

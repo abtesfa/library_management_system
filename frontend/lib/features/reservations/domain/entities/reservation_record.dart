@@ -8,6 +8,7 @@ class ReservationRecord {
   final String? pickupLocation;
   final String status;
   final int queuePosition;
+  final String? estimatedAvailabilityDate;
 
   ReservationRecord({
     required this.id,
@@ -19,5 +20,6 @@ class ReservationRecord {
     this.pickupLocation,
     required this.status,
     this.queuePosition = 1,
+    this.estimatedAvailabilityDate,
   });
 }

@@ -4,21 +4,27 @@ package com.library.library_backend.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.library.library_backend.dto.BookRequest;
 import com.library.library_backend.dto.BookResponse;
+import com.library.library_backend.dto.BookUpdateRequest;
 import com.library.library_backend.entity.Author;
 import com.library.library_backend.entity.BookCopy;
 import com.library.library_backend.entity.Category;
+import com.library.library_backend.entity.Reservation;
 import com.library.library_backend.entity.book;
 import com.library.library_backend.exception.ResourceNotFoundException;
 import com.library.library_backend.repository.AuthorRepository;
 import com.library.library_backend.repository.BookCopyRepository;
 import com.library.library_backend.repository.BookRepository;
 import com.library.library_backend.repository.CategoryRepository;
+import com.library.library_backend.repository.BorrowingRepository;
+import com.library.library_backend.repository.NotificationRepository;
 import com.library.library_backend.repository.ReservationRepository;
 
 @Service
@@ -29,6 +35,8 @@ public class BookService {
     private final AuthorRepository authorRepository;
     private final CategoryRepository categoryRepository;
     private final BookCopyRepository bookCopyRepository;
+    private final BorrowingRepository borrowingRepository;
+    private final NotificationRepository notificationRepository;
     private final ReservationRepository reservationRepository;
 
     public BookService(
@@ -36,12 +44,16 @@ public class BookService {
             AuthorRepository authorRepository,
             CategoryRepository categoryRepository,
             BookCopyRepository bookCopyRepository,
+            BorrowingRepository borrowingRepository,
+            NotificationRepository notificationRepository,
             ReservationRepository reservationRepository) {
 
         this.bookRepository = bookRepository;
         this.authorRepository = authorRepository;
         this.categoryRepository = categoryRepository;
         this.bookCopyRepository = bookCopyRepository;
+        this.borrowingRepository = borrowingRepository;
+        this.notificationRepository = notificationRepository;
         this.reservationRepository = reservationRepository;
     }
 
@@ -49,12 +61,26 @@ public class BookService {
     // GET ALL BOOKS
     // ==========================================
 
+    public Page<BookResponse> getBookResponses(Pageable pageable) {
+        return bookRepository.findAll(pageable).map(this::convertToResponse);
+    }
+
     public List<BookResponse> getAllBookResponses() {
 
         return bookRepository.findAll()
                 .stream()
                 .map(this::convertToResponse)
                 .toList();
+    }
+
+    public void addDepartmentMapping(Integer bookId, String department) {
+        if (!bookRepository.existsById(bookId)) throw new ResourceNotFoundException("Book not found.");
+        if (department == null || department.isBlank()) throw new IllegalArgumentException("Department is required.");
+        bookRepository.addDepartmentMapping(bookId, department.trim());
+    }
+
+    public void removeDepartmentMapping(Integer bookId, String department) {
+        bookRepository.removeDepartmentMapping(bookId, department);
     }
 
     // ==========================================
@@ -106,8 +132,7 @@ public class BookService {
                 bookCopyRepository.countByBookId(bookId)
         );
 
-        // Copies on the shelf, minus the ones held by active reservations.
-        // A reserved copy is not available to other students.
+        // Count only copies whose status is Available. Allocated reservations use Reserved status.
         int copiesOnShelf = Math.toIntExact(
                 bookCopyRepository.countByBookIdAndStatus(
                         bookId,
@@ -115,12 +140,18 @@ public class BookService {
                 )
         );
 
-        int reservedCopies = (int) Math.min(
+        // READY_FOR_PICKUP copies already have status Reserved and are
+        // excluded from copiesOnShelf. Only waiting reservations can still
+        // consume a free shelf copy during allocation.
+        int waitingReservations = (int) Math.min(
                 copiesOnShelf,
+                reservationRepository.countWaitingByBookId(bookId)
+        );
+        int reservedCopies = Math.toIntExact(
                 reservationRepository.countActiveByBookId(bookId)
         );
 
-        int availableCopies = copiesOnShelf - reservedCopies;
+        int availableCopies = copiesOnShelf - waitingReservations;
 
         // Find a copy to obtain its shelf location
         Optional<BookCopy> copy =
@@ -281,61 +312,50 @@ public class BookService {
     // UPDATE BOOK
     // ==========================================
 
-    public book updateBook(Integer bookId, book updatedBook) {
-
+    public BookResponse updateBook(
+            Integer bookId,
+            BookUpdateRequest request) {
         book existingBook = getBookById(bookId);
 
-        existingBook.setTitle(updatedBook.getTitle());
-        existingBook.setDescription(updatedBook.getDescription());
+        String authorName = request.getAuthorName().trim();
+        Author author = authorRepository
+                .findByAuthorNameIgnoreCase(authorName)
+                .orElseGet(() -> {
+                    Author newAuthor = new Author();
+                    newAuthor.setAuthorName(authorName);
+                    return authorRepository.save(newAuthor);
+                });
 
-        // Update author if a valid author ID is supplied
-        if (updatedBook.getAuthorId() != null) {
+        Category category = categoryRepository
+                .findById(request.getCategoryId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Category not found: " + request.getCategoryId()));
 
-            Author author = authorRepository
-                    .findById(updatedBook.getAuthorId())
-                    .orElseThrow(() ->
-                            new ResourceNotFoundException(
-                                    "Author not found: "
-                                            + updatedBook.getAuthorId()
-                            )
-                    );
-
-            existingBook.setAuthor(author);
+        String isbn = blankToNull(request.getIsbn());
+        if (isbn != null
+                && bookRepository.findByIsbn(isbn)
+                        .filter(book -> !book.getBookId().equals(bookId))
+                        .isPresent()) {
+            throw new IllegalArgumentException(
+                    "Another book already uses this ISBN.");
         }
 
-        // Update optional fields
-        existingBook.setPublisherId(updatedBook.getPublisherId());
-        existingBook.setCategoryId(updatedBook.getCategoryId());
-        existingBook.setEdition(updatedBook.getEdition());
-        existingBook.setPrice(updatedBook.getPrice());
+        existingBook.setTitle(request.getTitle().trim());
+        existingBook.setAuthor(author);
+        existingBook.setCategoryId(category.getCategoryId());
+        existingBook.setIsbn(isbn);
+        existingBook.setDescription(blankToNull(request.getDescription()));
+        existingBook.setPublisherName(blankToNull(request.getPublisher()));
+        existingBook.setEdition(blankToNull(request.getEdition()));
+        existingBook.setPublicationYear(request.getPublicationYear());
+        existingBook.setCoverImage(blankToNull(request.getCoverImage()));
 
-        existingBook.setPublicationYear(
-                updatedBook.getPublicationYear()
-        );
+        book savedBook = bookRepository.save(existingBook);
+        bookCopyRepository.updateLocationByBookId(
+                bookId,
+                blankToNull(request.getLocation()));
 
-        existingBook.setCoverImage(updatedBook.getCoverImage());
-
-        // Update ISBN if supplied
-        if (updatedBook.getIsbn() != null) {
-
-            String isbn = updatedBook.getIsbn().trim();
-
-            if (!isbn.isEmpty()
-                    && bookRepository.findByIsbn(isbn)
-                            .filter(b -> !b.getBookId().equals(bookId))
-                            .isPresent()) {
-
-                throw new IllegalArgumentException(
-                        "Another book already uses this ISBN."
-                );
-            }
-
-            existingBook.setIsbn(
-                    isbn.isEmpty() ? null : isbn
-            );
-        }
-
-        return bookRepository.save(existingBook);
+        return convertToResponse(savedBook);
     }
 
     // ==========================================
@@ -343,18 +363,31 @@ public class BookService {
     // ==========================================
 
     public void deleteBook(Integer bookId) {
-
         book existingBook = getBookById(bookId);
 
-        // Prevent deletion when physical copies exist
-        if (bookCopyRepository.countByBookId(bookId) > 0) {
+        List<Reservation> reservations =
+                reservationRepository.findAllByBookId(bookId);
+        List<Integer> reservationIds = reservations.stream()
+                .map(Reservation::getReservationId)
+                .toList();
 
-            throw new IllegalStateException(
-                    "Cannot delete this book because physical copies exist. "
-                            + "Remove its copies first."
-            );
+        if (!reservationIds.isEmpty()) {
+            notificationRepository.deleteAllByReservationIdIn(
+                    reservationIds);
         }
 
+        reservationRepository.deleteAll(reservations);
+
+        List<BookCopy> copies = bookCopyRepository.findAllByBookId(bookId);
+        List<Integer> copyIds = copies.stream()
+                .map(BookCopy::getCopyId)
+                .toList();
+
+        if (!copyIds.isEmpty()) {
+            borrowingRepository.deleteAllByCopyIdIn(copyIds);
+        }
+
+        bookCopyRepository.deleteAll(copies);
         bookRepository.delete(existingBook);
     }
 }

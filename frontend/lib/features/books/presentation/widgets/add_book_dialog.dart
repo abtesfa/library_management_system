@@ -42,14 +42,17 @@ class _AddBookDialogState extends State<AddBookDialog> {
   final _editionController = TextEditingController();
   final _yearController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _coverImageController = TextEditingController();
   final _copiesController = TextEditingController(text: '1');
   final _locationController = TextEditingController();
 
   int? _categoryId;
+  bool _categoryWasAutoFilled = false;
   BookMetadata? _metadata;
   bool _lookingUp = false;
   bool _saving = false;
   bool _scanMode = false;
+  bool _coverUrlWasAutoFilled = false;
   String? _lookupMessage;
   String? _saveError;
 
@@ -63,6 +66,7 @@ class _AddBookDialogState extends State<AddBookDialog> {
     _editionController.dispose();
     _yearController.dispose();
     _descriptionController.dispose();
+    _coverImageController.dispose();
     _copiesController.dispose();
     _locationController.dispose();
     super.dispose();
@@ -87,6 +91,8 @@ class _AddBookDialogState extends State<AddBookDialog> {
       setState(() {
         _lookupMessage = validationError;
         _metadata = null;
+        _clearAutoFilledCoverUrl();
+        _clearAutoFilledCategory();
       });
       return;
     }
@@ -106,7 +112,10 @@ class _AddBookDialogState extends State<AddBookDialog> {
         _isbnController.text = isbn;
         _metadata = result;
         if (result == null) {
-          _lookupMessage = 'No book details found for this ISBN.';
+          _clearAutoFilledCoverUrl();
+          _clearAutoFilledCategory();
+          _lookupMessage = 'No book details were found in Open Library. '
+              'You can still add the book manually.';
         } else {
           _fillFromMetadata(result);
           _lookupMessage = 'Book details found.';
@@ -116,7 +125,10 @@ class _AddBookDialogState extends State<AddBookDialog> {
       if (!mounted) return;
       setState(() {
         _metadata = null;
-        _lookupMessage = 'Lookup failed: $error';
+        _clearAutoFilledCoverUrl();
+        _clearAutoFilledCategory();
+        _lookupMessage = 'Open Library lookup failed: $error. '
+            'You can still add the book manually.';
       });
     } finally {
       if (mounted) {
@@ -132,10 +144,78 @@ class _AddBookDialogState extends State<AddBookDialog> {
     _setWhenPresent(_authorController, metadata.author);
     _setWhenPresent(_publisherController, metadata.publisher);
     _setWhenPresent(_editionController, metadata.edition);
+    _fillCategoryFromMetadata(metadata);
+    final coverImage = metadata.coverImage?.trim();
+    if (coverImage != null && coverImage.isNotEmpty) {
+      _coverImageController.text = coverImage;
+      _coverUrlWasAutoFilled = true;
+    } else {
+      _clearAutoFilledCoverUrl();
+    }
     if (metadata.publicationYear != null) {
       _yearController.text = metadata.publicationYear.toString();
     }
     _setWhenPresent(_descriptionController, metadata.description);
+  }
+
+  void _clearAutoFilledCoverUrl() {
+    if (_coverUrlWasAutoFilled) {
+      _coverImageController.clear();
+      _coverUrlWasAutoFilled = false;
+    }
+  }
+
+  void _fillCategoryFromMetadata(BookMetadata metadata) {
+    final subjects = metadata.subjects
+        .map(_normalizeCategory)
+        .where((subject) => subject.isNotEmpty)
+        .toSet();
+    if (subjects.isEmpty) {
+      _clearAutoFilledCategory();
+      return;
+    }
+
+    dynamic matchedCategory;
+    for (final category in widget.categories) {
+      final name = _normalizeCategory(_categoryName(category));
+      if (subjects.contains(name)) {
+        matchedCategory = category;
+        break;
+      }
+    }
+
+    if (matchedCategory == null) {
+      for (final category in widget.categories) {
+        final name = _normalizeCategory(_categoryName(category));
+        if (subjects.any(
+          (subject) => subject.contains(name) || name.contains(subject),
+        )) {
+          matchedCategory = category;
+          break;
+        }
+      }
+    }
+
+    final categoryId =
+        matchedCategory == null ? null : _categoryValue(matchedCategory);
+    if (categoryId != null) {
+      if (_categoryId == null || _categoryWasAutoFilled) {
+        _categoryId = categoryId;
+        _categoryWasAutoFilled = true;
+      }
+    } else {
+      _clearAutoFilledCategory();
+    }
+  }
+
+  String _normalizeCategory(String value) =>
+      value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+  void _clearAutoFilledCategory() {
+    if (_categoryWasAutoFilled) {
+      _categoryId = null;
+      _categoryWasAutoFilled = false;
+    }
   }
 
   void _setWhenPresent(TextEditingController controller, String? value) {
@@ -195,7 +275,7 @@ class _AddBookDialogState extends State<AddBookDialog> {
         'edition': _optional(_editionController.text),
         'publicationYear': int.tryParse(_yearController.text.trim()),
         'description': _optional(_descriptionController.text),
-        'coverImage': _metadata?.coverImage,
+        'coverImage': _optional(_coverImageController.text),
       });
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
@@ -538,7 +618,7 @@ class _AddBookDialogState extends State<AddBookDialog> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Text(
-                    'Google Books',
+                    'Open Library',
                     style: TextStyle(fontSize: 11, color: Color(0xFF067647)),
                   ),
                 ),
@@ -676,6 +756,7 @@ class _AddBookDialogState extends State<AddBookDialog> {
               );
             },
           ),
+          _buildCoverImageField(),
           _field(
             _descriptionController,
             'Description',
@@ -683,6 +764,7 @@ class _AddBookDialogState extends State<AddBookDialog> {
           ),
           _dialogLabel('Category', required: true),
           DropdownButtonFormField<int>(
+            key: ValueKey(_categoryId),
             initialValue: _categoryId,
             isExpanded: true,
             decoration: _decoration('Choose a category', Icons.category),
@@ -697,8 +779,12 @@ class _AddBookDialogState extends State<AddBookDialog> {
                 })
                 .whereType<DropdownMenuItem<int>>()
                 .toList(),
-            onChanged:
-                _saving ? null : (value) => setState(() => _categoryId = value),
+            onChanged: _saving
+                ? null
+                : (value) => setState(() {
+                      _categoryId = value;
+                      _categoryWasAutoFilled = false;
+                    }),
             validator: (value) =>
                 value == null ? 'Please select a category' : null,
           ),
@@ -776,6 +862,42 @@ class _AddBookDialogState extends State<AddBookDialog> {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCoverImageField() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _dialogLabel('Cover Image URL'),
+          TextFormField(
+            controller: _coverImageController,
+            enabled: !_saving,
+            keyboardType: TextInputType.url,
+            decoration: _decoration(
+              'Enter cover url',
+              Icons.image_outlined,
+            ),
+            onChanged: (_) => _coverUrlWasAutoFilled = false,
+            validator: (value) {
+              final url = value?.trim() ?? '';
+              if (url.isEmpty) return null;
+
+              final uri = Uri.tryParse(url);
+              if (uri == null ||
+                  !uri.hasScheme ||
+                  !{'http', 'https'}.contains(uri.scheme.toLowerCase()) ||
+                  uri.host.isEmpty) {
+                return 'Enter a valid http or https image URL';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 4),
         ],
       ),
     );

@@ -8,8 +8,8 @@ class NotificationRepositoryImpl implements NotificationRepository {
   const NotificationRepositoryImpl(this.remoteDataSource);
 
   @override
-  Future<List<LibraryNotification>> getNotifications({bool unread = false}) =>
-      remoteDataSource.getNotifications(unread: unread);
+  Future<List<LibraryNotification>> getNotifications({bool unread = false, String? position}) =>
+      remoteDataSource.getNotifications(unread: unread, position: position);
 
   @override
   Future<void> markAsRead(int id) => remoteDataSource.markAsRead(id);

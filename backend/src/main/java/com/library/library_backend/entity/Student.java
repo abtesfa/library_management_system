@@ -22,7 +22,7 @@ public class Student {
     @Column(name = "Phone_Number", length = 20)
     private String phoneNumber;
 
-    @Column(name = "Password", nullable = false)
+    @Column(name = "Password", nullable = false, length = 255)
     private String password;
 
     @Column(name = "Department", length = 100)
@@ -33,6 +33,13 @@ public class Student {
 
     @Column(name = "Status", nullable = false)
     private String status = "ACTIVE";
+
+    @Column(name = "must_change_password", nullable = false)
+    private boolean mustChangePassword = false;
+
+    @Lob
+    @Column(name = "profile_photo", columnDefinition = "LONGBLOB")
+    private byte[] profilePhoto;
 
     @Column(name = "Created_At", insertable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -104,6 +111,22 @@ public class Student {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public boolean isMustChangePassword() {
+        return mustChangePassword;
+    }
+
+    public void setMustChangePassword(boolean mustChangePassword) {
+        this.mustChangePassword = mustChangePassword;
+    }
+
+    public byte[] getProfilePhoto() {
+        return profilePhoto;
+    }
+
+    public void setProfilePhoto(byte[] profilePhoto) {
+        this.profilePhoto = profilePhoto;
     }
 
     public LocalDateTime getCreatedAt() {
