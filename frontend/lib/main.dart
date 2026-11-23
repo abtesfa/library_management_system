@@ -403,7 +403,7 @@ class _MainShellState extends State<MainShell> {
       case UserRole.librarian:
         switch (_selectedNavIndex) {
           case 1:
-            return const LibrarianNotificationsScreen();
+            return LibrarianNotificationsScreen(librarianPosition: _currentAccount?.title);
           case 2:
             return const AdminInventoryScreen();
           case 3:

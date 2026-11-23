@@ -75,15 +75,12 @@ class _StudentReservationsScreenState extends State<StudentReservationsScreen> {
   }
 
   String _pickupTimeRemainingText(ReservationRecord reservation) {
-    final reservedAt = DateTime.tryParse(reservation.reservedDate);
     final holdUntil = reservation.holdUntil == null
         ? null
-        : DateTime.tryParse(reservation.holdUntil!);
-    if (reservedAt == null || holdUntil == null) {
-      return 'Pick up by: ${_formatPickupDeadline(reservation.holdUntil)}';
-    }
+        : DateTime.tryParse(reservation.holdUntil!)?.toLocal();
+    if (holdUntil == null) return 'Waiting for a copy to be allocated.';
 
-    final minutes = holdUntil.difference(reservedAt).inMinutes;
+    final minutes = holdUntil.difference(DateTime.now()).inMinutes;
     final duration = minutes % 1440 == 0
         ? '${minutes ~/ 1440} ${minutes ~/ 1440 == 1 ? 'day' : 'days'}'
         : minutes % 60 == 0
@@ -464,15 +461,15 @@ class _StudentReservationsScreenState extends State<StudentReservationsScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    if (r.pickupLocation != null)
+                    if (r.status.toUpperCase() == 'READY_FOR_PICKUP')
                       Text(
-                        'Pickup Location: ${r.pickupLocation} · '
-                        '${_pickupTimeRemainingText(r)}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFFF25635),
-                        ),
+                        'Pickup Location: ${r.pickupLocation ?? 'Main Library'} · ${_pickupTimeRemainingText(r)}',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFF25635)),
+                      )
+                    else if (r.status.toUpperCase() == 'WAITING')
+                      Text(
+                        'Estimated availability: ${r.estimatedAvailabilityDate ?? 'Not available yet'} (estimate only; not guaranteed).',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF666666)),
                       )
                     else if (r.status.toUpperCase() == 'EXPIRED')
                       const Text(

@@ -35,11 +35,12 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
   String? _errorMessage;
 
   String _selectedRole = 'All Roles';
-
+    int _currentPage = 0;
+    static const int _pageSize = 10;
   final List<String> _positions = [
     'Chief Circulation Librarian',
     'Cataloging Specialist',
-    'Reference Librarian',
+    'Reference Librarian',      
     'Acquisitions Librarian',
     'Digital Resources Librarian',
     'Archivist',
@@ -147,6 +148,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
       setState(() {
         _staff = staffList;
         _isLoading = false;
+          _currentPage = 0;
       });
     } catch (e) {
       if (!mounted) return;
@@ -739,19 +741,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                             return;
                           }
 
-                          // At least one contact method is required.
-                          final contactError = _validateContact(
-                            email: emailController.text,
-                            phone: phoneController.text,
-                          );
-
-                          if (contactError != null) {
-                            _showMessage(
-                              contactError,
-                              isError: true,
-                            );
-                            return;
-                          }
+                          
 
                           final newStaff = StaffMember(
                             id: existing?.id ?? '',
@@ -1222,80 +1212,199 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
   // STAFF DIRECTORY
   // ------------------------------------------------------------
 
-  Widget _buildStaffDirectory(
-    List<StaffMember> filteredStaff,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.025),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Staff Directory',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                    color: dark,
-                  ),
-                ),
+Widget _buildStaffDirectory(List<StaffMember> filteredStaff) {
+  final int totalPages = (filteredStaff.length / _pageSize).ceil();
+
+  final int safePage = totalPages == 0
+      ? 0
+      : _currentPage.clamp(0, totalPages - 1);
+
+  final int startIndex = safePage * _pageSize;
+
+  final int endIndex =
+      (startIndex + _pageSize).clamp(0, filteredStaff.length);
+
+  final List<StaffMember> paginatedStaff =
+      filteredStaff.sublist(startIndex, endIndex);
+
+  return Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: borderColor),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.025),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 500;
+
+            final title = const Text(
+              'Staff Directory',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: dark,
               ),
-              Text(
-                '${filteredStaff.length} staff',
+            );
+
+            final count = Text(
+              '${filteredStaff.length} staff members',
+              style: const TextStyle(
+                fontSize: 12,
+                color: muted,
+                fontWeight: FontWeight.w600,
+              ),
+            );
+
+            if (compact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  title,
+                  const SizedBox(height: 5),
+                  count,
+                ],
+              );
+            }
+
+            return Row(
+              children: [
+                Expanded(child: title),
+                count,
+              ],
+            );
+          },
+        ),
+
+        const SizedBox(height: 16),
+
+        _buildSearchAndFilter(),
+
+        const SizedBox(height: 18),
+
+        if (filteredStaff.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(30),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.people_outline,
+                    size: 42,
+                    color: muted,
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    'No staff members found.',
+                    style: TextStyle(
+                      color: muted,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else ...[
+          _buildStaffTable(paginatedStaff),
+
+          const SizedBox(height: 18),
+
+          const Divider(height: 1),
+
+          const SizedBox(height: 14),
+
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 450;
+
+              final showingText = Text(
+                'Showing ${startIndex + 1}-$endIndex '
+                'of ${filteredStaff.length}',
                 style: const TextStyle(
                   fontSize: 12,
                   color: muted,
-                  fontWeight: FontWeight.w600,
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildSearchAndFilter(),
-          const SizedBox(height: 18),
-          _buildStaffTable(filteredStaff),
-          if (filteredStaff.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.people_outline,
-                      size: 36,
-                      color: muted,
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'No staff members found.',
-                      style: TextStyle(
-                        color: muted,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
+              );
 
+              final controls = Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OutlinedButton(
+                    onPressed: safePage > 0
+                        ? () {
+                            setState(() {
+                              _currentPage = safePage - 1;
+                            });
+                          }
+                        : null,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: primary,
+                      side: const BorderSide(color: borderColor),
+                    ),
+                    child: const Text('Previous'),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    '${safePage + 1} / $totalPages',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: dark,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  OutlinedButton(
+                    onPressed: safePage < totalPages - 1
+                        ? () {
+                            setState(() {
+                              _currentPage = safePage + 1;
+                            });
+                          }
+                        : null,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: primary,
+                      side: const BorderSide(color: borderColor),
+                    ),
+                    child: const Text('Next'),
+                  ),
+                ],
+              );
+
+              if (compact) {
+                return Column(
+                  children: [
+                    showingText,
+                    const SizedBox(height: 12),
+                    controls,
+                  ],
+                );
+              }
+
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  showingText,
+                  controls,
+                ],
+              );
+            },
+          ),
+        ],
+      ],
+    ),
+  );
+}
   // ------------------------------------------------------------
   // SEARCH AND ROLE FILTER
   // ------------------------------------------------------------
@@ -1307,7 +1416,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
 
         final searchField = TextField(
           controller: _searchController,
-          onChanged: (_) => setState(() {}),
+          onChanged: (_) => setState(() {_currentPage = 0;}),
           decoration: InputDecoration(
             hintText: 'Search by name, email or staff ID...',
             prefixIcon: const Icon(
@@ -1319,6 +1428,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                     tooltip: 'Clear search',
                     icon: const Icon(Icons.close),
                     onPressed: () {
+                      _currentPage = 0;
                       _searchController.clear();
                       setState(() {});
                     },
@@ -1400,6 +1510,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
             onChanged: (value) {
               setState(() {
                 _selectedRole = value ?? 'All Roles';
+                  _currentPage = 0;
               });
             },
           ),

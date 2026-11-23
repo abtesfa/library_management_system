@@ -7,7 +7,7 @@ class UpdateSettings {
 
   Future<Map<String, dynamic>> call({
     required String libraryName,
-    required int maxBooksPerDay,
+    required int maxBooksPerStudent,
     required int maxBorrowingDays,
     required int renewalLimit,
     required double finePerDay,
@@ -15,7 +15,7 @@ class UpdateSettings {
   }) {
     return repository.updateSettings(
       libraryName: libraryName,
-      maxBooksPerDay: maxBooksPerDay,
+      maxBooksPerStudent: maxBooksPerStudent,
       maxBorrowingDays: maxBorrowingDays,
       renewalLimit: renewalLimit,
       finePerDay: finePerDay,

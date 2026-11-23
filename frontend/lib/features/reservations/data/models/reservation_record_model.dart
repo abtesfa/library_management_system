@@ -12,6 +12,7 @@ class ReservationRecordModel extends ReservationRecord {
     super.pickupLocation,
     required super.status,
     required super.queuePosition,
+    super.estimatedAvailabilityDate,
   });
 
   factory ReservationRecordModel.fromJson(Map<String, dynamic> json) {
@@ -25,6 +26,7 @@ class ReservationRecordModel extends ReservationRecord {
       pickupLocation: json['pickupLocation']?.toString(),
       status: json['status']?.toString() ?? 'WAITING',
       queuePosition: (json['queuePosition'] as num?)?.toInt() ?? 1,
+      estimatedAvailabilityDate: json['estimatedAvailabilityDate']?.toString(),
     );
   }
 }

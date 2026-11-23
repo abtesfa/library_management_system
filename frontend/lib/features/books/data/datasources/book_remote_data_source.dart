@@ -29,6 +29,21 @@ class BookRemoteDataSource {
     }
   }
 
+
+  /// Loads recommendations selected by the backend from the authenticated
+  /// student's department. A categoryId optionally narrows the results.
+  Future<List<BookModel>> getRecommendations({required int studentId, int? categoryId}) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/students/$studentId/recommendations').replace(
+      queryParameters: categoryId == null ? null : {'categoryId': categoryId.toString()},
+    );
+    final response = await http.get(uri).timeout(_requestTimeout);
+    if (response.statusCode != 200) {
+      throw ApiException('Could not load recommendations: ${response.body}');
+    }
+    final data = jsonDecode(response.body) as List<dynamic>;
+    return data.map((item) => BookModel.fromJson(Map<String, dynamic>.from(item as Map))).toList();
+  }
+
   /// Adds a new book and its physical copies.
   Future<Map<String, dynamic>> createBook(
     Map<String, dynamic> bookData,

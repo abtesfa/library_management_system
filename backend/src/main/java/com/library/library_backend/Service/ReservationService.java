@@ -1,5 +1,16 @@
 package com.library.library_backend.Service;
 
+import java.sql.Date;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
 import com.library.library_backend.dto.ReservationResponse;
 import com.library.library_backend.entity.Reservation;
 import com.library.library_backend.entity.Student;
@@ -8,17 +19,6 @@ import com.library.library_backend.repository.BookCopyRepository;
 import com.library.library_backend.repository.BookRepository;
 import com.library.library_backend.repository.ReservationRepository;
 import com.library.library_backend.repository.StudentRepository;
-
-import org.springframework.http.HttpStatus;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
-
-import java.sql.Date;
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 public class ReservationService {
@@ -52,97 +52,80 @@ public class ReservationService {
 
     @Transactional
     public Reservation createReservation(Integer userId, Integer bookId) {
-
-        // Free copies held by reservations that already ran out of time
         expireOverdueReservations();
-
-        if (userId == null || userId <= 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Invalid student ID"
-            );
+        if (userId == null || userId <= 0 || bookId == null || bookId <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Valid student and book IDs are required.");
         }
-
-        if (bookId == null || bookId <= 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Invalid Book ID"
-            );
+        Student student = studentRepository.findByIdForUpdate(userId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found"));
+        if (!"ACTIVE".equalsIgnoreCase(student.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This student account is not active.");
         }
-
-        // Find the student
-        Student student = studentRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Student not found"
-                ));
-
-        // Find the book
-        book selectedBook = bookRepository.findById(bookId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Book not found"
-                ));
-
-        // Prevent duplicate active reservations
+        book selectedBook = bookRepository.findByIdForUpdate(bookId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Book not found"));
         if (reservationRepository.countActiveReservation(userId, bookId) > 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "You already have an active reservation for this book"
-            );
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "You already have an active reservation for this book.");
         }
-
-        // A copy must be free: available copies minus copies that
-        // are already held by other active reservations.
-        long availableCopies = bookCopyRepository
-                .countByBookIdAndStatus(bookId, "Available");
-
-        long reservedCopies =
-                reservationRepository.countActiveByBookId(bookId);
-
-        if (availableCopies - reservedCopies <= 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "No copies of this book are available to reserve"
-            );
+        int max = librarySettingsService.getSettings().getMaxBooksPerStudent();
+        long loans = borrowingCount(userId);
+        long reservations = reservationRepository.countActiveByUserId(userId);
+        if (loans + reservations >= max) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Your borrowing capacity is full. Return a book or cancel an active reservation first.");
         }
-
-        // Create reservation
         Reservation reservation = new Reservation();
-
         reservation.setUserId(userId);
         reservation.setBookId(bookId);
-
-        reservation.setQueuePosition(
-                reservationRepository.getNextQueuePosition(bookId)
-        );
-
-        int pickupHoldMinutes = getReservationHoldMinutes();
-        LocalDateTime reservedAt = LocalDateTime.now();
-        reservation.setReservationDate(reservedAt);
-        reservation.setHoldUntil(reservedAt.plusMinutes(pickupHoldMinutes));
-        reservation.setPickupHoldMinutes(pickupHoldMinutes);
+        reservation.setReservationDate(LocalDateTime.now());
+        reservation.setQueuePosition(reservationRepository.getNextQueuePosition(bookId));
+        reservation.setHoldUntil(null); // countdown starts only after a copy is allocated
+        reservation.setPickupHoldMinutes(getReservationHoldMinutes());
         reservation.setStatus("WAITING");
-        reservation.setPickupLocation("Main Library");
+        reservation.setPickupLocation(null);
+        Reservation saved = reservationRepository.save(reservation);
+        notificationService.createReservationNotification(saved.getReservationId(), student.getFullName(), selectedBook.getTitle());
+        allocateAvailableCopies(bookId);
+        return saved;
+    }
 
-        // Save reservation first
-        Reservation savedReservation =
-                reservationRepository.save(reservation);
+    private long borrowingCount(Integer userId) {
+        return studentRepository.countActiveLoans(userId);
+    }
 
-        // Automatically notify librarian
-        notificationService.createReservationNotification(
-                savedReservation.getReservationId(),
-                student.getFullName(),
-                selectedBook.getTitle()
-        );
+    @Transactional
+    public void markFulfilled(Reservation reservation) {
+        reservation.setStatus("FULFILLED");
+        reservation.setHoldUntil(null);
+        reservationRepository.save(reservation);
+        notificationService.deleteByReservationId(reservation.getReservationId());
+    }
 
-        return savedReservation;
+    /** Allocate each available copy to the oldest eligible reservation. */
+    @Transactional
+    public void allocateAvailableCopies(Integer bookId) {
+        List<Reservation> queue = reservationRepository.findWaitingQueue(bookId);
+        for (Reservation reservation : queue) {
+           var copy = bookCopyRepository.findFirstByBookIdAndStatusOrderByCopyIdAsc(bookId, "Available");
+            if (copy.isEmpty()) break;
+            int max = librarySettingsService.getSettings().getMaxBooksPerStudent();
+            long loans = borrowingCount(reservation.getUserId());
+            long active = reservationRepository.countActiveByUserId(reservation.getUserId());
+            // Their waiting reservation already consumes one slot. If over capacity, skip without losing queue order.
+            if (loans + active > max) continue;
+            var allocatedCopy = copy.get();
+            allocatedCopy.setStatus("Reserved");
+            bookCopyRepository.save(allocatedCopy);
+            reservation.setCopyId(allocatedCopy.getCopyId());
+            reservation.setStatus("READY_FOR_PICKUP");
+            reservation.setHoldUntil(LocalDateTime.now().plusMinutes(getReservationHoldMinutes()));
+            reservation.setPickupLocation("Main Library");
+            reservationRepository.save(reservation);
+            notificationService.createStudentReservationReadyNotification(reservation.getUserId(), reservation.getReservationId(), bookRepository.findById(bookId).map(book::getTitle).orElse("Your reserved book"));
+        }
     }
 
     // --------------------------------------------------
     // GET STUDENT RESERVATIONS
     // --------------------------------------------------
 
+    @Transactional
     public List<ReservationResponse> getStudentReservations(Integer userId) {
 
         if (userId == null || userId <= 0) {
@@ -168,7 +151,8 @@ public class ReservationService {
                         toLocalDateTime(row[5]),
                         row[6] == null ? null : row[6].toString(),
                         row[7] == null ? null : row[7].toString(),
-                        row[8] == null ? 0 : ((Number) row[8]).intValue()
+                        row[8] == null ? 0 : ((Number) row[8]).intValue(),
+                        estimateAvailability(row[7], row[8])
                 ))
                 .toList();
     }
@@ -207,11 +191,15 @@ public class ReservationService {
 
         reservation.setStatus("CANCELLED");
         reservation.setPickupLocation(null);
+        if (reservation.getCopyId() != null) {
+            bookCopyRepository.findById(reservation.getCopyId()).ifPresent(copy -> { copy.setStatus("Available"); bookCopyRepository.save(copy); });
+        }
 
         reservationRepository.save(reservation);
 
         // Remove the matching notification from the librarian page
         notificationService.deleteByReservationId(reservationId);
+        allocateAvailableCopies(reservation.getBookId());
     }
 
     // --------------------------------------------------
@@ -233,12 +221,28 @@ public class ReservationService {
 
             reservation.setStatus("EXPIRED");
             reservation.setPickupLocation(null);
+            if (reservation.getCopyId() != null) {
+                bookCopyRepository.findById(reservation.getCopyId()).ifPresent(copy -> { copy.setStatus("Available"); bookCopyRepository.save(copy); });
+            }
             reservationRepository.save(reservation);
+            notificationService.deleteByReservationId(reservation.getReservationId());
+            allocateAvailableCopies(reservation.getBookId());
+        }
+    }
 
-            // Remove it from the librarian notification page
-            notificationService.deleteByReservationId(
-                    reservation.getReservationId()
-            );
+    private java.time.LocalDate estimateAvailability(Object statusValue, Object queueValue) {
+        if (statusValue == null || !"WAITING".equalsIgnoreCase(statusValue.toString())) return null;
+        int position = queueValue instanceof Number n ? Math.max(1, n.intValue()) : 1;
+        int borrowingDays = librarySettingsService.getSettings().getMaxBorrowingDays();
+        // Planning estimate only: real return dates and renewals can change it.
+        return java.time.LocalDate.now().plusDays((long) borrowingDays * position);
+    }
+
+    @Scheduled(fixedRate = 60_000)
+    @Transactional
+    public void allocateWaitingReservations() {
+        for (Integer bookId : reservationRepository.findBookIdsWithWaitingReservations()) {
+            allocateAvailableCopies(bookId);
         }
     }
 

@@ -5,8 +5,12 @@ import com.library.library_backend.dto.MyBookResponse;
 import com.library.library_backend.dto.RenewBookResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/students")
@@ -28,7 +32,20 @@ public class MyBooksController {
         );
     }
 
-    /** Renews one of the student's active loans (one renewal only). */
+
+    @GetMapping("/{userId}/borrowings/history")
+    public ResponseEntity<List<Map<String, Object>>> getBorrowingHistory(@PathVariable Integer userId) {
+        return ResponseEntity.ok(myBooksService.getBorrowingHistory(userId));
+    }
+
+    @GetMapping("/{userId}/borrowings/history/page")
+    public ResponseEntity<Page<Map<String, Object>>> getBorrowingHistoryPage(
+            @PathVariable Integer userId,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(myBooksService.getBorrowingHistoryPage(userId, pageable));
+    }
+
+    /** Renews one of the student's active loans within configured policy limits. */
     @PostMapping("/{userId}/borrowings/{borrowingId}/renew")
     public ResponseEntity<RenewBookResponse> renewBook(
             @PathVariable Integer userId,

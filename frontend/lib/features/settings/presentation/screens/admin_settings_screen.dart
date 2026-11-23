@@ -1,8 +1,11 @@
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:typed_data';
 import '../../../../core/config/api_config.dart';
 import '../../../../core/di/injector.dart';
 import '../../../library/presentation/providers/library_service.dart';
@@ -19,19 +22,33 @@ class AdminSettingsScreen extends StatefulWidget {
 class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   final GetSettings _getSettingsUseCase = injector.getSettings;
   final UpdateSettings _updateSettingsUseCase = injector.updateSettings;
+  final ImagePicker _imagePicker = ImagePicker();
 
   late TextEditingController _nameController;
-  late TextEditingController _dailyBooksController;
+  late TextEditingController _maxBooksController;
   late TextEditingController _borrowDaysController;
   late TextEditingController _renewalLimitController;
   late TextEditingController _fineController;
   late TextEditingController _reservationHoldController;
   late TextEditingController _announcementTitleController;
   late TextEditingController _announcementMessageController;
+
   String _reservationHoldUnit = 'hours';
   String _announcementAudience = 'All Librarians';
   String _announcementPriority = 'Urgent';
+
   DateTime? _announcementValidUntil;
+
+  XFile? _selectedLogo;
+  String? _logoUrl;
+
+  bool _isLoading = true;
+  bool _isSaving = false;
+  bool _isUploadingLogo = false;
+
+  String? _errorMessage;
+
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   static const List<String> _librarianPositions = [
     'Librarian',
@@ -44,12 +61,6 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     'Archivist',
   ];
 
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-
-  bool _isLoading = true;
-  bool _isSaving = false;
-  String? _errorMessage;
-
   static const Color primaryBlue = Color(0xFFF25635);
   static const Color textDark = Color(0xFF171717);
   static const Color textMuted = Color(0xFF666666);
@@ -60,7 +71,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     super.initState();
 
     _nameController = TextEditingController();
-    _dailyBooksController = TextEditingController();
+    _maxBooksController = TextEditingController();
     _borrowDaysController = TextEditingController();
     _renewalLimitController = TextEditingController();
     _fineController = TextEditingController();
@@ -69,7 +80,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     _announcementMessageController = TextEditingController();
 
     _nameController.addListener(_refreshSummary);
-    _dailyBooksController.addListener(_refreshSummary);
+    _maxBooksController.addListener(_refreshSummary);
     _borrowDaysController.addListener(_refreshSummary);
     _renewalLimitController.addListener(_refreshSummary);
     _fineController.addListener(_refreshSummary);
@@ -89,7 +100,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   }
 
   // =========================================================
-  // LOAD SETTINGS FROM BACKEND
+  // LOAD SETTINGS
   // =========================================================
 
   Future<void> _loadSettings() async {
@@ -107,21 +118,31 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
 
       _nameController.text = data['libraryName']?.toString() ?? '';
 
-      _dailyBooksController.text = data['maxBooksPerDay']?.toString() ?? '3';
+      _logoUrl = data['logoUrl']?.toString();
 
-      _borrowDaysController.text = data['maxBorrowingDays']?.toString() ?? '';
+      _maxBooksController.text =
+          data['maxBooksPerStudent']?.toString() ?? '3';
 
-      _renewalLimitController.text = data['renewalLimit']?.toString() ?? '2';
+      _borrowDaysController.text =
+          data['maxBorrowingDays']?.toString() ?? '';
 
-      _fineController.text = data['finePerDay']?.toString() ?? '5.00';
+      _renewalLimitController.text =
+          data['renewalLimit']?.toString() ?? '2';
+
+      _fineController.text =
+          data['finePerDay']?.toString() ?? '5.00';
+
       final holdMinutes =
           (data['reservationHoldMinutes'] as num?)?.toInt() ?? 1440;
+
       if (holdMinutes % 1440 == 0) {
         _reservationHoldUnit = 'days';
-        _reservationHoldController.text = (holdMinutes ~/ 1440).toString();
+        _reservationHoldController.text =
+            (holdMinutes ~/ 1440).toString();
       } else if (holdMinutes % 60 == 0) {
         _reservationHoldUnit = 'hours';
-        _reservationHoldController.text = (holdMinutes ~/ 60).toString();
+        _reservationHoldController.text =
+            (holdMinutes ~/ 60).toString();
       } else {
         _reservationHoldUnit = 'minutes';
         _reservationHoldController.text = holdMinutes.toString();
@@ -141,11 +162,281 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   }
 
   // =========================================================
-  // SAVE SETTINGS TO BACKEND
+  // LOGO IMAGE SELECTION
+  // =========================================================
+
+  Future<void> _pickLogo() async {
+    if (_isUploadingLogo || _isSaving) return;
+
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1200,
+      );
+
+      if (image == null || !mounted) return;
+
+      setState(() {
+        _selectedLogo = image;
+      });
+    } catch (e) {
+      _showMessage(
+        'Unable to select logo: $e',
+        isError: true,
+      );
+    }
+  }
+
+  // =========================================================
+  // RESOLVE LOGO URL
+  // =========================================================
+
+  String _resolveLogoUrl(String path) {
+    if (path.startsWith('http://') ||
+        path.startsWith('https://')) {
+      return path;
+    }
+
+    final apiUri = Uri.parse(ApiConfig.baseUrl);
+
+    return apiUri.replace(
+      path: path.startsWith('/') ? path : '/$path',
+      query: null,
+      fragment: null,
+    ).toString();
+  }
+
+  // =========================================================
+  // UPLOAD LOGO
+  // =========================================================
+
+  Future<void> _uploadLogo() async {
+    if (_isUploadingLogo || _selectedLogo == null) return;
+
+    setState(() {
+      _isUploadingLogo = true;
+    });
+
+    try {
+      final imageBytes = await _selectedLogo!.readAsBytes();
+
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${ApiConfig.baseUrl}/settings/logo'),
+      );
+
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          imageBytes,
+          filename: _selectedLogo!.name,
+        ),
+      );
+
+      final streamedResponse = await request.send();
+
+      final response = await http.Response.fromStream(
+        streamedResponse,
+      );
+
+      if (response.statusCode != 200 &&
+          response.statusCode != 201) {
+        throw Exception(
+          'Upload failed (${response.statusCode}): ${response.body}',
+        );
+      }
+
+      final libraryService = Provider.of<LibraryService>(
+        context,
+        listen: false,
+      );
+
+      await libraryService.loadSettingsFromApi();
+
+      final settings = await _getSettingsUseCase();
+
+      if (!mounted) return;
+
+      setState(() {
+        _logoUrl = settings['logoUrl']?.toString();
+        _selectedLogo = null;
+        _isUploadingLogo = false;
+      });
+
+      _showMessage('Library logo uploaded successfully!');
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isUploadingLogo = false;
+      });
+
+      _showMessage(
+        'Unable to upload logo: $e',
+        isError: true,
+      );
+    }
+  }
+
+  // =========================================================
+  // LOGO SETTINGS CARD
+  // =========================================================
+
+  Widget _buildLogoCard() {
+    return _buildCard(
+      title: 'Library Logo',
+      icon: Icons.image_outlined,
+      children: [
+        Center(
+          child: Container(
+            width: 150,
+            height: 150,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFBF1E4),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: borderColor),
+            ),
+            child: _selectedLogo != null
+                ? FutureBuilder<Uint8List>(
+                    future: _selectedLogo!.readAsBytes(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData) {
+                        return Image.memory(
+                          snapshot.data!,
+                          fit: BoxFit.contain,
+                        );
+                      }
+
+                      if (snapshot.hasError) {
+                        return const Icon(
+                          Icons.broken_image_outlined,
+                          size: 65,
+                          color: textMuted,
+                        );
+                      }
+
+                      return const Center(
+                        child: CircularProgressIndicator(),
+                      );
+                    },
+                  )
+                : _logoUrl != null && _logoUrl!.isNotEmpty
+                    ? Image.network(
+                        _resolveLogoUrl(_logoUrl!),
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) {
+                          return const Icon(
+                            Icons.menu_book,
+                            size: 75,
+                            color: primaryBlue,
+                          );
+                        },
+                      )
+                    : const Icon(
+                        Icons.menu_book,
+                        size: 75,
+                        color: primaryBlue,
+                      ),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        const Center(
+          child: Text(
+            'Your library logo will appear on the public landing page.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: textMuted,
+              fontSize: 12,
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final chooseButton = OutlinedButton.icon(
+              onPressed: _isUploadingLogo || _isSaving
+                  ? null
+                  : _pickLogo,
+              icon: const Icon(Icons.photo_library_outlined),
+              label: const Text('Choose Image'),
+            );
+
+            final uploadButton = ElevatedButton.icon(
+              onPressed:
+                  _selectedLogo == null || _isUploadingLogo
+                      ? null
+                      : _uploadLogo,
+              icon: _isUploadingLogo
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.cloud_upload_outlined),
+              label: Text(
+                _isUploadingLogo ? 'Uploading...' : 'Upload Logo',
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryBlue,
+                foregroundColor: Colors.white,
+              ),
+            );
+
+            if (constraints.maxWidth < 400) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  chooseButton,
+                  const SizedBox(height: 10),
+                  uploadButton,
+                ],
+              );
+            }
+
+            return Row(
+              children: [
+                Expanded(child: chooseButton),
+                const SizedBox(width: 12),
+                Expanded(child: uploadButton),
+              ],
+            );
+          },
+        ),
+
+        if (_selectedLogo != null) ...[
+          const SizedBox(height: 8),
+          Center(
+            child: TextButton(
+              onPressed: _isUploadingLogo
+                  ? null
+                  : () {
+                      setState(() {
+                        _selectedLogo = null;
+                      });
+                    },
+              child: const Text('Cancel Selection'),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // =========================================================
+  // SAVE SETTINGS
   // =========================================================
 
   Future<void> _saveSettings() async {
-    if (_isSaving) return;
+    if (_isSaving || _isUploadingLogo) return;
 
     if (!_formKey.currentState!.validate()) {
       _showMessage(
@@ -157,15 +448,20 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
 
     final libraryName = _nameController.text.trim();
 
-    final dailyBooks = int.tryParse(_dailyBooksController.text.trim());
+    final maxBooksPerStudent =
+        int.tryParse(_maxBooksController.text.trim());
 
-    final borrowDays = int.tryParse(_borrowDaysController.text.trim());
+    final borrowDays =
+        int.tryParse(_borrowDaysController.text.trim());
 
-    final renewalLimit = int.tryParse(_renewalLimitController.text.trim());
+    final renewalLimit =
+        int.tryParse(_renewalLimitController.text.trim());
 
     final fine = double.tryParse(_fineController.text.trim());
+
     final reservationHoldAmount =
         int.tryParse(_reservationHoldController.text.trim());
+
     final reservationHoldMinutes = reservationHoldAmount == null
         ? null
         : reservationHoldAmount *
@@ -175,7 +471,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
               _ => 1,
             };
 
-    if (dailyBooks == null ||
+    if (maxBooksPerStudent == null ||
         borrowDays == null ||
         renewalLimit == null ||
         fine == null ||
@@ -190,7 +486,10 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       return;
     }
 
-    final libraryService = Provider.of<LibraryService>(context, listen: false);
+    final libraryService = Provider.of<LibraryService>(
+      context,
+      listen: false,
+    );
 
     setState(() {
       _isSaving = true;
@@ -199,7 +498,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     try {
       await _updateSettingsUseCase(
         libraryName: libraryName,
-        maxBooksPerDay: dailyBooks,
+        maxBooksPerStudent: maxBooksPerStudent,
         maxBorrowingDays: borrowDays,
         renewalLimit: renewalLimit,
         finePerDay: fine,
@@ -215,11 +514,11 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       });
 
       final settingsError = libraryService.settingsError;
+
       _showMessage(
         settingsError == null
             ? 'LMS settings saved successfully!'
-            : 'Settings saved, but borrowing settings could not be refreshed: '
-                '$settingsError',
+            : 'Settings saved, but borrowing settings could not be refreshed: $settingsError',
         isError: settingsError != null,
       );
     } catch (e) {
@@ -251,14 +550,17 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
           content: Row(
             children: [
               Icon(
-                isError ? Icons.error_outline : Icons.check_circle_outline,
+                isError
+                    ? Icons.error_outline
+                    : Icons.check_circle_outline,
                 color: Colors.white,
               ),
               const SizedBox(width: 10),
               Expanded(child: Text(message)),
             ],
           ),
-          backgroundColor: isError ? Colors.red : const Color(0xFF059669),
+          backgroundColor:
+              isError ? Colors.red : const Color(0xFF059669),
           duration: const Duration(seconds: 3),
           behavior: SnackBarBehavior.floating,
         ),
@@ -272,14 +574,14 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   @override
   void dispose() {
     _nameController.removeListener(_refreshSummary);
-    _dailyBooksController.removeListener(_refreshSummary);
+    _maxBooksController.removeListener(_refreshSummary);
     _borrowDaysController.removeListener(_refreshSummary);
     _renewalLimitController.removeListener(_refreshSummary);
     _fineController.removeListener(_refreshSummary);
     _reservationHoldController.removeListener(_refreshSummary);
 
     _nameController.dispose();
-    _dailyBooksController.dispose();
+    _maxBooksController.dispose();
     _borrowDaysController.dispose();
     _renewalLimitController.dispose();
     _fineController.dispose();
@@ -317,12 +619,16 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
           children: [
             _buildHeader(),
             const SizedBox(height: 24),
+
             LayoutBuilder(
               builder: (context, constraints) {
                 final bool compact = constraints.maxWidth < 950;
 
                 final settingsContent = Column(
                   children: [
+                    _buildLogoCard(),
+                    const SizedBox(height: 20),
+
                     _buildCard(
                       title: 'Library Information',
                       icon: Icons.local_library_outlined,
@@ -335,21 +641,24 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                         ),
                       ],
                     ),
+
                     const SizedBox(height: 20),
+
                     _buildCard(
                       title: 'Circulation Policies & Limits',
                       icon: Icons.rule_folder_outlined,
                       children: [
                         LayoutBuilder(
                           builder: (context, constraints) {
-                            final bool small = constraints.maxWidth < 500;
+                            final bool small =
+                                constraints.maxWidth < 500;
 
                             if (small) {
                               return Column(
                                 children: [
                                   _buildNumberField(
-                                    controller: _dailyBooksController,
-                                    label: 'Maximum Books Per Day',
+                                    controller: _maxBooksController,
+                                    label: 'Maximum Books Per Student',
                                     suffix: 'Books',
                                     minimum: 1,
                                   ),
@@ -386,8 +695,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                                   children: [
                                     Expanded(
                                       child: _buildNumberField(
-                                        controller: _dailyBooksController,
-                                        label: 'Maximum Books Per Day',
+                                        controller: _maxBooksController,
+                                        label: 'Maximum Books Per Student',
                                         suffix: 'Books',
                                         minimum: 1,
                                       ),
@@ -471,12 +780,13 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   }
 
   // =========================================================
-  // HEADER
+  // ANNOUNCEMENTS
   // =========================================================
 
   Future<void> _showAnnouncementDialog() async {
     _announcementTitleController.clear();
     _announcementMessageController.clear();
+
     setState(() {
       _announcementAudience = 'All Librarians';
       _announcementPriority = 'Urgent';
@@ -506,7 +816,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                 vertical: 24,
               ),
               titlePadding: EdgeInsets.zero,
-              contentPadding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+              contentPadding:
+                  const EdgeInsets.fromLTRB(20, 18, 20, 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -524,11 +835,16 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.menu_book, color: Colors.white, size: 36),
+                    Icon(
+                      Icons.menu_book,
+                      color: Colors.white,
+                      size: 36,
+                    ),
                     SizedBox(width: 16),
                     Expanded(
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Make Announcement',
@@ -557,7 +873,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
                     children: [
                       const Text(
                         'Share important information with librarians.',
@@ -583,6 +900,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                         ),
                       ),
                       const SizedBox(height: 14),
+
                       LayoutBuilder(
                         builder: (context, constraints) {
                           final priorityField =
@@ -592,27 +910,29 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                               labelText: 'Priority',
                               border: OutlineInputBorder(),
                             ),
-                            items: ['Normal', 'Important', 'Urgent']
-                                .map(
-                                  (priority) => DropdownMenuItem(
-                                    value: priority,
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          width: 12,
-                                          height: 12,
-                                          decoration: BoxDecoration(
-                                            color: priorityColor(priority),
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Text(priority),
-                                      ],
+                            items: [
+                              'Normal',
+                              'Important',
+                              'Urgent',
+                            ].map((priority) {
+                              return DropdownMenuItem(
+                                value: priority,
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 12,
+                                      height: 12,
+                                      decoration: BoxDecoration(
+                                        color: priorityColor(priority),
+                                        shape: BoxShape.circle,
+                                      ),
                                     ),
-                                  ),
-                                )
-                                .toList(),
+                                    const SizedBox(width: 10),
+                                    Text(priority),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
                             onChanged: (value) {
                               if (value != null) {
                                 setDialogState(() {
@@ -636,6 +956,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                                   const Duration(days: 365 * 5),
                                 ),
                               );
+
                               if (date != null) {
                                 setDialogState(() {
                                   selectedValidUntil = date;
@@ -647,7 +968,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                               decoration: const InputDecoration(
                                 labelText: 'Valid Until (Optional)',
                                 border: OutlineInputBorder(),
-                                suffixIcon: Icon(Icons.calendar_today),
+                                suffixIcon:
+                                    Icon(Icons.calendar_today),
                               ),
                               child: Text(
                                 selectedValidUntil == null
@@ -673,7 +995,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                           }
 
                           return Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
                             children: [
                               Expanded(child: priorityField),
                               const SizedBox(width: 14),
@@ -682,21 +1005,21 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                           );
                         },
                       ),
+
                       const SizedBox(height: 14),
+
                       DropdownButtonFormField<String>(
                         initialValue: selectedAudience,
                         decoration: const InputDecoration(
                           labelText: 'Target Audience',
                           border: OutlineInputBorder(),
                         ),
-                        items: _librarianPositions
-                            .map(
-                              (position) => DropdownMenuItem(
-                                value: position,
-                                child: Text(position),
-                              ),
-                            )
-                            .toList(),
+                        items: _librarianPositions.map((position) {
+                          return DropdownMenuItem(
+                            value: position,
+                            child: Text(position),
+                          );
+                        }).toList(),
                         onChanged: (value) {
                           if (value != null) {
                             setDialogState(() {
@@ -712,12 +1035,15 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  onPressed: () =>
+                      Navigator.of(dialogContext).pop(),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    final title = _announcementTitleController.text.trim();
+                    final title =
+                        _announcementTitleController.text.trim();
+
                     final message =
                         _announcementMessageController.text.trim();
 
@@ -731,16 +1057,26 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
 
                     try {
                       final response = await http.post(
-                        Uri.parse('${ApiConfig.baseUrl}/notifications'),
-                        headers: const {'Content-Type': 'application/json'},
+                        Uri.parse(
+                          '${ApiConfig.baseUrl}/notifications/announcements',
+                        ),
+                        headers: const {
+                          'Content-Type': 'application/json',
+                        },
                         body: jsonEncode({
                           'title': title,
                           'message': message,
-                          'details':
-                              'Target Audience: $selectedAudience',
-                          'notificationType': 'ANNOUNCEMENT',
-                          'recipientType': 'LIBRARIAN',
-                          'isRead': false,
+                          'priority':
+                              selectedPriority.toUpperCase(),
+                          'audiencePositions':
+                              selectedAudience == 'All Librarians'
+                                  ? <String>[]
+                                  : <String>[selectedAudience],
+                          'validFrom': null,
+                          'validUntil':
+                              selectedValidUntil == null
+                                  ? null
+                                  : '${selectedValidUntil!.year}-${selectedValidUntil!.month.toString().padLeft(2, '0')}-${selectedValidUntil!.day.toString().padLeft(2, '0')}',
                         }),
                       );
 
@@ -752,8 +1088,12 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                       }
 
                       if (!dialogContext.mounted) return;
+
                       Navigator.of(dialogContext).pop();
-                      _showMessage('Announcement sent successfully.');
+
+                      _showMessage(
+                        'Announcement sent successfully.',
+                      );
                     } catch (e) {
                       _showMessage(
                         'Unable to send announcement: $e',
@@ -775,46 +1115,14 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     );
   }
 
+  // =========================================================
+  // HEADER
+  // =========================================================
+
   Widget _buildHeader() {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFBE2D9),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Icon(
-            Icons.settings,
-            color: primaryBlue,
-            size: 24,
-          ),
-        ),
-        const SizedBox(width: 14),
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'LMS Settings',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: textDark,
-                ),
-              ),
-              SizedBox(height: 4),
-              Text(
-                'Configure library information, borrowing limits, and fine policies.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: textMuted,
-                ),
-              ),
-            ],
-          ),
-        ),
-        ElevatedButton.icon(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final announcementButton = ElevatedButton.icon(
           onPressed: _showAnnouncementDialog,
           icon: const Icon(Icons.campaign_outlined, size: 18),
           label: const Text('Make Announcement'),
@@ -826,8 +1134,71 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
               vertical: 14,
             ),
           ),
-        ),
-      ],
+        );
+
+        final heading = Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFBE2D9),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.settings,
+                color: primaryBlue,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'LMS Settings',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: textDark,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Configure library information, borrowing limits, and fine policies.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+
+        if (constraints.maxWidth < 600) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              heading,
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: announcementButton,
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: heading),
+            const SizedBox(width: 12),
+            announcementButton,
+          ],
+        );
+      },
     );
   }
 
@@ -967,7 +1338,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
         ),
       ),
       validator: (value) {
-        if (requiredField && (value == null || value.trim().isEmpty)) {
+        if (requiredField &&
+            (value == null || value.trim().isEmpty)) {
           return '$label is required';
         }
 
@@ -1052,6 +1424,10 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     );
   }
 
+  // =========================================================
+  // RESERVATION HOLD FIELD
+  // =========================================================
+
   Widget _buildReservationHoldField() {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1083,17 +1459,21 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
           ),
           validator: (value) {
             final amount = int.tryParse(value?.trim() ?? '');
+
             if (amount == null || amount < 1) {
               return 'Enter a whole number greater than zero';
             }
+
             final multiplier = switch (_reservationHoldUnit) {
               'days' => 1440,
               'hours' => 60,
               _ => 1,
             };
+
             if (amount > 2147483647 ~/ multiplier) {
               return 'Pickup time limit is too large';
             }
+
             return null;
           },
         );
@@ -1116,15 +1496,26 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
             ),
           ),
           items: const [
-            DropdownMenuItem(value: 'minutes', child: Text('Minutes')),
-            DropdownMenuItem(value: 'hours', child: Text('Hours')),
-            DropdownMenuItem(value: 'days', child: Text('Days')),
+            DropdownMenuItem(
+              value: 'minutes',
+              child: Text('Minutes'),
+            ),
+            DropdownMenuItem(
+              value: 'hours',
+              child: Text('Hours'),
+            ),
+            DropdownMenuItem(
+              value: 'days',
+              child: Text('Days'),
+            ),
           ],
           onChanged: _isSaving
               ? null
               : (value) {
                   if (value != null) {
-                    setState(() => _reservationHoldUnit = value);
+                    setState(() {
+                      _reservationHoldUnit = value;
+                    });
                   }
                 },
         );
@@ -1203,8 +1594,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
           ),
 
           _summaryTile(
-            'Daily Borrowing Limit',
-            '${_dailyBooksController.text} Books',
+            'Maximum Books Per Student',
+            '${_maxBooksController.text} Books',
           ),
 
           _summaryTile(
@@ -1225,32 +1616,36 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
           ),
 
           _summaryTile(
-            'Daily Late Fee',
+            'Fine Per Day',
             'ETB ${_fineController.text}',
           ),
 
           const SizedBox(height: 20),
 
-          // SAVE BUTTON
           SizedBox(
             width: double.infinity,
             child: _HoverActionButton(
               label: _isSaving ? 'Saving...' : 'Save LMS Settings',
-              icon: _isSaving ? Icons.hourglass_top : Icons.save_outlined,
-              onPressed: _isSaving ? () {} : _saveSettings,
+              icon: _isSaving
+                  ? Icons.hourglass_top
+                  : Icons.save_outlined,
+              onPressed: _isSaving || _isUploadingLogo
+                  ? () {}
+                  : _saveSettings,
               backgroundColor: primaryBlue,
             ),
           ),
 
           const SizedBox(height: 10),
 
-          // RELOAD BUTTON
           SizedBox(
             width: double.infinity,
             child: _HoverActionButton(
               label: 'Reload Saved Settings',
               icon: Icons.refresh,
-              onPressed: _isSaving ? () {} : _loadSettings,
+              onPressed: _isSaving || _isUploadingLogo
+                  ? () {}
+                  : _loadSettings,
               backgroundColor: const Color(0xFFFBE2D9),
               foregroundColor: primaryBlue,
             ),
@@ -1317,7 +1712,8 @@ class _HoverActionButton extends StatefulWidget {
   });
 
   @override
-  State<_HoverActionButton> createState() => _HoverActionButtonState();
+  State<_HoverActionButton> createState() =>
+      _HoverActionButtonState();
 }
 
 class _HoverActionButtonState extends State<_HoverActionButton> {
@@ -1351,7 +1747,9 @@ class _HoverActionButtonState extends State<_HoverActionButton> {
           boxShadow: _isHovered
               ? [
                   BoxShadow(
-                    color: widget.foregroundColor.withValues(alpha: 0.15),
+                    color: widget.foregroundColor.withValues(
+                      alpha: 0.15,
+                    ),
                     blurRadius: 12,
                     offset: const Offset(0, 5),
                   ),

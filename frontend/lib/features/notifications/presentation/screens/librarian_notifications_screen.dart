@@ -6,7 +6,8 @@ import '../../domain/usecases/get_notifications.dart';
 import '../../domain/usecases/mark_notification_as_read.dart';
 
 class LibrarianNotificationsScreen extends StatefulWidget {
-  const LibrarianNotificationsScreen({super.key});
+  final String? librarianPosition;
+  const LibrarianNotificationsScreen({super.key, this.librarianPosition});
 
   @override
   State<LibrarianNotificationsScreen> createState() =>
@@ -35,30 +36,34 @@ class _LibrarianNotificationsScreenState
     _loadNotifications();
   }
 
-  Future<void> _loadNotifications() async {
+  
+Future<void> _loadNotifications() async {
+  setState(() {
+    _isLoading = true;
+    _error = null;
+  });
+
+  try {
+    final notifications = await _getNotificationsUseCase(
+      position: widget.librarianPosition,
+    );
+
+    if (!mounted) return;
+
     setState(() {
-      _isLoading = true;
-      _error = null;
+      // Create a new list whose runtime type is List<LibraryNotification>.
+      _notifications = List<LibraryNotification>.from(notifications);
+      _isLoading = false;
     });
+  } catch (e) {
+    if (!mounted) return;
 
-    try {
-      final notifications = await _getNotificationsUseCase();
-
-      if (!mounted) return;
-
-      setState(() {
-        _notifications = notifications;
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
-    }
+    setState(() {
+      _error = e.toString();
+      _isLoading = false;
+    });
   }
+}
 
   String _typeForFilter(String filter) {
     switch (filter) {
@@ -74,26 +79,48 @@ class _LibrarianNotificationsScreenState
         return '';
     }
   }
+List<LibraryNotification> get _recentNotifications {
+  final cutoffDate = DateTime.now().subtract(
+    const Duration(days: 7),
+  );
 
+  return _notifications.where((notification) {
+    final createdAt = notification.createdAt;
+
+    if (createdAt == null) return false;
+
+    return !createdAt.toLocal().isBefore(cutoffDate);
+  }).toList();
+}
   List<LibraryNotification> get _filteredNotifications {
-    if (_selectedFilter == 'All') return _notifications;
-
-    final type = _typeForFilter(_selectedFilter);
-
-    return _notifications
-        .where((notification) => notification.notificationType == type)
-        .toList();
+  if (_selectedFilter == 'All') {
+    return _recentNotifications;
   }
 
-  int _countFor(String filter) {
-    if (filter == 'All') return _notifications.length;
+  final type = _typeForFilter(_selectedFilter);
 
-    final type = _typeForFilter(filter);
+  return _recentNotifications
+      .where(
+        (notification) =>
+            notification.notificationType == type,
+      )
+      .toList();
+}
 
-    return _notifications
-        .where((notification) => notification.notificationType == type)
-        .length;
+int _countFor(String filter) {
+  if (filter == 'All') {
+    return _recentNotifications.length;
   }
+
+  final type = _typeForFilter(filter);
+
+  return _recentNotifications
+      .where(
+        (notification) =>
+            notification.notificationType == type,
+      )
+      .length;
+}
 
   NotificationType _notificationType(LibraryNotification notification) {
     switch (notification.notificationType) {
@@ -177,98 +204,102 @@ class _LibrarianNotificationsScreenState
     return '${difference.inDays} days ago';
   }
 
-  Future<void> _openNotification(LibraryNotification notification) async {
-    if (!notification.isRead) {
-      try {
-        await _markNotificationAsReadUseCase(notification.notificationId);
 
-        if (!mounted) return;
+Future<void> _openNotification(
+  LibraryNotification notification,
+) async {
+  final index = _notifications.indexWhere(
+    (item) => item.notificationId == notification.notificationId,
+  );
 
+  if (!notification.isRead) {
+    try {
+      await _markNotificationAsReadUseCase(
+        notification.notificationId,
+      );
+
+      if (!mounted) return;
+
+      if (index != -1) {
         setState(() {
-          final index = _notifications.indexWhere(
-            (item) => item.notificationId == notification.notificationId,
+          final old = _notifications[index];
+
+          _notifications[index] = LibraryNotification(
+            notificationId: old.notificationId,
+            title: old.title,
+            message: old.message,
+            details: old.details,
+            createdAt: old.createdAt,
+            notificationType: old.notificationType,
+            isRead: true,
+            announcementPriority: old.announcementPriority,
+            validUntil: old.validUntil,
           );
-
-          if (index != -1) {
-            final old = _notifications[index];
-
-            _notifications[index] = LibraryNotification(
-              notificationId: old.notificationId,
-              title: old.title,
-              message: old.message,
-              details: old.details,
-              createdAt: old.createdAt,
-              notificationType: old.notificationType,
-              isRead: true,
-            );
-          }
         });
-      } catch (e) {
-        if (!mounted) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not mark as read: $e')),
-        );
       }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not mark as read: $e'),
+        ),
+      );
+
+      return;
     }
-
-    if (!mounted) return;
-
-    final type = _notificationType(notification);
-
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        final color = _notificationColor(type);
-
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-          title: Row(
-            children: [
-              Icon(_notificationIcon(type), color: color),
-              const SizedBox(width: 12),
-              Expanded(child: Text(notification.title)),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(notification.message),
-              if (notification.details != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  notification.details!,
-                  style: const TextStyle(
-                    color: Colors.black54,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              Text(
-                _timeAgo(notification.createdAt),
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
-  @override
+  if (!mounted) return;
+
+  final type = _notificationType(notification);
+
+  showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      final color = _notificationColor(type);
+
+      return AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+        title: Row(
+          children: [
+            Icon(_notificationIcon(type), color: color),
+            const SizedBox(width: 12),
+            Expanded(child: Text(notification.title)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(notification.message),
+            if (notification.details != null) ...[
+              const SizedBox(height: 12),
+              Text(notification.details!),
+            ],
+            const SizedBox(height: 12),
+            Text(
+              _timeAgo(notification.createdAt),
+              style: const TextStyle(
+                color: Colors.grey,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+        ],
+      );
+    },
+  );
+}
+ @override
   Widget build(BuildContext context) {
     final filters = [
       ('All', Icons.notifications_none),
@@ -356,14 +387,15 @@ class _LibrarianNotificationsScreenState
                   ],
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  'Stay updated with upcoming due dates, overdue books, '
-                  'reservations, and library announcements.',
-                  style: TextStyle(
-                    color: Color(0xFFF25635),
-                    fontSize: 14,
-                  ),
-                ),
+               const Text(
+                'Showing notifications from the last 7 days. '
+                'Stay updated with due dates, overdue books, '
+               'reservations, and library announcements.',
+  style: TextStyle(
+    color: Color(0xFFF25635),
+    fontSize: 14,
+  ),
+),
                 const SizedBox(height: 22),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -495,6 +527,24 @@ class _LibrarianNotificationsScreenState
                                                 : FontWeight.bold,
                                           ),
                                         ),
+                                        if (notification.notificationType == 'ANNOUNCEMENT' && notification.announcementPriority != null) ...[
+                                          const SizedBox(height: 5),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: notification.announcementPriority == 'URGENT'
+                                                  ? const Color(0xFFFEE2E2)
+                                                  : notification.announcementPriority == 'IMPORTANT'
+                                                      ? const Color(0xFFDBEAFE)
+                                                      : const Color(0xFFF3F4F6),
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: Text(
+                                              notification.announcementPriority!,
+                                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                                            ),
+                                          ),
+                                        ],
                                         const SizedBox(height: 7),
                                         Text(
                                           notification.message,
@@ -616,7 +666,7 @@ class _HoverLiftState extends State<_HoverLift> {
         curve: Curves.easeOut,
         transform: Matrix4.translationValues(
           0,
-          _isHovered ? -4 : 0,
+          _isHovered ? -4 : 0,            
           0,
         ),
         decoration: BoxDecoration(

@@ -45,6 +45,21 @@ public class Notification {
     @Column(name = "borrowing_id")
     private Integer borrowingId;
 
+    @Column(name = "announcement_priority", length = 20)
+    private String announcementPriority;
+
+    @Column(name = "audience_positions", columnDefinition = "TEXT")
+    private String audiencePositions;
+
+    @Column(name = "valid_from")
+    private java.time.LocalDate validFrom;
+
+    @Column(name = "valid_until")
+    private java.time.LocalDate validUntil;
+
+    @Column(name = "is_archived", nullable = false)
+    private Boolean archived = false;
+
     public Notification() {
     }
 
@@ -123,6 +138,17 @@ public class Notification {
     public void setReservationId(Integer reservationId) {
         this.reservationId = reservationId;
     }
+
+    public String getAnnouncementPriority() { return announcementPriority; }
+    public void setAnnouncementPriority(String value) { this.announcementPriority = value; }
+    public String getAudiencePositions() { return audiencePositions; }
+    public void setAudiencePositions(String value) { this.audiencePositions = value; }
+    public java.time.LocalDate getValidFrom() { return validFrom; }
+    public void setValidFrom(java.time.LocalDate value) { this.validFrom = value; }
+    public java.time.LocalDate getValidUntil() { return validUntil; }
+    public void setValidUntil(java.time.LocalDate value) { this.validUntil = value; }
+    public Boolean getArchived() { return archived; }
+    public void setArchived(Boolean value) { this.archived = value; }
 
     public Integer getBorrowingId() {
         return borrowingId;

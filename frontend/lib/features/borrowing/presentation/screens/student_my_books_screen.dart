@@ -1,6 +1,9 @@
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../domain/entities/borrow_record.dart';
+import '../../data/datasources/borrowing_remote_data_source.dart';
 import '../../../../core/di/injector.dart';
 import '../../../library/presentation/providers/library_service.dart';
 import '../../domain/usecases/get_my_books.dart';
@@ -15,26 +18,46 @@ class StudentMyBooksScreen extends StatefulWidget {
   });
 
   @override
-  State<StudentMyBooksScreen> createState() => _StudentMyBooksScreenState();
+  State<StudentMyBooksScreen> createState() =>
+      _StudentMyBooksScreenState();
 }
 
 class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
   List<BorrowRecord> _borrowed = [];
+  List<Map<String, dynamic>> _history = [];
+
+  int _historyPage = 0;
+  static const int _historyPageSize = 4;
+
+  final BorrowingRemoteDataSource _historyDataSource =
+      BorrowingRemoteDataSource();
+
+  bool _historyLoading = true;
 
   final GetMyBooks _getMyBooksUseCase = injector.getMyBooks;
   final RenewBook _renewBookUseCase = injector.renewBook;
 
-  final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _searchController =
+      TextEditingController();
 
   String _searchQuery = '';
 
   bool _isLoading = true;
   String? _errorMessage;
+
   LibraryService? _libraryService;
   int _seenBorrowingsRevision = 0;
 
-  /// ID of the loan being renewed right now, if any.
   String? _renewingId;
+
+  // Page colors.
+  static const Color primaryColor = Color(0xFFF25635);
+  static const Color lightPrimaryColor = Color(0xFFFBE2D9);
+  static const Color darkTextColor = Color(0xFF171717);
+  static const Color secondaryTextColor = Color(0xFF666666);
+  static const Color borderColor = Color(0xFFE5E7EB);
+  static const Color successColor = Color(0xFF059669);
+  static const Color successBackground = Color(0xFFECFDF5);
 
   @override
   void initState() {
@@ -45,17 +68,22 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+
     final service = context.read<LibraryService>();
+
     if (identical(service, _libraryService)) return;
 
     _libraryService?.removeListener(_handleBorrowingsChanged);
+
     _libraryService = service;
     _seenBorrowingsRevision = service.borrowingsRevision;
+
     service.addListener(_handleBorrowingsChanged);
   }
 
   void _handleBorrowingsChanged() {
     final service = _libraryService;
+
     if (!mounted ||
         service == null ||
         service.borrowingsRevision == _seenBorrowingsRevision) {
@@ -73,21 +101,32 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
     super.dispose();
   }
 
-  // Load borrowed books from the Spring Boot backend.
+  // Load borrowed books and borrowing history.
   Future<void> _loadBorrowedBooks() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
+      _historyLoading = true;
       _errorMessage = null;
     });
 
     try {
       final books = await _getMyBooksUseCase(widget.studentId);
 
+      final history =
+          await _historyDataSource.getBorrowingHistory(
+        widget.studentId,
+      );
+
       if (!mounted) return;
 
       setState(() {
         _borrowed = books;
+        _history = history;
+        _historyPage = 0;
         _isLoading = false;
+        _historyLoading = false;
       });
     } catch (error) {
       if (!mounted) return;
@@ -95,6 +134,7 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
       setState(() {
         _errorMessage = error.toString();
         _isLoading = false;
+        _historyLoading = false;
       });
     }
   }
@@ -113,14 +153,12 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
     }).toList();
   }
 
-  // Search button action.
   void _searchBooks() {
     setState(() {
       _searchQuery = _searchController.text.trim();
     });
   }
 
-  // Clear the search field.
   void _clearSearch() {
     _searchController.clear();
 
@@ -129,15 +167,17 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
     });
   }
 
-  // Renew a borrowed book through the backend.
-  // The server allows one renewal per loan and rejects overdue loans.
+  // Renew a borrowed book.
   Future<void> _renewBook(BorrowRecord record) async {
     if (_renewingId != null) return;
 
-    setState(() => _renewingId = record.id);
+    setState(() {
+      _renewingId = record.id;
+    });
 
     try {
-      final newDueDate = await _renewBookUseCase(widget.studentId, record.id);
+      final newDueDate =
+          await _renewBookUseCase(widget.studentId, record.id);
 
       if (!mounted) return;
 
@@ -155,16 +195,24 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
         isError: true,
       );
     } finally {
-      if (mounted) setState(() => _renewingId = null);
+      if (mounted) {
+        setState(() {
+          _renewingId = null;
+        });
+      }
     }
   }
 
-  void _showSnackBar(String message, {required bool isError}) {
+  void _showSnackBar(
+    String message, {
+    required bool isError,
+  }) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor:
-            isError ? const Color(0xFFDC2626) : const Color(0xFF059669),
+        backgroundColor: isError
+            ? const Color(0xFFDC2626)
+            : successColor,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -173,17 +221,21 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
   // Get a book cover from Open Library.
   String _getCoverUrl(String title) {
     final encodedTitle = Uri.encodeComponent(title);
+
     return 'https://covers.openlibrary.org/b/title/$encodedTitle-M.jpg';
   }
 
-  // Loading, error, empty and successful states.
+  // =============================================================
+  // BORROWED BOOKS SECTION
+  // =============================================================
+
   Widget _buildBorrowedBooksSection() {
     if (_isLoading) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(40),
           child: CircularProgressIndicator(
-            color: Color(0xFFF25635),
+            color: primaryColor,
           ),
         ),
       );
@@ -213,7 +265,7 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF171717),
+                color: darkTextColor,
               ),
             ),
             const SizedBox(height: 8),
@@ -222,7 +274,7 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 12,
-                color: Color(0xFF666666),
+                color: secondaryTextColor,
               ),
             ),
             const SizedBox(height: 12),
@@ -241,10 +293,15 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
     }
 
     return Column(
-      children:
-          _filteredBorrowed.map((book) => _buildBorrowedCard(book)).toList(),
+      children: _filteredBorrowed
+          .map((book) => _buildBorrowedCard(book))
+          .toList(),
     );
   }
+
+  // =============================================================
+  // MAIN PAGE
+  // =============================================================
 
   @override
   Widget build(BuildContext context) {
@@ -259,12 +316,12 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFBE2D9),
+                  color: lightPrimaryColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
                   Icons.bookmark_outline,
-                  color: Color(0xFFF25635),
+                  color: primaryColor,
                   size: 24,
                 ),
               ),
@@ -278,7 +335,7 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF171717),
+                        color: darkTextColor,
                       ),
                     ),
                     SizedBox(height: 4),
@@ -286,20 +343,18 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
                       'Manage your borrowed books, due dates and reading history.',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF666666),
+                        color: secondaryTextColor,
                       ),
                     ),
                   ],
                 ),
               ),
-
-              // Refresh button.
               IconButton(
                 tooltip: 'Refresh borrowed books',
                 onPressed: _isLoading ? null : _loadBorrowedBooks,
                 icon: const Icon(
                   Icons.refresh,
-                  color: Color(0xFFF25635),
+                  color: primaryColor,
                 ),
               ),
             ],
@@ -324,7 +379,7 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
               ),
               prefixIcon: const Icon(
                 Icons.search,
-                color: Color(0xFF666666),
+                color: secondaryTextColor,
               ),
               suffixIcon: Padding(
                 padding: const EdgeInsets.all(4),
@@ -337,7 +392,7 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
                         onPressed: _clearSearch,
                         icon: const Icon(
                           Icons.close,
-                          color: Color(0xFF666666),
+                          color: secondaryTextColor,
                           size: 20,
                         ),
                       ),
@@ -355,7 +410,7 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFF25635),
+                        backgroundColor: primaryColor,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(
@@ -392,7 +447,7 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: const BorderSide(
-                  color: Color(0xFFF25635),
+                  color: primaryColor,
                   width: 1.5,
                 ),
               ),
@@ -401,113 +456,500 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
 
           const SizedBox(height: 24),
 
-          // Borrowed books and tips panel.
+          _buildBorrowedBooksSection(),
+
+          const SizedBox(height: 24),
+
+          _buildHistorySection(),
+        ],
+      ),
+    );
+  }
+
+  // =============================================================
+  // BORROWING HISTORY WITH PAGINATION
+  // Four books per page, displayed in a 2 x 2 grid.
+  // =============================================================
+
+  Widget _buildHistorySection() {
+    final totalPages =
+        (_history.length / _historyPageSize).ceil();
+
+    final safePage = totalPages == 0
+        ? 0
+        : (_historyPage >= totalPages
+            ? totalPages - 1
+            : _historyPage);
+
+    final startIndex = safePage * _historyPageSize;
+
+    final endIndex =
+        (startIndex + _historyPageSize) < _history.length
+            ? startIndex + _historyPageSize
+            : _history.length;
+
+    final paginatedHistory =
+        _history.sublist(startIndex, endIndex);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: borderColor,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // History header.
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Borrowed books list.
-              Expanded(
-                flex: 3,
-                child: _buildBorrowedBooksSection(),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: lightPrimaryColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.history_rounded,
+                  color: primaryColor,
+                  size: 23,
+                ),
               ),
-
-              const SizedBox(width: 24),
-
-              // Book Care & Return Tips (with hover animation).
-              Expanded(
-                flex: 2,
-                child: _HoverLift(
-                  radius: 16,
-                  child: Container(
-                    padding: const EdgeInsets.all(22),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: const Color(0xFFD9D9D9),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Borrowing History',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: darkTextColor,
                       ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(
-                              Icons.menu_book_rounded,
-                              color: Color(0xFFF25635),
-                              size: 24,
-                            ),
-                            SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                'Book Care & Return Tips',
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF171717),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Help keep our library books in good condition.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF666666),
-                            height: 1.5,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        _bookCareTip(
-                          icon: Icons.calendar_month_rounded,
-                          title: 'Return Books on Time',
-                          description:
-                              'Return borrowed books by their due dates to avoid overdue fines.',
-                          color: const Color(0xFFF25635),
-                          background: const Color(0xFFFBE2D9),
-                        ),
-                        const SizedBox(height: 22),
-                        _bookCareTip(
-                          icon: Icons.favorite_border_rounded,
-                          title: 'Keep Books Safe',
-                          description:
-                              'Protect books from water, dirt, torn pages and other damage.',
-                          color: const Color(0xFF059669),
-                          background: const Color(0xFFECFDF5),
-                        ),
-                        const SizedBox(height: 22),
-                        _bookCareTip(
-                          icon: Icons.autorenew_rounded,
-                          title: 'Renew Before Due Dates',
-                          description:
-                              'Each loan can be renewed once, and only before it is overdue.',
-                          color: const Color(0xFFF25635),
-                          background: const Color(0xFFFBE2D9),
-                        ),
-                        const SizedBox(height: 22),
-                        _bookCareTip(
-                          icon: Icons.bookmark_outline_rounded,
-                          title: 'Handle Books Carefully',
-                          description:
-                              'Keep pages clean and avoid writing or marking inside library books.',
-                          color: const Color(0xFFD97706),
-                          background: const Color(0xFFFFF7ED),
-                        ),
-                      ],
+                    SizedBox(height: 3),
+                    Text(
+                      'Your previously returned books',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF777777),
+                      ),
                     ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: lightPrimaryColor,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${_history.length} returned',
+                  style: const TextStyle(
+                    color: primaryColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
             ],
+          ),
+
+          const SizedBox(height: 20),
+
+          if (_historyLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(
+                  color: primaryColor,
+                ),
+              ),
+            )
+          else if (_history.isEmpty)
+            _buildEmptyHistory()
+          else ...[
+            // Two-column history grid.
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: paginatedHistory.length,
+              gridDelegate:
+                  const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
+                mainAxisExtent: 220,
+              ),
+              itemBuilder: (context, index) {
+                final item = paginatedHistory[index];
+
+                final title =
+                    item['bookTitle']?.toString() ?? 'Book';
+
+                final fineValue =
+                    item['fineAmount']?.toString() ?? '0';
+
+                final fine =
+                    double.tryParse(fineValue) ?? 0;
+
+                return _buildHistoryCard(
+                  title: title,
+                  item: item,
+                  fine: fine,
+                );
+              },
+            ),
+
+            const SizedBox(height: 18),
+
+            const Divider(
+              color: borderColor,
+            ),
+
+            const SizedBox(height: 8),
+
+            // Pagination controls.
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Text(
+                  'Showing ${startIndex + 1}–$endIndex of ${_history.length}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF777777),
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'Previous page',
+                      onPressed: safePage > 0
+                          ? () {
+                              setState(() {
+                                _historyPage = safePage - 1;
+                              });
+                            }
+                          : null,
+                      icon: const Icon(Icons.chevron_left),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 13,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: lightPrimaryColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${safePage + 1} / $totalPages',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Next page',
+                      onPressed: safePage < totalPages - 1
+                          ? () {
+                              setState(() {
+                                _historyPage = safePage + 1;
+                              });
+                            }
+                          : null,
+                      icon: const Icon(Icons.chevron_right),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // =============================================================
+  // INDIVIDUAL RETURNED BOOK HISTORY CARD
+  // =============================================================
+
+  Widget _buildHistoryCard({
+    required String title,
+    required Map<String, dynamic> item,
+    required double fine,
+  }) {
+    final fineColor =
+        fine > 0 ? const Color(0xFFDC2626) : successColor;
+
+    final fineBackground =
+        fine > 0 ? const Color(0xFFFEF2F2) : successBackground;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBF9),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: const Color(0xFFF5D5CA),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: primaryColor.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Book title and returned badge.
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: lightPrimaryColor,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: const Icon(
+                  Icons.menu_book_rounded,
+                  color: primaryColor,
+                  size: 21,
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: darkTextColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // Returned status.
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 9,
+                vertical: 5,
+              ),
+              decoration: BoxDecoration(
+                color: successBackground,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.check_circle,
+                    size: 12,
+                    color: successColor,
+                  ),
+                  SizedBox(width: 5),
+                  Text(
+                    'Returned',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: successColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 13),
+
+          // Borrowed date.
+          _historyDateRow(
+            label: 'Borrowed',
+            value: item['borrowDate']?.toString() ?? 'N/A',
+            icon: Icons.calendar_today_rounded,
+          ),
+
+          const SizedBox(height: 9),
+
+          // Returned date.
+          _historyDateRow(
+            label: 'Returned',
+            value: item['returnDate']?.toString() ?? 'N/A',
+            icon: Icons.event_available_rounded,
+          ),
+
+          const SizedBox(height: 10),
+
+          // Fine amount.
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 11,
+              vertical: 9,
+            ),
+            decoration: BoxDecoration(
+              color: fineBackground,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.payments_rounded,
+                  size: 17,
+                  color: fineColor,
+                ),
+                const SizedBox(width: 7),
+                Text(
+                  'Fine amount:',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: fineColor,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${fine.toStringAsFixed(0)} ETB',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: fineColor,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  // Empty search results.
+  // Date information row inside each history card.
+  Widget _historyDateRow({
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 15,
+          color: primaryColor,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '$label:',
+          style: const TextStyle(
+            fontSize: 11,
+            color: secondaryTextColor,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(width: 5),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: darkTextColor,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // =============================================================
+  // EMPTY HISTORY STATE
+  // =============================================================
+
+  Widget _buildEmptyHistory() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 28),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF5F5F5),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.menu_book_rounded,
+                size: 32,
+                color: Color(0xFF9CA3AF),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'No borrowing history yet',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF374151),
+              ),
+            ),
+            const SizedBox(height: 5),
+            const Text(
+              'Your returned books will appear here.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFF9CA3AF),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // =============================================================
+  // EMPTY BORROWED BOOKS OR SEARCH RESULTS
+  // =============================================================
+
   Widget _buildEmptyState() {
     final hasNoBorrowedBooks = _borrowed.isEmpty;
 
@@ -551,74 +993,21 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
     );
   }
 
-  // Book care tip item.
-  Widget _bookCareTip({
-    required IconData icon,
-    required String title,
-    required String description,
-    required Color color,
-    required Color background,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            icon,
-            color: color,
-            size: 22,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF171717),
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                description,
-                style: const TextStyle(
-                  fontSize: 11,
-                  height: 1.5,
-                  color: Color(0xFF666666),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+  // =============================================================
+  // INDIVIDUAL BORROWED BOOK CARD
+  // =============================================================
 
-  // Individual borrowed book card (with hover animation).
   Widget _buildBorrowedCard(BorrowRecord book) {
     final bool isOverdue = book.daysLeft < 0;
-    final bool isUrgent = book.daysLeft >= 0 && book.daysLeft <= 3;
+    final bool isUrgent =
+        book.daysLeft >= 0 && book.daysLeft <= 3;
 
-    // One renewal per loan, and never after the due date has passed.
-    final bool alreadyRenewed = book.renewalCount >= 1;
     final bool isRenewing = _renewingId == book.id;
-    final bool canRenew = !isOverdue && !alreadyRenewed && _renewingId == null;
+    final bool canRenew = !isOverdue && _renewingId == null;
 
-    final String renewHint = alreadyRenewed
-        ? 'This loan was already renewed. Only one renewal is allowed.'
-        : isOverdue
-            ? 'Overdue loans cannot be renewed. Please return the book.'
-            : 'Extend this loan';
+    final String renewHint = isOverdue
+        ? 'Overdue loans cannot be renewed. Please return the book.'
+        : '${book.renewalsRemaining} renewal(s) remaining. The backend also checks the reservation queue.';
 
     final Color statusColor = isOverdue || isUrgent
         ? const Color(0xFFDC2626)
@@ -626,7 +1015,7 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
 
     final Color statusBackground = isOverdue || isUrgent
         ? const Color(0xFFFEF2F2)
-        : const Color(0xFFFBE2D9);
+        : lightPrimaryColor;
 
     final String dueStatus;
 
@@ -636,11 +1025,10 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
     } else if (book.daysLeft == 0) {
       dueStatus = 'Due today';
     } else {
-      dueStatus = 'Due: ${book.dueDate} (${book.daysLeft} days left)';
+      dueStatus =
+          'Due: ${book.dueDate} (${book.daysLeft} days left)';
     }
 
-    // The bottom spacing is outside the hover widget so the
-    // blue border only wraps the card itself.
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: _HoverLift(
@@ -698,7 +1086,7 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
-                        color: Color(0xFF171717),
+                        color: darkTextColor,
                       ),
                     ),
                     const SizedBox(height: 5),
@@ -706,7 +1094,15 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
                       'ISBN: ${book.isbn} · Borrowed: ${book.borrowDate}',
                       style: const TextStyle(
                         fontSize: 11,
-                        color: Color(0xFF666666),
+                        color: secondaryTextColor,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Renewals remaining: ${book.renewalsRemaining}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: secondaryTextColor,
                       ),
                     ),
                     const SizedBox(height: 9),
@@ -742,23 +1138,22 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
               Tooltip(
                 message: renewHint,
                 child: ElevatedButton.icon(
-                  onPressed: canRenew ? () => _renewBook(book) : null,
+                  onPressed:
+                      canRenew ? () => _renewBook(book) : null,
                   icon: const Icon(
                     Icons.refresh,
                     size: 14,
                   ),
                   label: Text(
-                    isRenewing
-                        ? 'Renewing...'
-                        : alreadyRenewed
-                            ? 'Renewed'
-                            : 'Renew Loan',
+                    isRenewing ? 'Renewing...' : 'Renew Loan',
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF25635),
+                    backgroundColor: primaryColor,
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor: const Color(0xFFD9D9D9),
-                    disabledForegroundColor: const Color(0xFFAAA898),
+                    disabledBackgroundColor:
+                        const Color(0xFFD9D9D9),
+                    disabledForegroundColor:
+                        const Color(0xFFAAA898),
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 14,
@@ -779,8 +1174,8 @@ class _StudentMyBooksScreenState extends State<StudentMyBooksScreen> {
 }
 
 // =============================================================
-// HOVER ANIMATION (lift + shadow + blue border)
-// Used by the borrowed book cards and the tips panel.
+// HOVER ANIMATION
+// Used by borrowed book cards.
 // =============================================================
 
 class _HoverLift extends StatefulWidget {
@@ -803,8 +1198,12 @@ class _HoverLiftState extends State<_HoverLift> {
   Widget build(BuildContext context) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
+      onEnter: (_) {
+        setState(() => _isHovered = true);
+      },
+      onExit: (_) {
+        setState(() => _isHovered = false);
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
@@ -828,7 +1227,9 @@ class _HoverLiftState extends State<_HoverLift> {
         foregroundDecoration: BoxDecoration(
           borderRadius: BorderRadius.circular(widget.radius),
           border: Border.all(
-            color: _isHovered ? Colors.white : Colors.transparent,
+            color: _isHovered
+                ? Colors.white
+                : Colors.transparent,
             width: 1.5,
           ),
         ),

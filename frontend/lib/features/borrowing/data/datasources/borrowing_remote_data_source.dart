@@ -130,6 +130,18 @@ class BorrowingRemoteDataSource {
     );
   }
 
+
+  Future<List<Map<String, dynamic>>> getBorrowingHistory(String studentId) async {
+    final response = await http
+        .get(Uri.parse('$baseUrl/students/$studentId/borrowings/history'))
+        .timeout(_requestTimeout);
+    if (response.statusCode != 200) {
+      throw ApiException(_extractErrorMessage(response));
+    }
+    final data = jsonDecode(response.body) as List<dynamic>;
+    return data.map((item) => Map<String, dynamic>.from(item as Map)).toList();
+  }
+
   /// Renews a loan and returns its new due date (`yyyy-MM-dd`).
   ///
   /// Throws an [Exception] carrying the server's reason when the renewal is

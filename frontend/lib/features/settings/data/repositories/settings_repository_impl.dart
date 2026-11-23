@@ -20,7 +20,7 @@ class SettingsRepositoryImpl implements SettingsRepository {
   @override
   Future<Map<String, dynamic>> updateSettings({
     required String libraryName,
-    required int maxBooksPerDay,
+    required int maxBooksPerStudent,
     required int maxBorrowingDays,
     required int renewalLimit,
     required double finePerDay,
@@ -28,7 +28,7 @@ class SettingsRepositoryImpl implements SettingsRepository {
   }) {
     return remoteDataSource.updateSettings(
       libraryName: libraryName,
-      maxBooksPerDay: maxBooksPerDay,
+      maxBooksPerStudent: maxBooksPerStudent,
       maxBorrowingDays: maxBorrowingDays,
       renewalLimit: renewalLimit,
       finePerDay: finePerDay,

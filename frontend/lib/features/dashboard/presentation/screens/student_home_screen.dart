@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../books/domain/entities/book.dart';
+import '../../../books/data/datasources/book_remote_data_source.dart';
 import '../../../borrowing/domain/entities/borrow_record.dart';
 import '../../domain/entities/student_dashboard.dart';
 import '../../../library/presentation/providers/library_service.dart';
 import '../../../../core/config/app_images.dart';
 import '../../../../core/di/injector.dart';
-import '../../../books/domain/usecases/get_available_books.dart';
 import '../../../borrowing/domain/usecases/get_my_books.dart';
 import '../../domain/usecases/get_student_dashboard.dart';
 import '../../../reservations/domain/usecases/create_reservation.dart';
@@ -32,8 +32,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
   final GetStudentDashboard _getStudentDashboardUseCase =
       injector.getStudentDashboard;
 
-  final GetAvailableBooks _getAvailableBooksUseCase =
-      injector.getAvailableBooks;
+  final BookRemoteDataSource _bookRemoteDataSource = BookRemoteDataSource();
 
   final GetMyBooks _getMyBooksUseCase = injector.getMyBooks;
 
@@ -47,9 +46,43 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
   int _seenBorrowingsRevision = 0;
 
   String _searchQuery = '';
+  String _selectedBookCategory = 'Recommended for You';
+  List<Book> _getSearchResults(List<Book> books) {
+  final query = _searchQuery.toLowerCase().trim();
+
+  if (query.isEmpty) return [];
+
+  final results = books.where((book) {
+    return book.title.toLowerCase().contains(query) ||
+        book.author.toLowerCase().contains(query) ||
+        book.category.toLowerCase().contains(query);
+  }).toList();
+
+  results.sort((a, b) {
+    final aTitle = a.title.toLowerCase();
+    final bTitle = b.title.toLowerCase();
+
+    if (aTitle == query && bTitle != query) return -1;
+    if (bTitle == query && aTitle != query) return 1;
+
+    final aStarts = aTitle.startsWith(query);
+    final bStarts = bTitle.startsWith(query);
+
+    if (aStarts && !bStarts) return -1;
+    if (bStarts && !aStarts) return 1;
+
+    return aTitle.compareTo(bTitle);
+  });
+
+  return results;
+}
 
   // Tracks which book is currently being reserved.
   String? _reservingBookId;
+  // Pagination    
+int _currentPage = 0;
+String? _selectedSearchBookId;
+static const int _booksPerPage = 6;
 
   static const Color primaryBlue = Color(0xFFF25635);
   static const Color darkBlue = Color(0xFF514746);
@@ -63,7 +96,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
 
     _dashboardFuture = _getStudentDashboardUseCase(widget.studentId);
 
-    _booksFuture = _getAvailableBooksUseCase();
+    _booksFuture = _loadRecommendations();
     _borrowingsFuture = _getMyBooksUseCase(widget.studentId.toString());
   }
 
@@ -211,16 +244,20 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
   // REFRESH BOOKS FROM BACKEND
   // ---------------------------------------------------------
 
+  Future<List<Book>> _loadRecommendations() async {
+    return _bookRemoteDataSource.getRecommendations(studentId: widget.studentId);
+  }
+
   void _refreshBooks() {
     setState(() {
-      _booksFuture = _getAvailableBooksUseCase();
+      _booksFuture = _loadRecommendations();
     });
   }
 
   void _refreshStudentData() {
     setState(() {
       _dashboardFuture = _getStudentDashboardUseCase(widget.studentId);
-      _booksFuture = _getAvailableBooksUseCase();
+      _booksFuture = _loadRecommendations();
       _borrowingsFuture = _getMyBooksUseCase(widget.studentId.toString());
     });
   }
@@ -229,23 +266,30 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
   // FILTER BOOKS FROM DATABASE
   // ---------------------------------------------------------
 
-  List<Book> _filterBooks(List<Book> books) {
-    if (_searchQuery.trim().isEmpty) {
-      return books;
-    }
+ List<Book> _filterBooks(List<Book> books) {
+  final query = _searchQuery.toLowerCase().trim();
 
-    final query = _searchQuery.toLowerCase().trim();
+  return books.where((book) {
+    // Apply category filtering
+    final matchesCategory =
+        _selectedBookCategory == 'Recommended for You' ||
+        book.category.trim().toLowerCase() ==
+            _selectedBookCategory.trim().toLowerCase();
 
-    return books.where((book) {
-      return book.title.toLowerCase().contains(query) ||
-          book.author.toLowerCase().contains(query) ||
-          book.category.toLowerCase().contains(query);
-    }).toList();
-  }
+    // Apply search filtering
+    final matchesSearch = query.isEmpty ||
+        book.title.toLowerCase().contains(query) ||
+        book.author.toLowerCase().contains(query) ||
+        book.category.toLowerCase().contains(query);
+
+    return matchesCategory && matchesSearch;
+  }).toList();
+}
 
   void _searchBooks() {
     setState(() {
       _searchQuery = _searchController.text.trim();
+       _currentPage = 0;
     });
   }
 
@@ -254,6 +298,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
 
     setState(() {
       _searchQuery = '';
+       _currentPage = 0;
     });
   }
 
@@ -388,12 +433,66 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                     return _buildEmptyBooks();
                   }
 
-                  final filteredBooks = _filterBooks(snapshot.data!);
-
-                  if (filteredBooks.isEmpty) {
-                    return _buildNoSearchResults();
+                  final categories = snapshot.data!
+                      .map((book) => book.category)
+                      .where((category) => category.trim().isNotEmpty)
+                      .toSet()
+                      .toList()
+                    ..sort();
+                  final categoryOptions = ['Recommended for You', ...categories];
+                  if (!categoryOptions.contains(_selectedBookCategory)) {
+                    _selectedBookCategory = 'Recommended for You';
                   }
+                 final filteredBooks = _filterBooks(snapshot.data!);
 
+if (filteredBooks.isEmpty) {
+  return Column(
+    children: [
+      Align(
+        alignment: Alignment.centerRight,
+        child: DropdownButton<String>(
+          value: _selectedBookCategory,
+          items: categoryOptions.map((category) => DropdownMenuItem(
+            value: category,
+            child: Text(
+              category,
+              overflow: TextOverflow.ellipsis,
+            ),
+          )).toList(),
+          onChanged: (value) {
+            if (value == null) return;
+
+            setState(() {
+              _selectedBookCategory = value;
+              _currentPage = 0;
+            });
+          },
+        ),
+      ),
+      _buildNoSearchResults(),
+    ],
+  );
+}
+
+// Calculate pagination OUTSIDE the dropdown callback
+final totalPages =
+    (filteredBooks.length / _booksPerPage).ceil();
+
+final safePage = _currentPage >= totalPages
+    ? totalPages - 1
+    : _currentPage;
+
+final startIndex = safePage * _booksPerPage;
+
+final endIndex = (startIndex + _booksPerPage) < filteredBooks.length
+    ? startIndex + _booksPerPage
+    : filteredBooks.length;
+
+// Get books for the current page
+final paginatedBooks = filteredBooks.sublist(
+  startIndex,
+  endIndex,
+);
                   return Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -401,7 +500,28 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: borderColor),
                     ),
-                    child: GridView.builder(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: DropdownButton<String>(
+                            value: _selectedBookCategory,
+                            items: categoryOptions.map((category) => DropdownMenuItem(
+                              value: category,
+                              child: Text(category, overflow: TextOverflow.ellipsis),
+                            )).toList(),
+                           onChanged: (value) {
+  if (value == null) return;
+
+  setState(() {
+    _selectedBookCategory = value;
+    _currentPage = 0;
+  });
+},
+                          ),
+                        ),
+                        GridView.builder(
                       shrinkWrap: true,
                       // Lets the hover lift and shadow show outside the grid.
                       clipBehavior: Clip.none,
@@ -412,12 +532,66 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                         mainAxisSpacing: 16,
                         childAspectRatio: compact ? 2.0 : 1.65,
                       ),
-                      itemCount: filteredBooks.length,
+                      itemCount: paginatedBooks.length,
                       itemBuilder: (context, index) {
-                        final book = filteredBooks[index];
+                        final book = paginatedBooks[index];
 
                         return _buildBookItem(context, book);
                       },
+                    ),
+                    const SizedBox(height: 20),
+
+// Pagination controls
+Row(
+  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  children: [
+    Text(
+      'Showing ${startIndex + 1}–$endIndex '
+      'of ${filteredBooks.length} books',
+      style: const TextStyle(
+        fontSize: 13,
+        color: Colors.grey,
+      ),
+    ),
+
+    Row(
+      children: [
+        IconButton(
+          tooltip: 'Previous page',
+          onPressed: safePage > 0
+              ? () {
+                  setState(() {
+                    _currentPage = safePage - 1;
+                  });
+                }
+              : null,
+          icon: const Icon(Icons.chevron_left),
+        ),
+
+        Text(
+          'Page ${safePage + 1} of $totalPages',
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+          ),
+        ),
+
+        IconButton(
+          tooltip: 'Next page',
+          onPressed: safePage < totalPages - 1
+              ? () {
+                  setState(() {
+                    _currentPage = safePage + 1;
+                  });
+                }
+              : null,
+          icon: const Icon(Icons.chevron_right),
+        ),
+      ],
+    ),
+  ],
+),
+                      ],
                     ),
                   );
                 },
@@ -712,88 +886,228 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
   // SEARCH BAR
   // ---------------------------------------------------------
 
-  Widget _buildSearchBar(bool compact) {
-    return Container(
-      padding: EdgeInsets.all(compact ? 7 : 9),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFBF1E4),
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(
-          color: const Color(0xFFD9D9D9),
-          width: 1.5,
-        ),
-      ),
-      child: Row(
+ 
+Widget _buildSearchBar(bool compact) {
+  return FutureBuilder<List<Book>>(
+    future: _booksFuture,
+    builder: (context, snapshot) {
+      final books = snapshot.data ?? <Book>[];
+      final results = _getSearchResults(books);
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(width: 10),
-          const Icon(
-            Icons.search,
-            color: Color(0xFFF25635),
-            size: 23,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value.trim();
-                });
-              },
-              onSubmitted: (_) => _searchBooks(),
-              decoration: InputDecoration(
-                hintText: 'Search for books, authors, or genres...',
-                hintStyle: TextStyle(
-                  color: const Color(0xFFAAA898),
-                  fontSize: compact ? 12 : 14,
+          Container(
+            padding: EdgeInsets.all(compact ? 7 : 9),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFBF1E4),
+              borderRadius: BorderRadius.circular(17),
+              border: Border.all(
+                color: const Color(0xFFD9D9D9),
+                width: 1.5,
+              ),
+            ),
+            child: Row(
+              children: [
+                const SizedBox(width: 10),
+                const Icon(
+                  Icons.search,
+                  color: Color(0xFFF25635),
+                  size: 23,
                 ),
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        onPressed: _clearSearch,
-                        icon: const Icon(
-                          Icons.close,
-                          size: 18,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value.trim();
+                        _currentPage = 0;
+                      });
+                    },
+                    onSubmitted: (_) => _searchBooks(),
+                    decoration: InputDecoration(
+                      hintText: 'Search for books, authors, or genres...',
+                      hintStyle: TextStyle(
+                        color: const Color(0xFFAAA898),
+                        fontSize: compact ? 12 : 14,
+                      ),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding:
+                          const EdgeInsets.symmetric(vertical: 12),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              onPressed: _clearSearch,
+                              icon: const Icon(Icons.close, size: 18),
+                              tooltip: 'Clear search',
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    _searchBooks();
+                    FocusScope.of(context).unfocus();
+                  },
+                  icon: const Icon(Icons.search, size: 17),
+                  label: Text(
+                    compact ? 'Go' : 'Search',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF25635),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: compact ? 12 : 18,
+                      vertical: 14,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Floating autocomplete results
+          if (_searchQuery.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Material(
+              elevation: 7,
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              clipBehavior: Clip.antiAlias,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 280),
+                child: snapshot.connectionState ==
+                        ConnectionState.waiting
+                    ? const Padding(
+                        padding: EdgeInsets.all(20),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFFF25635),
+                          ),
                         ),
-                        tooltip: 'Clear search',
                       )
-                    : null,
+                    : snapshot.hasError
+                        ? const Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Text('Unable to load book suggestions.'),
+                          )
+                        : results.isEmpty
+                            ? const Padding(
+                                padding: EdgeInsets.all(18),
+                                child: Text(
+                                  'No matching books found.',
+                                  style: TextStyle(
+                                    color: Color(0xFF666666),
+                                  ),
+                                ),
+                              )
+                            : ListView.separated(
+                                shrinkWrap: true,
+                                padding: EdgeInsets.zero,
+                                itemCount: results.length > 8
+                                    ? 8
+                                    : results.length,
+                                separatorBuilder: (_, __) =>
+                                    const Divider(height: 1),
+                                itemBuilder: (context, index) {
+                                  final book = results[index];
+
+                                  return ListTile(
+                                    dense: true,
+                                    contentPadding:
+                                        const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 4,
+                                    ),
+                                    leading: Container(
+                                      width: 42,
+                                      height: 48,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFBE2D9),
+                                        borderRadius:
+                                            BorderRadius.circular(7),
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius:
+                                            BorderRadius.circular(7),
+                                        child: _coverForBook(book).isNotEmpty
+                                            ? Image.network(
+                                                _coverForBook(book),
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (_, __, ___) =>
+                                                    const Icon(
+                                                  Icons.menu_book,
+                                                  color: Color(0xFFF25635),
+                                                ),
+                                              )
+                                            : const Icon(
+                                                Icons.menu_book,
+                                                color: Color(0xFFF25635),
+                                              ),
+                                      ),
+                                    ),
+                                    title: Text(
+                                      book.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: Color(0xFF171717),
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      book.author,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontSize: 11),
+                                    ),
+                                    trailing: Text(
+                                      book.availableCopies > 0
+                                          ? 'Available'
+                                          : 'Unavailable',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: book.availableCopies > 0
+                                            ? Colors.green
+                                            : Colors.red,
+                                      ),
+                                    ),
+                                    onTap: () {
+                                      setState(() {
+                                        _searchController.text = book.title;
+                                        _searchQuery = book.title;
+                                        _selectedSearchBookId = book.id;
+                                        _selectedBookCategory =
+                                            'Recommended for You';
+                                        _currentPage = 0;
+                                      });
+
+                                      FocusScope.of(context).unfocus();
+                                    },
+                                  );
+                                },
+                              ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            onPressed: _searchBooks,
-            icon: const Icon(
-              Icons.search,
-              size: 17,
-            ),
-            label: Text(
-              compact ? 'Go' : 'Search',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF25635),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: EdgeInsets.symmetric(
-                horizontal: compact ? 12 : 18,
-                vertical: 14,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          ),
+          ],
         ],
-      ),
-    );
-  }
+      );
+    },
+  );
+}
 
   // ---------------------------------------------------------
   // LIBRARY HERO BANNER (with hover animation)
@@ -1098,10 +1412,14 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  '${book.availableCopies} copies available',
-                  style: const TextStyle(
+                  book.availableCopies > 0
+                      ? '${book.availableCopies} of ${book.totalCopies} copies available'
+                      : 'Unavailable — you can reserve this book',
+                  style: TextStyle(
                     fontSize: 10,
-                    color: Color(0xFF059669),
+                    color: book.availableCopies > 0
+                        ? const Color(0xFF059669)
+                        : const Color(0xFFD97706),
                     fontWeight: FontWeight.w600,
                   ),
                 ),

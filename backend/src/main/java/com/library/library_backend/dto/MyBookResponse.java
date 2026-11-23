@@ -11,5 +11,6 @@ public record MyBookResponse(
         LocalDate returnDate,
         String status,
         Integer renewalCount,
+        Integer renewalsRemaining,
         String location
 ) {}

@@ -13,6 +13,8 @@ class LibraryNotification {
   final DateTime? createdAt;
   final String notificationType;
   final bool isRead;
+  final String? announcementPriority;
+  final DateTime? validUntil;
 
   const LibraryNotification({
     required this.notificationId,
@@ -22,5 +24,7 @@ class LibraryNotification {
     this.createdAt,
     required this.notificationType,
     required this.isRead,
+    this.announcementPriority,
+    this.validUntil,
   });
 }

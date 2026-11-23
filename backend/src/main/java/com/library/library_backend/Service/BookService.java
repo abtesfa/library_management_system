@@ -4,6 +4,8 @@ package com.library.library_backend.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -59,12 +61,26 @@ public class BookService {
     // GET ALL BOOKS
     // ==========================================
 
+    public Page<BookResponse> getBookResponses(Pageable pageable) {
+        return bookRepository.findAll(pageable).map(this::convertToResponse);
+    }
+
     public List<BookResponse> getAllBookResponses() {
 
         return bookRepository.findAll()
                 .stream()
                 .map(this::convertToResponse)
                 .toList();
+    }
+
+    public void addDepartmentMapping(Integer bookId, String department) {
+        if (!bookRepository.existsById(bookId)) throw new ResourceNotFoundException("Book not found.");
+        if (department == null || department.isBlank()) throw new IllegalArgumentException("Department is required.");
+        bookRepository.addDepartmentMapping(bookId, department.trim());
+    }
+
+    public void removeDepartmentMapping(Integer bookId, String department) {
+        bookRepository.removeDepartmentMapping(bookId, department);
     }
 
     // ==========================================
@@ -116,8 +132,7 @@ public class BookService {
                 bookCopyRepository.countByBookId(bookId)
         );
 
-        // Copies on the shelf, minus the ones held by active reservations.
-        // A reserved copy is not available to other students.
+        // Count only copies whose status is Available. Allocated reservations use Reserved status.
         int copiesOnShelf = Math.toIntExact(
                 bookCopyRepository.countByBookIdAndStatus(
                         bookId,
@@ -125,12 +140,18 @@ public class BookService {
                 )
         );
 
-        int reservedCopies = (int) Math.min(
+        // READY_FOR_PICKUP copies already have status Reserved and are
+        // excluded from copiesOnShelf. Only waiting reservations can still
+        // consume a free shelf copy during allocation.
+        int waitingReservations = (int) Math.min(
                 copiesOnShelf,
+                reservationRepository.countWaitingByBookId(bookId)
+        );
+        int reservedCopies = Math.toIntExact(
                 reservationRepository.countActiveByBookId(bookId)
         );
 
-        int availableCopies = copiesOnShelf - reservedCopies;
+        int availableCopies = copiesOnShelf - waitingReservations;
 
         // Find a copy to obtain its shelf location
         Optional<BookCopy> copy =

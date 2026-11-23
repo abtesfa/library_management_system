@@ -14,6 +14,7 @@ class BorrowRecord {
 
   /// How many times this loan has been renewed.
   final int renewalCount;
+  final int renewalsRemaining;
 
   BorrowRecord({
     required this.id,
@@ -29,6 +30,7 @@ class BorrowRecord {
     this.fineAmount = 0.0,
     this.daysLeft = 0,
     this.renewalCount = 0,
+    this.renewalsRemaining = 0,
   });
 
   BorrowRecord copyWith({
@@ -45,6 +47,7 @@ class BorrowRecord {
     double? fineAmount,
     int? daysLeft,
     int? renewalCount,
+    int? renewalsRemaining,
   }) {
     return BorrowRecord(
       id: id ?? this.id,
@@ -60,6 +63,7 @@ class BorrowRecord {
       fineAmount: fineAmount ?? this.fineAmount,
       daysLeft: daysLeft ?? this.daysLeft,
       renewalCount: renewalCount ?? this.renewalCount,
+      renewalsRemaining: renewalsRemaining ?? this.renewalsRemaining,
     );
   }
 }

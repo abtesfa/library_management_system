@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.ArrayList;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -41,6 +43,10 @@ public class NotificationService {
         return notificationRepository.findAllByOrderByCreatedAtDesc();
     }
 
+    public List<Notification> getStudentNotifications(Integer userId) {
+        return notificationRepository.findByRecipientTypeAndRecipientIdOrderByCreatedAtDesc("STUDENT", userId);
+    }
+
     // Get notifications by category
     public List<Notification> getNotificationsByType(
             NotificationType type) {
@@ -58,15 +64,42 @@ public class NotificationService {
     @Transactional
     public List<Notification> getLibrarianNotifications() {
         synchronizeBorrowingNotifications();
-        return notificationRepository.findLibrarianNotifications();
+        return filterLibrarianAnnouncements(notificationRepository.findLibrarianNotifications(), null);
     }
 
     // Get unread librarian notifications
     @Transactional
     public List<Notification> getUnreadLibrarianNotifications() {
         synchronizeBorrowingNotifications();
-        return notificationRepository
-                .findUnreadLibrarianNotifications();
+        return filterLibrarianAnnouncements(notificationRepository.findUnreadLibrarianNotifications(), null);
+    }
+
+
+    @Transactional
+    public List<Notification> getLibrarianNotifications(String position) {
+        synchronizeBorrowingNotifications();
+        return filterLibrarianAnnouncements(notificationRepository.findLibrarianNotifications(), position);
+    }
+
+    @Transactional
+    public List<Notification> getUnreadLibrarianNotifications(String position) {
+        synchronizeBorrowingNotifications();
+        return filterLibrarianAnnouncements(notificationRepository.findUnreadLibrarianNotifications(), position);
+    }
+
+    private List<Notification> filterLibrarianAnnouncements(List<Notification> rows, String position) {
+        LocalDate today = LocalDate.now();
+        return rows.stream().filter(n -> {
+            if (n.getNotificationType() != NotificationType.ANNOUNCEMENT) return true;
+            if (Boolean.TRUE.equals(n.getArchived())) return false;
+            if (n.getValidFrom() != null && n.getValidFrom().isAfter(today)) return false;
+            if (n.getValidUntil() != null && n.getValidUntil().isBefore(today)) return false;
+            if ("LIBRARIAN_POSITIONS".equals(n.getRecipientType())) {
+                return position != null && n.getAudiencePositions() != null
+                        && List.of(n.getAudiencePositions().split(",")).contains(position);
+            }
+            return true;
+        }).toList();
     }
 
     private void synchronizeBorrowingNotifications() {
@@ -191,6 +224,45 @@ public class NotificationService {
             NotificationType type) {
     }
 
+    // Structured announcement lifecycle
+
+    @Transactional
+    public Notification createAnnouncement(String title, String message, String priority,
+            List<String> positions, LocalDate validFrom, LocalDate validUntil) {
+        if (title == null || title.isBlank() || message == null || message.isBlank())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Announcement title and message are required.");
+        if (!List.of("NORMAL", "IMPORTANT", "URGENT").contains(priority == null ? "NORMAL" : priority.toUpperCase()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Priority must be NORMAL, IMPORTANT, or URGENT.");
+        if (validFrom != null && validUntil != null && validUntil.isBefore(validFrom))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Valid-until date cannot be before valid-from date.");
+        Notification n = new Notification();
+        n.setTitle(title.trim()); n.setMessage(message.trim());
+        n.setNotificationType(NotificationType.ANNOUNCEMENT);
+        n.setRecipientType(positions == null || positions.isEmpty() ? "LIBRARIAN" : "LIBRARIAN_POSITIONS");
+        n.setAudiencePositions(positions == null || positions.isEmpty() ? null : String.join(",", positions));
+        n.setAnnouncementPriority(priority == null ? "NORMAL" : priority.toUpperCase());
+        n.setValidFrom(validFrom); n.setValidUntil(validUntil); n.setArchived(false); n.setIsRead(false);
+        return notificationRepository.save(n);
+    }
+
+    @Transactional
+    public List<Notification> getVisibleAnnouncements(String position) {
+        LocalDate today = LocalDate.now();
+        return notificationRepository.findAllByNotificationTypeOrderByCreatedAtDesc(NotificationType.ANNOUNCEMENT)
+                .stream().filter(n -> !Boolean.TRUE.equals(n.getArchived()))
+                .filter(n -> n.getValidFrom() == null || !n.getValidFrom().isAfter(today))
+                .filter(n -> n.getValidUntil() == null || !n.getValidUntil().isBefore(today))
+                .filter(n -> !"LIBRARIAN_POSITIONS".equals(n.getRecipientType()) || (position != null && n.getAudiencePositions() != null && List.of(n.getAudiencePositions().split(",")).contains(position)))
+                .toList();
+    }
+
+    @Transactional
+    public Notification archiveAnnouncement(Integer id) {
+        Notification n = notificationRepository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Announcement not found."));
+        if (n.getNotificationType() != NotificationType.ANNOUNCEMENT) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only announcements can be archived.");
+        n.setArchived(true); return notificationRepository.save(n);
+    }
+
     // Create a notification
     public Notification createNotification(Notification notification) {
 
@@ -244,6 +316,19 @@ public class NotificationService {
         notification.setIsRead(false);
 
         return notificationRepository.save(notification);
+    }
+
+    public Notification createStudentReservationReadyNotification(Integer userId, Integer reservationId, String bookTitle) {
+        Notification n = new Notification();
+        n.setTitle("Your reservation is ready");
+        n.setMessage("A copy of \"" + bookTitle + "\" is ready for collection.");
+        n.setDetails("Collect it before the hold deadline shown in My Reservations.");
+        n.setNotificationType(NotificationType.RESERVATION);
+        n.setRecipientType("STUDENT");
+        n.setRecipientId(userId);
+        n.setReservationId(reservationId);
+        n.setIsRead(false);
+        return notificationRepository.save(n);
     }
 
     // Remove every notification linked to a reservation
