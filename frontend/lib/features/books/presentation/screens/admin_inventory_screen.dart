@@ -664,7 +664,7 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
                   )
                 else
                   FittedBox(
-                    fit: BoxFit.scaleDown,
+                    fit: BoxFit.fill,
                     alignment: Alignment.centerLeft,
                     child: DataTable(
                       headingRowColor: WidgetStateProperty.all(

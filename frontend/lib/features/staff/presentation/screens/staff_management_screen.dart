@@ -1443,176 +1443,184 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
   // ------------------------------------------------------------
 
   Widget _buildStaffTable(List<StaffMember> filteredStaff) {
-    return SizedBox(
-      width: double.infinity,
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: Alignment.centerLeft,
-        child: DataTable(
-        headingRowColor: WidgetStateProperty.all(
-          const Color(0xFFFBF1E4),
-        ),
-        headingTextStyle: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-          color: muted,
-        ),
-        dataTextStyle: const TextStyle(
-          fontSize: 12,
-          color: dark,
-        ),
-        horizontalMargin: 8,
-        columnSpacing: 12,
-        columns: const [
-          DataColumn(label: Text('STAFF ID')),
-          DataColumn(label: Text('NAME')),
-          DataColumn(label: Text('ROLE / POSITION')),
-          DataColumn(label: Text('STATUS')),
-          DataColumn(label: Text('ACTIONS')),
-        ],
-        rows: filteredStaff.map((staff) {
-          final isActive = _normalizeStatus(staff.status) == 'Active';
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          // Forces the table to be at least as wide as the parent container,
+          // while still allowing horizontal scrolling on small screens!
+          constraints: BoxConstraints(minWidth: constraints.maxWidth),
+          child: DataTable(
+            headingRowColor: WidgetStateProperty.all(
+              const Color(0xFFFBF1E4),
+            ),
+            headingTextStyle: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: muted,
+            ),
+            dataTextStyle: const TextStyle(
+              fontSize: 12,
+              color: dark,
+            ),
+            horizontalMargin: 16, // Slightly wider margin looks great full-width
+            columnSpacing: 16,
+            columns: const [
+              DataColumn(label: Text('STAFF ID')),
+              DataColumn(label: Text('NAME')),
+              DataColumn(label: Text('ROLE / POSITION')),
+              DataColumn(label: Text('STATUS')),
+              DataColumn(label: Text('ACTIONS')),
+            ],
+            rows: filteredStaff.map((staff) {
+              final isActive = _normalizeStatus(staff.status) == 'Active';
 
-          return DataRow(
-            cells: [
-              DataCell(
-                Text(
-                  _displayStaffId(staff.id),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: primary,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-              DataCell(
-                SizedBox(
-                  width: 190,
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 17,
-                        backgroundColor: const Color(0xFFFBE2D9),
-                        child: Text(
-                          staff.name.isEmpty
-                              ? '?'
-                              : staff.name[0].toUpperCase(),
-                          style: const TextStyle(
-                            color: primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+              return DataRow(
+                cells: [
+                  DataCell(
+                    Text(
+                      _displayStaffId(staff.id),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: primary,
+                        fontSize: 12,
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              staff.name,
-                              overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  DataCell(
+                    SizedBox(
+                      width: 190,
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 17,
+                            backgroundColor: const Color(0xFFFBE2D9),
+                            child: Text(
+                              staff.name.isEmpty
+                                  ? '?'
+                                  : staff.name[0].toUpperCase(),
                               style: const TextStyle(
-                                fontSize: 12,
+                                color: primary,
                                 fontWeight: FontWeight.bold,
-                                color: dark,
                               ),
                             ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  staff.name,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: dark,
+                                  ),
+                                ),
+                                Text(
+                                  staff.email,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  DataCell(
+                    SizedBox(
+                      width: 180,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _displayRole(staff.role),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: dark,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (staff.position != null &&
+                              staff.position!.isNotEmpty)
                             Text(
-                              staff.email,
+                              staff.position!,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 fontSize: 10,
                                 color: muted,
                               ),
                             ),
-                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  DataCell(
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isActive
+                            ? const Color(0xFFECFDF5)
+                            : const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        _normalizeStatus(staff.status),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isActive
+                              ? const Color(0xFF059669)
+                              : const Color(0xFFDC2626),
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-              DataCell(
-                SizedBox(
-                  width: 180,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _displayRole(staff.role),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: dark,
-                          fontWeight: FontWeight.w600,
+                  DataCell(
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _HoverIconButton(
+                          tooltip: 'Edit staff',
+                          icon: Icons.edit_outlined,
+                          color: primary,
+                          onPressed: () => _openStaffDialog(existing: staff),
                         ),
-                      ),
-                      if (staff.position != null && staff.position!.isNotEmpty)
-                        Text(
-                          staff.position!,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: muted,
-                          ),
+                        _HoverIconButton(
+                          tooltip: isActive
+                              ? 'Deactivate account'
+                              : 'Activate account',
+                          icon: isActive
+                              ? Icons.person_off_outlined
+                              : Icons.person_outline,
+                          color: isActive ? Colors.red : Colors.green,
+                          onPressed: () => _toggleStatus(staff),
                         ),
-                    ],
-                  ),
-                ),
-              ),
-              DataCell(
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isActive
-                        ? const Color(0xFFECFDF5)
-                        : const Color(0xFFFEF2F2),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    _normalizeStatus(staff.status),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: isActive
-                          ? const Color(0xFF059669)
-                          : const Color(0xFFDC2626),
+                      ],
                     ),
                   ),
-                ),
-              ),
-              DataCell(
-                Row(
-                  children: [
-                    _HoverIconButton(
-                      tooltip: 'Edit staff',
-                      icon: Icons.edit_outlined,
-                      color: primary,
-                      onPressed: () => _openStaffDialog(existing: staff),
-                    ),
-                    _HoverIconButton(
-                      tooltip:
-                          isActive ? 'Deactivate account' : 'Activate account',
-                      icon: isActive
-                          ? Icons.person_off_outlined
-                          : Icons.person_outline,
-                      color: isActive ? Colors.red : Colors.green,
-                      onPressed: () => _toggleStatus(staff),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
-        }).toList(),
+                ],
+              );
+            }).toList(),
+          ),
         ),
-      ),
-    );
-  }
+      );
+    },
+  );
+}
 
   Widget _buildStaffPagination(int totalItems) {
     final pageCount = (totalItems / _pageSize).ceil();
