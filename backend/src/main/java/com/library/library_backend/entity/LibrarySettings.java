@@ -1,0 +1,132 @@
+
+package com.library.library_backend.entity;
+
+import jakarta.persistence.*;
+import java.math.BigDecimal;
+
+@Entity
+@Table(name = "library_settings")
+public class LibrarySettings {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "setting_id")
+    private Integer settingId;
+
+    @Column(name = "library_name", nullable = false, length = 150)
+    private String libraryName;
+
+    @Column(name = "max_books_per_student", nullable = false)
+    private Integer maxBooksPerStudent;
+
+    @Column(name = "max_borrowing_days", nullable = false)
+    private Integer maxBorrowingDays;
+
+    @Column(name = "renewal_limit", nullable = false)
+    private Integer renewalLimit;
+
+    @Column(name = "fine_per_day", nullable = false, precision = 10, scale = 2)
+    private BigDecimal finePerDay;
+
+    @Column(
+        name = "reservation_hold_minutes",
+        nullable = false,
+        columnDefinition = "INT NOT NULL DEFAULT 1440"
+    )
+    private Integer reservationHoldMinutes = 1440;
+
+    // Library logo URL
+    @Column(name = "logo_url", length = 500)
+    private String logoUrl;
+
+    // Library contact email
+    @Column(name = "contact_email", length = 150)
+    private String contactEmail;
+
+    // Library physical address
+    @Column(name = "library_address", length = 255)
+    private String libraryAddress;
+
+    public LibrarySettings() {
+    }
+
+    public Integer getSettingId() {
+        return settingId;
+    }
+
+    public void setSettingId(Integer settingId) {
+        this.settingId = settingId;
+    }
+
+    public String getLibraryName() {
+        return libraryName;
+    }
+
+    public void setLibraryName(String libraryName) {
+        this.libraryName = libraryName;
+    }
+
+    public Integer getMaxBooksPerStudent() {
+        return maxBooksPerStudent;
+    }
+
+    public void setMaxBooksPerStudent(Integer maxBooksPerStudent) {
+        this.maxBooksPerStudent = maxBooksPerStudent;
+    }
+
+    public Integer getMaxBorrowingDays() {
+        return maxBorrowingDays;
+    }
+
+    public void setMaxBorrowingDays(Integer maxBorrowingDays) {
+        this.maxBorrowingDays = maxBorrowingDays;
+    }
+
+    public Integer getRenewalLimit() {
+        return renewalLimit;
+    }
+
+    public void setRenewalLimit(Integer renewalLimit) {
+        this.renewalLimit = renewalLimit;
+    }
+
+    public BigDecimal getFinePerDay() {
+        return finePerDay;
+    }
+
+    public void setFinePerDay(BigDecimal finePerDay) {
+        this.finePerDay = finePerDay;
+    }
+
+    public Integer getReservationHoldMinutes() {
+        return reservationHoldMinutes;
+    }
+
+    public void setReservationHoldMinutes(Integer reservationHoldMinutes) {
+        this.reservationHoldMinutes = reservationHoldMinutes;
+    }
+
+    public String getLogoUrl() {
+        return logoUrl;
+    }
+
+    public void setLogoUrl(String logoUrl) {
+        this.logoUrl = logoUrl;
+    }
+
+    public String getContactEmail() {
+        return contactEmail;
+    }
+
+    public void setContactEmail(String contactEmail) {
+        this.contactEmail = contactEmail;
+    }
+
+    public String getLibraryAddress() {
+        return libraryAddress;
+    }
+
+    public void setLibraryAddress(String libraryAddress) {
+        this.libraryAddress = libraryAddress;
+    }
+}

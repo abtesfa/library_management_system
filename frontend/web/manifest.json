@@ -1,0 +1,11 @@
+{
+  "name": "Central Library Academy",
+  "short_name": "Library LMS",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0052CC",
+  "theme_color": "#0052CC",
+  "description": "Central Library Academy - Flutter Web App",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false
+}
